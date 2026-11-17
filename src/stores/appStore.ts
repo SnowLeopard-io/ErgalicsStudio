@@ -247,6 +247,7 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
+  setRightPanelOpen: (open: boolean) => void;
   /** Toggle the bottom terminal drawer (Ctrl+` / activity-bar button). */
   toggleTerminal: () => void;
   /** Show or hide the terminal window (persisted with the panel prefs). */
@@ -520,6 +521,13 @@ export const useAppStore = create<AppStore>((set, get) => {
   toggleRightPanel: () =>
     set((s) => {
       const next = { ...s, rightPanelOpen: !s.rightPanelOpen };
+      persistPanelPrefs(next);
+      return next;
+    }),
+  setRightPanelOpen: (open) =>
+    set((s) => {
+      if (s.rightPanelOpen === open) return s;
+      const next = { ...s, rightPanelOpen: open };
       persistPanelPrefs(next);
       return next;
     }),

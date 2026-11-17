@@ -793,6 +793,9 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         activeId: id,
         registry: s.registry.map((e) => (e.id === id ? { ...e, active: true } : e)),
       }));
+      // Opening a plugin should surface its parameter panel: the right panel
+      // may still be collapsed from a previous session or plugin.
+      useAppStore.getState().setRightPanelOpen(true);
       // notify host to render params into right panel
       try {
         const params = await plugin.getParams();
