@@ -2861,6 +2861,44 @@
   white-space: nowrap;
 }
 
+/* Manage mode reuses the picker list; only the row payload differs:
+   imported files get size + inline actions, workspace files just load. */
+.data-file-manager .data-file-picker-item {
+  cursor: default;
+}
+
+.data-file-manager .data-file-picker-name {
+  flex: 1 1 auto;
+}
+
+.data-file-manager .data-file-picker-item.is-readonly {
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+.data-file-manager .data-file-picker-item.is-readonly:hover {
+  background: transparent;
+}
+
+.data-file-row-meta {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.data-file-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.data-file-row-actions .icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
 @media (max-width: 640px) {
   .data-file-picker {
     grid-template-columns: 1fr;

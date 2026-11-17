@@ -36,7 +36,7 @@ type Broadcaster = (payload: Record<string, unknown>) => void;
 function findPythonExecutable(app: App): { exe: string; portable: boolean } {
   const bundled = path.join(process.resourcesPath ?? '', 'resources', 'python', 'python.exe');
   if (fs.existsSync(bundled)) return { exe: bundled, portable: true };
-  // Dev layout: desktop/resources/python.
+  // Dev layout: deploy/desktop/resources/python.
   const dev = path.join(app.getAppPath(), 'resources', 'python', 'python.exe');
   if (fs.existsSync(dev)) return { exe: dev, portable: true };
   return { exe: 'python', portable: false };

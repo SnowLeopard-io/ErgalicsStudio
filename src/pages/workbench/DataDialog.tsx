@@ -3,7 +3,7 @@
 //
 // Merges the sample-dataset picker, flow pipelines, block samples, and code
 // samples into one entry point with four tabs. Project data files have their
-// own dedicated manager (ProjectFilesDialog) and no longer live here.
+// own manager (the shared data window's manage mode) and no longer live here.
 // ==========================================================================
 
 import { useMemo, useRef, useState } from 'react';

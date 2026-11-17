@@ -95,12 +95,12 @@ promo/
 .jarvis/
 
 # Desktop (Electron) edition build artifacts — produced by the desktop build
-# toolchain (not tracked in this repo). Only desktop/src, desktop/resources
-# and the packaging config are tracked.
-desktop/node_modules/
-desktop/dist-electron/
-desktop/app-dist/
-desktop/release/
-desktop/build-dist.log
+# toolchain (not tracked in this repo). Only deploy/desktop/src,
+# deploy/desktop/resources and the packaging config are tracked.
+deploy/desktop/node_modules/
+deploy/desktop/dist-electron/
+deploy/desktop/app-dist/
+deploy/desktop/release/
+deploy/desktop/build-dist.log
 # Portable CPython bundled into the installer (downloaded on demand).
-desktop/resources/python/
+deploy/desktop/resources/python/

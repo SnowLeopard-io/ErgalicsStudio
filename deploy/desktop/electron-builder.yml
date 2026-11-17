@@ -1,6 +1,6 @@
 # Ergalics Studio Desktop packaging (Windows first).
 # Only the workbench build output (dist/) and the Electron main process
-# (desktop/dist-electron/) ship — website/ and docs/ are never packaged.
+# (deploy/desktop/dist-electron/) ship — website/ and docs/ are never packaged.
 appId: io.snowleopard.ergalics.desktop
 productName: Ergalics Studio Desktop
 copyright: SnowLeopard-io
