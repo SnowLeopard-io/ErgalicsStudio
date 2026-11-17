@@ -27,8 +27,11 @@
 ```
 deploy/
 ├── windows/   # Electron + NSIS Windows 打包（现状）
-├── linux/     # Linux 打包（规划：AppImage/deb，见 electron-builder linux target）
-└── android/   # Android 打包（本目录，待实现）
+├── linux/     # Linux 打包（占位，待实现：AppImage/deb）
+├── macos/     # macOS 打包（占位，待实现：dmg，arm64 + x64）
+├── android/   # Android 打包（本目录，待实现）
+├── pwa/       # 渐进 Web 应用（占位，建议优先实施：manifest + SW 全平台受益）
+└── selfhost/  # 自托管静态部署（占位：Dockerfile + nginx，实验室共享）
 ```
 
 实现时本目录预期放入：容器工程（Tauri `src-tauri/` 或 Capacitor 工程）、
