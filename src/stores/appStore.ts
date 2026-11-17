@@ -171,6 +171,23 @@ const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
 /** Stable tab key for the embedded settings page. */
 const settingsTabKey = 'settings:app';
 
+/** Focus the editor session that backs a surface tab. Clicking a tab goes
+ *  through `syncSurfaceTabSession`; this covers the programmatic paths —
+ *  closing a tab (fallback to its neighbour) and the mode button focusing an
+ *  existing surface. Without it, closing a code file while a flow file sits
+ *  behind it left `activeSessionId` on the code session, and returning to flow
+ *  mode hydrated the canvas from that session's flowless IR → blank canvas.
+ *  Lazy import keeps appStore free of an editorStore cycle. */
+function bindSurfaceTabSession(tab: CanvasTab | undefined): void {
+  if (!tab || tab.kind !== 'surface') return;
+  if (!tab.sessionId && !tab.path) return;
+  void import('./editorStore').then(({ useEditorStore }) => {
+    const st = useEditorStore.getState();
+    const sid = tab.sessionId ?? st.sessions.find((s) => s.filePath === tab.path)?.id;
+    if (sid) st.setActiveSession(sid);
+  });
+}
+
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
  *  pluginStore cycle. Fire-and-forget: callers never need the result. The
  *  plugin id is remembered (`lastActivePluginId`) so the canvas plugin tab
@@ -577,6 +594,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
     // The surface tab covers the plugin canvas; stop its rendering loop.
     deactivatePluginLazy();
+    // Mode button without a file focuses an existing surface of that mode —
+    // focus the session bound to it as well.
+    if (!path) {
+      bindSurfaceTabSession(
+        get().canvasTabs.find((tab) => tab.kind === 'surface' && tab.mode === mode),
+      );
+    }
   },
 
   /** Open (or focus) a sample surface: a surface tab bound to an editor
@@ -968,6 +992,11 @@ export const useAppStore = create<AppStore>((set, get) => {
       void import('./editorStore').then((m) => {
         m.useEditorStore.getState().removeSession(sessionId);
       });
+    }
+    // The surface in front owns an editor session; bringing it forward must
+    // bring its session along (otherwise flow hydrates from an unrelated one).
+    if (closed?.kind === 'surface') {
+      bindSurfaceTabSession(get().canvasTabs.find((tab) => tab.key === get().activeTab));
     }
     if (get().activeTab === null) get().showPluginCanvas();
   },

@@ -28,6 +28,23 @@ import { on } from '@/core/events';
 const FLOW_SYNC_DEBOUNCE_MS = 120;
 
 /**
+ * 流程模式綁定的是「最前面那個 surface 頁籤」所屬的工作階段，未必等於
+ * `activeSessionId`：關閉一個程式碼檔後，中央區會退回隔壁的流程頁籤並把
+ * mode 設回 flow，但 `activeSessionId` 仍停在剛關掉（或另一個）程式碼
+ * 工作階段。用該程式碼工作階段的（沒有流程節點的）IR 去注水，畫布就會
+ * 變空。因此先解析頁籤真正擁有的工作階段，再退回 activeSessionId。
+ */
+function surfaceSessionId(fallback: string | null): string | null {
+  const app = useAppStore.getState();
+  const tab = app.canvasTabs.find((t) => t.key === app.activeTab);
+  if (!tab || tab.kind !== 'surface') return fallback;
+  if (tab.sessionId) return tab.sessionId;
+  if (!tab.path) return fallback;
+  const session = useEditorStore.getState().sessions.find((s) => s.filePath === tab.path);
+  return session?.id ?? fallback;
+}
+
+/**
  * 掛載一次（例如於 WorkbenchPage）。銜接流程 DAG ⇄ IR 的往返轉換。
  */
 export function useFlowSync(): void {
@@ -49,7 +66,7 @@ export function useFlowSync(): void {
   // 「舊」工作階段（而不是等防抖計時器在新檔的畫布上觸發）。
   useEffect(() => {
     if (mode !== 'flow') return;
-    const sid = useEditorStore.getState().activeSessionId;
+    const sid = surfaceSessionId(useEditorStore.getState().activeSessionId);
     if (!sid) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -81,7 +98,7 @@ export function useFlowSync(): void {
   useEffect(() => {
     if (mode !== 'flow') return;
     const st = useEditorStore.getState();
-    const sid = st.activeSessionId;
+    const sid = surfaceSessionId(st.activeSessionId);
     if (!sid) return;
 
     // 從 `.flow.json` 開啟時，檔案內的原始圖優先：IR 無法完整表示所有
