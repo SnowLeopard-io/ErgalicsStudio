@@ -20,10 +20,11 @@ import { Profiler, type ColumnSpec, type TableProfile } from '@/core/profiler/pr
 import { inferColumnKinds } from '@/core/profiler/profile';
 import { fingerprint } from '@/core/chunked/reader';
 import { resolveDataFile } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { parseDataText } from '@/blocks/fileData';
 import { downloadBlob } from '@/core/download';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
-import { useTabularDataGroups, sendSpecToFigure, fmt } from '../research/researchUi';
+import { sendSpecToFigure, fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
 
 interface ScanState {
@@ -99,9 +100,8 @@ export default function ProfilerPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const saveProfile = useResearchStore((s) => s.saveProfile);
-  // Parse-sniffed list: simulation configs (electromag/pendulum/... JSON)
-  // must not appear — they are not tabular and could only error (FR5).
-  const groups = useTabularDataGroups(undefined, project?.data.files);
+  // The data file listing lives in the shared picker (DataFilePickField); it
+  // refreshes the workspace snapshot each time the floating window opens.
 
   const [file, setFile] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -223,28 +223,19 @@ export default function ProfilerPage() {
     <ToolShell toolId="profiler">
       <div className="analysis-body">
         <div className="analysis-row">
-          <select
-            className="input"
-            data-tour="profiler-file"
+          <DataFilePickField
             value={file}
             disabled={scanning}
-            onChange={(e) => {
+            dataTour="profiler-file"
+            onChange={(name) => {
               // Abort the previous file's scan so its result can never be
               // shown/saved under the newly selected file.
               abortRef.current?.abort();
-              setFile(e.target.value);
+              setFile(name);
               setState(null);
               setError('');
             }}
-          >
-            <option value="">{t('analysis.select_file')}</option>
-            {groups.project.map((n) => <option key={n} value={n}>{n}</option>)}
-            {groups.examples.length > 0 && (
-              <optgroup label={t('datafiles.group_examples')}>
-                {groups.examples.map((n) => <option key={n} value={n}>{n}</option>)}
-              </optgroup>
-            )}
-          </select>
+          />
           {scanning ? (
             <button type="button" className="btn btn-danger" onClick={cancel}>{t('profile.cancel')}</button>
           ) : (

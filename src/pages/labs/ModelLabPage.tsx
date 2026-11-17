@@ -11,7 +11,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
-import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { renderSVG } from '@/core/plot';
 import type { PlotSpec } from '@/core/plot';
@@ -29,13 +28,12 @@ import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostic
 import { extent, std } from '@/core/stats';
 import type { NarrativeInput } from '@/core/stats/narrative';
 import {
-  useTabularDataGroups,
   useFileCols,
   loadTable,
   sendSpecToFigure,
   fmt,
 } from '../research/researchUi';
-import { DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { parseDataText } from '@/blocks/fileData';
 import { isNumericType } from '@/blocks/ops';
 import { takeLabHandoff } from '@/core/labHandoff';
@@ -129,9 +127,7 @@ function sampleRows(n: number, cap: number, seed = 20240501): number[] {
 export default function ModelLabPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
-  const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useTabularDataGroups(DATA_EXTS_SERIES, project?.data.files);
 
   const [file, setFile] = useState('');
   const [target, setTarget] = useState('');
@@ -452,15 +448,7 @@ export default function ModelLabPage() {
     <ToolShell toolId="model-lab">
       <div className="analysis-body">
         <div className="analysis-row">
-          <select className="input" value={file} onChange={(e) => selectFile(e.target.value)}>
-            <option value="">{t('analysis.select_file')}</option>
-            {fileGroups.project.map((n) => <option key={n} value={n}>{n}</option>)}
-            {fileGroups.examples.length > 0 && (
-              <optgroup label={t('datafiles.group_examples')}>
-                {fileGroups.examples.map((n) => <option key={n} value={n}>{n}</option>)}
-              </optgroup>
-            )}
-          </select>
+          <DataFilePickField value={file} onChange={(name) => selectFile(name)} />
           <select className="input" value={kind} onChange={(e) => {
             setKind(e.target.value as ModelKind);
             setPredictors([]);

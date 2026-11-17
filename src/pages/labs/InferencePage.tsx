@@ -12,6 +12,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { getGpuBackend } from '@/core/gpu';
 import { useProjectStore } from '@/stores/projectStore';
@@ -272,15 +273,11 @@ export default function InferencePage() {
             {fileGroups.project.length + fileGroups.examples.length > 0 && (
               <div className="analysis-row">
                 <label className="analysis-label">{t('infer.from_file')}</label>
-                <select className="input" value={dataFile} onChange={(e) => setDataFile(e.target.value)}>
-                  <option value="">{t('infer.no_file')}</option>
-                  {fileGroups.project.map((n) => (
-                    <option key={`p:${n}`} value={n}>{n}</option>
-                  ))}
-                  {fileGroups.examples.map((n) => (
-                    <option key={`e:${n}`} value={n}>{n}</option>
-                  ))}
-                </select>
+                <DataFilePickField
+                  value={dataFile}
+                  placeholderKey="infer.no_file"
+                  onChange={(name) => setDataFile(name)}
+                />
               </div>
             )}
           </>

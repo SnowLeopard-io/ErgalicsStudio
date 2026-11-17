@@ -30,6 +30,7 @@ import type { Cell, PrivacyMode, SynthMode, SynthResult, SynthTable } from '@/co
 import { extent } from '@/core/stats';
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 
 const MODES: readonly SynthMode[] = ['copula', 'independent', 'timeseries'];
 const PRIVACY_MODES: readonly PrivacyMode[] = ['none', 'dp', 'k-anonymity'];
@@ -339,34 +340,14 @@ export function SynthPage() {
             {t('synth.upload')}
           </button>
           {fileGroups.project.length > 0 || fileGroups.examples.length > 0 ? (
-            <select
-              className="input"
+            <DataFilePickField
               value={projectFile}
-              onChange={(e) => {
-                setProjectFile(e.target.value);
-                void loadProjectFile(e.target.value);
+              placeholderKey="synth.select_project_file"
+              onChange={(name) => {
+                setProjectFile(name);
+                void loadProjectFile(name);
               }}
-            >
-              <option value="">{t('synth.select_project_file')}</option>
-              {fileGroups.project.length > 0 && (
-                <optgroup label={t('datafiles.group_project')}>
-                  {fileGroups.project.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {fileGroups.examples.length > 0 && (
-                <optgroup label={t('datafiles.group_examples')}>
-                  {fileGroups.examples.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+            />
           ) : null}
           {source && (
             <span className="figures-panel-meta">

@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { ToolShell } from '@/components/ToolShell';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { renderSVG } from '@/core/plot';
@@ -30,14 +31,12 @@ import {
   type WindowKind,
 } from '@/core/signal';
 import {
-  useTabularDataGroups,
   useFileCols,
   loadTable,
   sendSpecToFigure,
   fmt,
 } from '../research/researchUi';
 import { toCsv } from '@/core/plugin-tools/enhance';
-import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { isNumericType } from '@/blocks/ops';
 import { takeLabHandoff } from '@/core/labHandoff';
@@ -102,7 +101,6 @@ export default function SignalLabPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const addDataFile = useProjectStore((s) => s.addDataFile);
-  const groups = useTabularDataGroups(DATA_EXTS_SERIES, project?.data.files);
 
   const [file, setFile] = useState('');
   const [timeCol, setTimeCol] = useState('');
@@ -343,23 +341,18 @@ export default function SignalLabPage() {
     <ToolShell toolId="signal">
       {project && (
         <div className="research-toolbar">
-          <select className="input" value={file} onChange={(e) => {
-            // Clear the previous file's derived result — otherwise "save
-            // column" writes A's spectrum/filter output under B's file name.
-            setFile(e.target.value);
-            setTimeCol('');
-            setValueCol('');
-            setResult(null);
-            setError('');
-          }}>
-            <option value="">{t('analysis.select_file')}</option>
-            {groups.project.map((n) => <option key={n} value={n}>{n}</option>)}
-            {groups.examples.length > 0 && (
-              <optgroup label={t('datafiles.group_examples')}>
-                {groups.examples.map((n) => <option key={n} value={n}>{n}</option>)}
-              </optgroup>
-            )}
-          </select>
+          <DataFilePickField
+            value={file}
+            onChange={(name) => {
+              // Clear the previous file's derived result — otherwise "save
+              // column" writes A's spectrum/filter output under B's file name.
+              setFile(name);
+              setTimeCol('');
+              setValueCol('');
+              setResult(null);
+              setError('');
+            }}
+          />
           <select className="input" value={valueCol} onChange={(e) => { setValueCol(e.target.value); setResult(null); }}>
             <option value="">{t('signal.value_axis')}</option>
             {numericOptions.map((c) => <option key={c} value={c}>{c}</option>)}

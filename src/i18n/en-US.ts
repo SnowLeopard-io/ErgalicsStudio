@@ -832,6 +832,7 @@ export const enUS: LocaleDictionary = {
 
   'blocks.params.select_hint': 'Select a node to edit its params',
   'blocks.params.none': 'No parameters',
+  'blocks.params.pick_file': 'Select a file…',
 
   'blocks.table.meta': '{rows} rows × {cols} cols',
   'blocks.table.note': 'Showing first {rows} of {total} rows',

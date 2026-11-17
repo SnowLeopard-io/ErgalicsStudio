@@ -2862,6 +2862,79 @@
   }
 }
 
+/* Button-shaped field that opens the floating data file picker (replaces the
+   former grouped `<select>` dropdowns). Sized like a `.input` control so it
+   drops into the existing flex rows (.analysis-row, .research-toolbar) and
+   grid forms (.report-field-grid) without those rows' own rules. */
+.data-file-field {
+  display: inline-flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 0;
+  height: 34px;
+  flex: 1 1 18ch;
+  max-width: 46ch;
+  box-sizing: border-box;
+}
+
+.report-field-grid .data-file-field {
+  max-width: none;
+  height: auto;
+}
+
+.data-file-field-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.data-file-field-btn:hover:not(:disabled),
+.data-file-field-btn:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  outline: none;
+}
+
+.data-file-field-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.data-file-field-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-file-field-clear {
+  flex-shrink: 0;
+  width: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.data-file-field-clear:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
 .tag-primary {
   background: var(--color-accent-soft);
   color: var(--color-accent-text);

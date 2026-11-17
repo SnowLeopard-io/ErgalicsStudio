@@ -5,6 +5,7 @@ import { useAppStore } from '@/stores/appStore';
 import { saveBinaryArtifact, saveTextArtifact } from '@/core/workspace-artifacts';
 import { useAnalysisStore } from '@/stores/analysisStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { parseDataText } from '@/blocks/fileData';
 import { asFloat64, isNumericType } from '@/blocks/ops';
 import {
@@ -675,27 +676,7 @@ export default function AnalysisPage() {
           {fileGroups.project.length === 0 && fileGroups.examples.length === 0 ? (
             <span className="analysis-note">{t('analysis.no_data')}</span>
           ) : (
-            <select className="input" value={file} onChange={(e) => void loadFile(e.target.value)}>
-              <option value="">{t('analysis.select_file')}</option>
-              {fileGroups.project.length > 0 && (
-                <optgroup label={t('datafiles.group_project')}>
-                  {fileGroups.project.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {fileGroups.examples.length > 0 && (
-                <optgroup label={t('datafiles.group_examples')}>
-                  {fileGroups.examples.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+            <DataFilePickField value={file} onChange={(name) => void loadFile(name)} />
           )}
         </div>
         {parseError && <p className="analysis-error">{parseError}</p>}

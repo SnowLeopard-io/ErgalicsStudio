@@ -834,6 +834,7 @@ export const zhCN: LocaleDictionary = {
 
   'blocks.params.select_hint': '选中一个节点以编辑参数',
   'blocks.params.none': '无参数',
+  'blocks.params.pick_file': '选择文件…',
 
   'blocks.table.meta': '{rows} 行 × {cols} 列',
   'blocks.table.note': '仅显示前 {rows} 行，共 {total} 行',

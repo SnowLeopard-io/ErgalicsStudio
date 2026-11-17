@@ -18,7 +18,7 @@ import { buildReportHtml } from '@/core/report/builder';
 import type { ReportSection, ReportSpec, ReportTheme, ReportLang } from '@/core/report/builder';
 import { downloadBlob } from '@/core/download';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
-import { useTabularDataGroups } from '../research/researchUi';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 type SectionType = ReportSection['type'];
@@ -134,8 +134,8 @@ export default function ReportBuilderPage() {
   const reports = project?.state.reports ?? [];
   const sheets = project?.state.figureSheets ?? [];
   // Parse-sniffed: the table section embeds parsed rows, so simulation-config
-  // JSON files (which can never parse) must not be offered here.
-  const groups = useTabularDataGroups(undefined, project?.data.files);
+  // JSON files (which can never parse) must not be offered here. The listing
+  // lives in the shared picker (DataFilePickField) now.
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -380,11 +380,11 @@ export default function ReportBuilderPage() {
                   )}
                   {d.type === 'table' && (
                     <div className="report-field-grid">
-                      <select className="input" value={d.fileId} onChange={(e) => patchDraft(i, { fileId: e.target.value })}>
-                        <option value="">{t('report.table_file')}</option>
-                        {groups.project.map((f) => <option key={f} value={f}>{f}</option>)}
-                        {groups.examples.map((f) => <option key={f} value={f}>{f}</option>)}
-                      </select>
+                      <DataFilePickField
+                        value={d.fileId}
+                        placeholderKey="report.table_file"
+                        onChange={(name) => patchDraft(i, { fileId: name })}
+                      />
                       <input className="input" placeholder={t('report.table_id')} value={d.tableId}
                         onChange={(e) => patchDraft(i, { tableId: e.target.value })} />
                       <input className="input" placeholder={t('report.table_title')} value={d.title}
