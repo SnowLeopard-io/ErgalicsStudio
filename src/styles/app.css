@@ -5448,11 +5448,16 @@
 /* Scoped to .tool-content on purpose: `.tool-content textarea` / `.tool-content
    .input` below set `min-height: 34px` and would otherwise squeeze this editor
    down to a couple of visible lines. The extra type selector keeps it ahead of
-   `.tool-content .input` (same specificity would let the later rule win). */
+   `.tool-content .input` (same specificity would let the later rule win).
+   `field-sizing: content` makes the box grow/shrink with the query by default
+   (Chromium 123+); older engines fall back to the fixed min-height floor. */
 .tool-content textarea.sql-editor {
   width: 100%;
-  min-height: 220px;
+  min-height: 140px;
+  max-height: 60vh;
+  field-sizing: content;
   resize: vertical;
+  overflow-y: auto;
   font-family: var(--font-mono, monospace);
   font-size: var(--font-size-sm);
   line-height: 1.5;

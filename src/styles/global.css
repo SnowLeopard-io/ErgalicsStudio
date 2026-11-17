@@ -263,6 +263,13 @@ button {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+/* The corner square where horizontal and vertical scrollbars meet is painted
+   in Chromium's default light grey unless themed — it showed up as a stray
+   white block in the bottom-right of scrolling panels (SQL workbench sidebar,
+   file lists). Transparent lets the track show through. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 /* ---- buttons ---- */
 
 .btn {
