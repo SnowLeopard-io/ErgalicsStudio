@@ -10,7 +10,7 @@ This section is the engineering reference for Ergalics Studio. Each chapter is m
 | [04 · Four Working Modes](./04-four-working-modes) | Standard, Flow, Block and Code, and lossless conversion through one IR |
 | [05 · Research Toolset](./05-research-toolset) | 33 tools in seven groups, their responsibilities and entry points |
 | [06 · GPU Computing and Native Core](./06-gpu-computing-and-native-core) | WebGPU / CPU fallback, compute pipeline and the 14 WGSL kernels |
-| [07 · Scientific Computing Subsystems](./07-scientific-computing-subsystems) | The 55 `src/core` subsystems and 42 root modules |
+| [07 · Scientific Computing Subsystems](./07-scientific-computing-subsystems) | The 56 `src/core` subsystems and 42 root modules |
 | [08 · Testing and Quality Assurance](./08-testing-and-quality-assurance) | Unit and E2E tests, benchmarks, size budgets and CI |
 | [09 · Electromagnetic Resonance Eigensolver](./09-electromagnetic-resonance-eigensolver) | Sparse Hermitian eigensolvers, shift-invert MINRES and 3D mode fields |
 | [10 · Fluid Bidirectional Coupling Solver](./10-fluid-bidirectional-coupling-solver) | 1D network ↔ 3D field coupling with multirate stepping |

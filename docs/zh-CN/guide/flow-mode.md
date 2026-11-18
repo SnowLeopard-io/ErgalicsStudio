@@ -22,7 +22,8 @@ types/      DataTable · Scalar · RenderedView · BlockMeta · BlockGraph
 blocks/
   registry       meta + executor registration, category buckets
   compiler       pure: validate → topological sort → CompiledRegion
-  executor       DagExecutor: run(), incremental cache, dirty propagation
+  executor       DagExecutor: lightweight in-memory runner (tests, headless)
+core/build/      blockStore.run() 使用的内容寻址构建引擎
   context        MemoryStorage + RuntimeEnvironment
   fileData       shared raw-text → DataTable parsing (source.file & studio.load)
   ops            pure column kernels (subset, normalize, histogram, …)
@@ -71,11 +72,19 @@ components/blocks/
 - 使用 Kahn 算法**检测环**。同一次遍历产生拓扑顺序，因此发现环时会报告诊断并拒绝程序。
 - **`diagnostics: CompileDiagnostic[]`** 包含 `severity: 'error' | 'warning'` 和可选 `nodeId`——画布将边标红，工具栏内嵌提示条显示诊断，而不是崩溃。
 
-## 执行器：增量执行、便于缓存
+## 执行器：内容寻址增量构建
 
-`DagExecutor(program, env).run()` 按拓扑顺序遍历。首次运行后，它持有 `Map<nodeId, DataValue>` 缓存；`invalidate(nodeId)` 向下游遍历，并将所有依赖 `nodeId` 的内容标记为脏。更改一个参数因此只会重新执行该节点及其后代，即使管线较复杂，画布也能给人即时响应的感觉。
+流程运行由 `src/core/build/` 的内容寻址 `BuildEngine` 执行（在 `src/stores/blockStore.ts` 中接入）。每个区块成为纯构建步骤，其缓存键哈希代码、参数、上游内容键与环境指纹：
 
-执行器是区块系统中唯一的异步部分；每个 `executor` 都返回 `Promise<DataValue>`，因此日后接入 GPU 工作时无须更改 API。
+```
+key = H(kind, 执行器源码哈希, params, {端口 → 上游内容键}, 环境)
+```
+
+节点 id、画布位置与标签被刻意排除在键之外，因此重命名节点、或重新导入内容相同的表，仍命中同一条目；参数改变时，只有受影响的下游子图获得新键，结果跨运行、跨刷新持久化在独立的 IndexedDB 库（`ergalics-build-cache`）中。引擎按并行波次调度，记录逐节点决策（命中 / 重算 / 阻断 / 失败），并通过 `FLOW_RUN_FINISHED` 上报 `build` 摘要。
+
+`DagExecutor`（位于 `src/blocks/executor.ts`）仍作为轻量内存拓扑执行器导出，供无头使用与区块测试：它持有 `Map<nodeId, DataValue>` 缓存，`invalidate(nodeId)` 向下游传播脏值，但缓存只在该实例的生命周期内有效。
+
+执行是区块系统中唯一的异步部分；每个 `executor` 都返回 `Promise<DataValue>`，因此日后接入 GPU 工作时无须更改 API。
 
 ## 渲染桥接——viz.\* 从不绘图
 

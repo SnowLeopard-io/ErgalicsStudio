@@ -84,7 +84,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | ---- | ---------- |
 | 工作台 | 四种模式、工作台文件资源管理器（工作区搜索 / Git 变更角标 / 外部文件拖入导入）+ 标签页中央区 + 多会话终端 + 按文件类型分派的编辑器（Code / Flow / Block）、**165 个内置插件（155 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
-| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、189 个示例数据集 + 11 个示例工程 |
+| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建缓存**、189 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide（import 科学计算包时按需自动安装）；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **33 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
@@ -190,6 +190,7 @@ cd docs && npm install && npm run dev   # 文档站点
 | 可复现性内核 | `src/core/repro/` | 带种子随机数、稳定哈希、运行清单、DAG→Python 导出；配套 `repro.lock`。 |
 | 数据质量引擎与单位系统 | `src/core/data-quality/` · `src/core/units/` | 数据质量引擎；类型化单位系统。 |
 | GB 级流式管道 | `src/core/bigdata/` | 增量 CSV 解析、O(1) 内存流式统计（Welford / t-digest / HyperLogLog / 直方图）、Apache Arrow 批次导入 DuckDB。 |
+| 增量构建系统 | `src/core/build/` | 内容寻址缓存键（代码 + 输入 + 参数 + 环境）、逐位精确的值编解码、IndexedDB 持久化、并行波次调度、部分重算与逐节点溯源。 |
 
 **数据规模与文件大小支持**
 
@@ -201,6 +202,29 @@ cd docs && npm install && npm run dev   # 文档站点
 | > 约 50 GB | 超出浏览器能力（WASM32 堆 + 标签页内存配额），规划由自托管 / 原生端承接。 | Web 应用不支持。 |
 
 一个参考量级：1 GB CSV（约 500 万行 × 20 列）可导入为可查询表，设计目标为 `GROUP BY` 约 10 秒出结果、JS 峰值内存低于 500 MB、UI 不冻结——JS 侧始终只持有一个 32,768 行的批次。流式统计在同一次扫描中完成，GB 级列画像每列只占 O(1) 内存。
+
+**增量构建系统（内容寻址计算）**
+
+流程运行不再只在单个执行器生命周期内缓存。每个区块被视为纯构建步骤，缓存键是**内容指纹**而非节点身份：
+
+```
+key = H(kind, 执行器源码哈希, params, {端口 → 上游内容键}, 环境)
+```
+
+`环境` 覆盖应用构建版本、键模式版本与可选能力标记（GPU / 运行时）。节点 id、画布位置、标签与文件名被刻意排除，因此重命名节点或重新导入内容相同的表仍复用同一条目；参数（或代码、上游数据）改变时，只有受影响的下游子图获得新键——陈旧值在结构上不可达，而不是"事后失效"。
+
+| 组成 | 行为 |
+| --- | --- |
+| `hash.ts` | 双通道流式 FNV-1a（有效 64-bit）；数值一律显式小端编码，跨平台摘要一致；`canonicalize` 处理 NaN / ±Infinity / -0 与 Map/Set 顺序。 |
+| `key.ts` + `plan.ts` | 四分量键与 `StepKeyBreakdown`（回答"为什么重算"）、Kahn 分层拓扑、环路径报告、下游影响与上游溯源查询。 |
+| `codec.ts` | `DataValue` ↔ JSON 安全字节；`Float32Array` / `Float64Array` / `Int32Array` / `Uint32Array` 真实往返，解码后内容哈希逐位不变；`RenderedView` 是运行时句柄，永不持久化。 |
+| `cache.ts` | 有界 LRU 内存缓存 + **独立** IndexedDB 库（`ergalics-build-cache`，不触碰项目 schema）；单条大小上限，配额 / 隐私模式失败时自动降级内存。 |
+| `engine.ts` | 逐层并行波次（默认 4 路并发）、命中解码与未命中重算、失败只阻断下游、`AbortSignal` 取消、逐节点决策报告（命中 / 重算 / 阻断 / 失败 + 原因）。 |
+| `blockAdapter.ts` | 让编译后的 `CompiledRegion` 走构建引擎，同时保留 `getInput` / `getParam` / GPU / storage / 进度与画布节点状态语义。 |
+
+`blockStore.run()` 现在为每个 store 保留一个构建引擎，结果可跨运行、跨刷新复用；`FLOW_RUN_FINISHED` 事件携带 `build` 摘要（总数 / 命中 / 重算 / 阻断 / 失败 / 命中率 / 计划与环境指纹），并写入持久化运行记录。`markDirty()` 被解释为"该结果含隐藏或非确定输入"：本次运行不落盘，下游强制重算——严格强于旧的纯内存脏集。
+
+验收由 `tests/build/`（8 个文件、59 个测试）覆盖：**10,000 节点 DAG** 全量计算后二次全命中；改参数只重算受影响子图；25 组确定性随机 DAG 与冷缓存 / 直接求值逐节点一致、零陈旧值；TypedArray 编解码后内容哈希不变；损坏条目按未命中处理；取消、失败阻断与并发上限均有测试。详见 [`docs/zh-CN/technical/07-科学计算子系统.md`](docs/zh-CN/technical/07-科学计算子系统.md)。
 
 ---
 
@@ -240,7 +264,7 @@ flowchart TB
     subgraph Blocks["区块系统 (流程模式, src/blocks)"]
         D1["目录（63 个区块）<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["编译器<br/>纯函数 · 校验端口/类型<br/>拓扑排序 · 诊断"]
-        D3["执行器<br/>增量缓存<br/>脏值传播 · run()"]
+        D3["构建引擎<br/>内容寻址缓存键<br/>IndexedDB + 内存缓存<br/>并行波次 · 部分重算"]
         D4["渲染桥接<br/>viz.* RenderedView → plugin.loadData<br/>(无副作用的执行器)"]
     end
 
@@ -274,10 +298,11 @@ flowchart TB
 ```
 .
 ├── src/                      # 前端
-│   ├── core/                 #   49 个子目录 + 39 个根级模块: storage, events, compute,
+│   ├── core/                 #   56 个子目录 + 42 个根级模块: storage, events, compute,
 │   │                         #   gpu, wasm, fileFormat, scene3d, sandbox, cspkg, errors,
 │   │                         #   validation, data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
-│   │                         #   plot, repro, uncertainty, units, experiment, lineage,
+│   │                         #   plot, repro, build (内容寻址增量构建引擎),
+│   │                         #   bigdata (GB 级流式), uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal, sweep,
 │   │                         #   profiler, sql, report, inference, logger, vfs (工作区文件系统),
 │   │                         #   git (版本控制), research (科学输出)
@@ -309,7 +334,7 @@ flowchart TB
 
 ![标准模式 — 拖入文件，即可看到可视化](docs/assets/screenshots/platform/mode-standard-welcome.png)
 
-**流程模式**——从 **63 个内置区块**（data_source / transform / filter / math / statistics / units / visualize / plot）**组合可视化数据流管线**并运行。左侧调色板、中间画布（节点 + 边）、右侧节点参数编辑器、底部按输出类型自适应的实时结果预览（`RenderedView` 经插件渲染器 / `DataTable` 只读表 / `Scalar` 内联）。编译器是纯函数（端口 / 类型校验 + 环检测 + Kahn 拓扑排序）；执行器带增量缓存与脏值传播，改单个区块只重跑自身及其下游。图以 `*.flow.json` 工作区文件保存（`{version, kind:'ergalics-flow', graph}`），可在文件资源管理器的流程编辑器中打开；数据源区块可直接从项目文件挑选输入（数据文件选择器），旧的项目 `blockGraph` 状态仍可读取。架构详见 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md)。
+**流程模式**——从 **63 个内置区块**（data_source / transform / filter / math / statistics / units / visualize / plot）**组合可视化数据流管线**并运行。左侧调色板、中间画布（节点 + 边）、右侧节点参数编辑器、底部按输出类型自适应的实时结果预览（`RenderedView` 经插件渲染器 / `DataTable` 只读表 / `Scalar` 内联）。编译器是纯函数（端口 / 类型校验 + 环检测 + Kahn 拓扑排序）；执行器是内容寻址构建引擎：每个节点的缓存键哈希其区块代码、参数、上游内容键与环境，因此改单个区块只重跑受影响的下游子图，未变化的分支直接命中持久化 IndexedDB 缓存（跨运行、跨刷新）。图以 `*.flow.json` 工作区文件保存（`{version, kind:'ergalics-flow', graph}`），可在文件资源管理器的流程编辑器中打开；数据源区块可直接从项目文件挑选输入（数据文件选择器），旧的项目 `blockGraph` 状态仍可读取。架构详见 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md)。
 
 ![流程模式 — 示例管线（Normalize → Histogram / Scatter / Summary）](docs/assets/screenshots/platform/mode-flow.png)
 
@@ -1174,6 +1199,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 - [x] 科研级插件元数据（四级徽章）+ 统一科学输出栏
 - [x] Git 仓库化项目——适配器、项目 store 同步与 Git 面板（分支 / 提交 / 克隆 / 远程同步 / 自动提交 / 预装钩子 / CI 模板；diff 查看器与冲突向导待做）
 - [x] 流程模式（编译器 + 增量执行器 + 63 个区块）、积木模式（Blockly 13 + 共享 IR，5 个示例）、代码模式（Python / R / JavaScript，预览窗互译）
+- [x] 内容寻址构建系统——10,000 节点 DAG、跨运行 / 跨会话 IndexedDB 缓存、部分重算、逐节点溯源与可并行的波次调度
 - [x] 三语言无缝往返（共享 IR 中枢，`mergeFlowIR` + 签名守卫，测试固化）
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核
 - [x] 33 个独立科研工具分 7 组（含免项目的 utils 小工具组），支持内嵌到工作台画布

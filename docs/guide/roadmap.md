@@ -17,7 +17,8 @@ state, not aspirational designs.
 | Projects      | create/save/open/autosave/share `.clproj`                      | Done      |
 | Data loading  | file picker / drag & drop / format detection / routing         | Done      |
 | Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | Done      |
-| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 63 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
+| Flow mode     | compiler (validate/topology) + executor (content-addressed incremental cache) + 63 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
+| Build system  | content-addressed step keys (code + inputs + params + environment), IndexedDB + memory cache, parallel wavefront scheduling, partial recompute, per-step provenance, 10,000-node DAG scale test (`src/core/build/`) | Done      |
 | Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 40 built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
 | i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | Done      |
 | Theming       | dark/light, system-follow, CSS variables                       | Done      |

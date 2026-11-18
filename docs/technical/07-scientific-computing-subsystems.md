@@ -1,10 +1,10 @@
 # 07 Scientific Computing Subsystems
 
-`src/core` is the product's scientific foundation: **55 domain-subsystem subdirectories + 42 root-level modules**, all implemented in pure TypeScript with little DOM use and directly testable with Vitest in Node. They are consumed by the block system, Studio API, research-tool pages, and delivery pipeline, forming the capability layer that moves the product from “can plot” to “usable for real research.”
+`src/core` is the product's scientific foundation: **56 domain-subsystem subdirectories + 42 root-level modules**, all implemented in pure TypeScript with little DOM use and directly testable with Vitest in Node. They are consumed by the block system, Studio API, research-tool pages, and delivery pipeline, forming the capability layer that moves the product from “can plot” to “usable for real research.”
 
 ## I. Kernel overview {#一、内核总览}
 
-### 1.1 Subsystem directories (55, grouped by domain) {#_1-1-子系统目录-54-个-按领域分组}
+### 1.1 Subsystem directories (56, grouped by domain) {#_1-1-子系统目录-54-个-按领域分组}
 
 | Domain | Subsystem | One-line facts |
 | --- | --- | --- |
@@ -23,6 +23,7 @@
 | Data I/O and quality | validation | Composable validators `(value, path) => issues[]`; schemas are ordinary data |
 | Data I/O and quality | sql | DuckDB-WASM SQL workbench engine (lazy loading, timeouts and AbortSignal cancellation) |
 | Data I/O and quality | dataeng | Reusable ETL steps, schema inspection, deterministic synthetic-data generation and `DataTable`-level long/wide reshaping (etl.ts, schema.ts, synth.ts, reshape.ts) |
+| Data I/O and quality | bigdata | GB-scale streaming CSV parsing, O(1)-memory statistics kernels and Apache Arrow batch ingestion (csv-stream, stream-stats, arrow-batch) |
 | Plotting and delivery | plot | Pure-TS vector plotting: DataTable → publication-grade SVG, exportable as SVG / PDF |
 | Plotting and delivery | figure | Multi-panel figures on journal-template grids (compose one SVG, export including PNG-600dpi) |
 | Plotting and delivery | report | ReportSpec → one self-contained interactive HTML report (inline CSS / SVG / JSON) |
@@ -365,4 +366,4 @@ Delivery and collaboration interfaces:
 - **Citation and archival**: `citation.ts` generates software citation and archival metadata; `gen-citation-cff.mjs` and `check-citation.mjs` maintain CITATION.cff.
 - **Performance benchmarks**: `runAllBenchmarks()` in `bench/` runs import / compute / render / memory key-path suites and returns structured results with environment information (Node version, platform, architecture, CPU model, date). `scripts/bench-run.mjs` runs them headlessly in Node, writes `bench-results.json`, and compares with `bench/baseline.json` (see article 08).
 
-These 55 subsystems and 42 root-level modules together form the product's scientific foundation: statistics, modeling and inference ensure professional results; I/O and data engineering provide open and trustworthy inputs; plots and multi-panel figures ensure publication-quality output; and reproducibility and delivery pipelines allow others to replay conclusions unchanged and receive them with a paper.
+These 56 subsystems and 42 root-level modules together form the product's scientific foundation: statistics, modeling and inference ensure professional results; I/O and data engineering provide open and trustworthy inputs; plots and multi-panel figures ensure publication-quality output; and reproducibility and delivery pipelines allow others to replay conclusions unchanged and receive them with a paper.

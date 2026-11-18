@@ -88,7 +88,7 @@ What ships today:
 | ----------------- | ------------- |
 | Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
-| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 189 sample datasets + 11 sample projects |
+| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build cache for Flow runs**, 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
@@ -214,6 +214,7 @@ Production builds output to `dist/`.
 | Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; plus `repro.lock`. |
 | Data-quality engine & unit system | `src/core/data-quality/` · `src/core/units/` | Pandera-style data-quality engine; typed unit system. |
 | GB-scale streaming pipeline | `src/core/bigdata/` | Incremental CSV parser, O(1)-memory streaming statistics (Welford / t-digest / HyperLogLog / histogram), Apache Arrow batch ingestion into DuckDB. |
+| Incremental build system | `src/core/build/` | Content-addressed cache keys (code + inputs + params + environment), bit-exact value codec, IndexedDB persistence, parallel wavefront scheduler, partial recompute and per-step provenance. |
 
 **Data scale & file-size support**
 
@@ -225,6 +226,29 @@ Production builds output to `dist/`.
 | > ~50 GB | Out of browser range (WASM32 heap + tab memory quotas). Planned for the self-hosted / native editions. | Not supported in the web app. |
 
 One reference point: a 1 GB CSV (≈5 million rows × 20 columns) imports as a queryable table with a design target of a `GROUP BY` in about ten seconds, peak JS memory under 500 MB, and no UI freeze — the JS side only ever holds one 32,768-row batch. Streaming statistics run on the same pass, so GB-scale column profiles cost O(1) memory per column.
+
+**Incremental build system (content-addressed computation)**
+
+Flow runs are no longer cached only for the lifetime of one executor. Every block is treated as a pure build step and its cache key is a **content fingerprint**, not a node identity:
+
+```
+key = H(kind, executor-source hash, params, {port → upstream content key}, environment)
+```
+
+`environment` covers the app build version, the key-schema version and optional capability flags (GPU / runtime). Node id, canvas position, tags and file name are deliberately excluded, so a renamed node or re-imported identical table reuses the same entry. A changed parameter (or changed code, or changed upstream data) produces a different key for exactly the affected downstream sub-graph, so a stale value is structurally unreachable rather than merely “invalidated”.
+
+| Piece | Behaviour |
+| --- | --- |
+| `hash.ts` | Streaming two-lane FNV-1a mixer (effective 64-bit); numbers are encoded explicitly little-endian so digests match across platforms; `canonicalize` handles NaN / ±Infinity / -0 and Map/Set ordering. |
+| `key.ts` + `plan.ts` | Four-component keys with a `StepKeyBreakdown` for “why did this rerun?”, Kahn layered topology, cycle reporting, downstream impact and upstream provenance queries. |
+| `codec.ts` | `DataValue` ↔ JSON-safe bytes with real `Float32Array` / `Float64Array` / `Int32Array` / `Uint32Array` round-trips; decoding preserves the content hash bit-for-bit. `RenderedView` is a live handle and is never persisted. |
+| `cache.ts` | Bounded LRU memory store plus a **separate** IndexedDB database (`ergalics-build-cache`) so cache churn never touches the project schema; per-entry size caps and automatic degradation to memory on quota/private-mode failures. |
+| `engine.ts` | Layer-by-layer parallel wavefront (default 4 concurrent steps), cache-hit decode vs. recompute, failure blocks only downstream, `AbortSignal` cancellation, and a per-step decision report (hit / computed / blocked / failed + reason). |
+| `blockAdapter.ts` | Runs a compiled `CompiledRegion` through the engine while preserving `getInput` / `getParam` / GPU / storage / progress and canvas node-status semantics. |
+
+`blockStore.run()` now keeps one build engine per store, so results survive re-runs and reloads. `FLOW_RUN_FINISHED` carries a `build` summary (total / cached / computed / blocked / failed / hit rate / plan + environment fingerprints) that is also written into the persisted run record. `markDirty()` is interpreted as “this result has hidden or non-deterministic inputs”: it is kept run-local and its consumers recompute, which is strictly safer than the old in-memory dirty set.
+
+Acceptance covered by `tests/build/` (8 files, 59 tests): a **10,000-node DAG** computes fully and then hits entirely; a parameter change recomputes only the affected sub-graph; 25 deterministic random DAGs are checked against a cold cache and direct evaluation with zero stale values; typed-array codec round-trips preserve content hashes; corrupt entries are misses; cancellation, failure blocking and concurrency limits are tested. See [`docs/technical/07-scientific-computing-subsystems.md`](docs/technical/07-scientific-computing-subsystems.md).
 
 ---
 
@@ -264,7 +288,7 @@ flowchart TB
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
         D1["Catalog (63 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["Compiler<br/>pure functions · validate ports/types<br/>topo sort · diagnostics"]
-        D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
+        D3["Build engine<br/>content-addressed keys<br/>IndexedDB + memory cache<br/>parallel wavefront · partial recompute"]
         D4["Render bridge<br/>viz.* RenderedView → plugin.loadData<br/>(side-effect-free)"]
     end
 
@@ -303,10 +327,11 @@ flowchart TB
 ```
 .
 ├── src/                      # frontend
-│   ├── core/                 #   49 subdirectories + 39 root modules: storage, events, compute,
+│   ├── core/                 #   56 subdirectories + 42 root modules: storage, events, compute,
 │   │                         #   gpu, wasm, fileFormat, scene3d, sandbox, cspkg, errors,
 │   │                         #   validation, data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
-│   │                         #   plot, repro, uncertainty, units, experiment, lineage,
+│   │                         #   plot, repro, build (content-addressed incremental engine),
+│   │                         #   bigdata (GB streaming), uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal, sweep,
 │   │                         #   profiler, sql, report, inference, logger, vfs (workspace
 │   │                         #   file system), git (version control), research (science output)
@@ -347,9 +372,12 @@ visualize / plot) and run it. Left palette, central canvas (nodes + edges),
 right per-node parameter editor, bottom live result preview that adapts to
 the selected output (`RenderedView` via plugin renderers / `DataTable`
 read-only table / `Scalar` inline). The compiler is pure functions (port/type
-validation + cycle detection + Kahn topological sort); the executor has
-incremental caching with dirty propagation, so editing one block re-runs only
-it and its downstream. Graphs save as `*.flow.json` workspace files
+validation + cycle detection + Kahn topological sort); the executor is a
+content-addressed build engine: every node's cache key hashes its block code,
+parameters, upstream content keys and environment, so editing one block
+re-runs only its affected downstream sub-graph, while unchanged branches are
+served from a persisted IndexedDB cache across runs and reloads. Graphs save
+as `*.flow.json` workspace files
 (`{version, kind: 'ergalics-flow', graph}`) editable in the file explorer's
 Flow editor; data-source blocks can pick inputs straight from project files
 via the data-file picker, and the legacy project `blockGraph` state is still
@@ -1391,6 +1419,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
 - [x] Flow mode (compiler + incremental executor + 63 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
+- [x] Content-addressed build system — 10,000-node DAG, cross-run/session IndexedDB cache, partial recompute, per-step provenance and worker-friendly parallel scheduling
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
 - [x] 33 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
