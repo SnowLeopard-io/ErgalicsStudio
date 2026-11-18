@@ -66,6 +66,15 @@ export {
   type DiffRunsOptions,
 } from './lock';
 export {
+  REPRO_BUNDLE_SCHEMA,
+  buildReproBundle,
+  verifyReproBundle,
+  type ReproBundleFile,
+  type ReproBundleManifest,
+  type ReproBundleOptions,
+  type ReproBundleVerification,
+} from './bundle';
+export {
   buildReproSnapshot,
   SNAPSHOT_SCHEMA,
   type SnapshotInput,

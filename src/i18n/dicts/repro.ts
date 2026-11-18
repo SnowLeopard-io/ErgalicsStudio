@@ -38,6 +38,14 @@ export const reproZh: LocaleDictionary = {
   'repro2.progress_lock': '构建 repro.lock…',
   'repro2.progress_render': '渲染快照 HTML…',
   'repro2.progress_save': '保存文件…',
+  // --- reproducibility bundle (ReproLockPage) ---
+  'repro2.bundle_export': '导出复现包',
+  'repro2.bundle_export_hint': '打包项目、repro.lock、运行记录、构建溯源与缓存快照，生成可校验的 ZIP',
+  'repro2.bundle_verify': '校验复现包',
+  'repro2.bundle_verify_hint': '打开 ZIP，逐项校验文件摘要、锁、溯源与缓存快照（不会修改当前项目）',
+  'repro2.bundle_exported': '复现包已导出',
+  'repro2.bundle_verified': '复现包校验通过：{count} 个文件',
+  'repro2.bundle_invalid': '复现包校验失败：{reason}',
 };
 
 export const reproEn: LocaleDictionary = {
@@ -74,4 +82,12 @@ export const reproEn: LocaleDictionary = {
   'repro2.progress_lock': 'Building repro.lock…',
   'repro2.progress_render': 'Rendering snapshot HTML…',
   'repro2.progress_save': 'Saving file…',
+  // --- reproducibility bundle (ReproLockPage) ---
+  'repro2.bundle_export': 'Export repro bundle',
+  'repro2.bundle_export_hint': 'Package the project, repro.lock, run records, build attestation and cache snapshot into one verifiable ZIP',
+  'repro2.bundle_verify': 'Verify bundle',
+  'repro2.bundle_verify_hint': 'Open a ZIP and verify every file digest, the lock, the attestation and the cache snapshot (never modifies the current project)',
+  'repro2.bundle_exported': 'Reproducibility bundle exported',
+  'repro2.bundle_verified': 'Bundle verified: {count} files',
+  'repro2.bundle_invalid': 'Bundle verification failed: {reason}',
 };

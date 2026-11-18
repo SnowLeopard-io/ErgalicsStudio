@@ -30,6 +30,7 @@ import {
   type LockVersions,
 } from '@/core/repro/lock';
 import { downloadBlob } from '@/core/download';
+import { attestationToJson } from '@/core/build/provenance';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
@@ -129,6 +130,55 @@ export default function ReproLockPage() {
     notify('success', t('reprolock.exported'));
   };
 
+  const handleBundle = async () => {
+    if (!project || selected.size === 0) return;
+    setBusy(true);
+    try {
+      const { buildReproBundle } = await import('@/core/repro/bundle');
+      let buildCacheJson: string | undefined;
+      let attestationJson: string | undefined;
+      try {
+        const { useBlockStore } = await import('@/stores/blockStore');
+        const state = useBlockStore.getState();
+        buildCacheJson = await state.exportBuildCache();
+        if (state.lastAttestation) attestationJson = attestationToJson(state.lastAttestation);
+      } catch {
+        // Block mode may never have been opened — the bundle is still valid.
+      }
+      const env = collectEnvironment();
+      const bytes = await buildReproBundle({
+        project,
+        runs,
+        runIds: [...selected],
+        versions: { runtime: env.runtime },
+        dependencies: env.dependencies,
+        buildCacheJson,
+        attestationJson,
+      });
+      const safe = project.name.replace(/[^\w\u4e00-\u9fa5-]+/g, '_').slice(0, 48) || 'project';
+      downloadBlob(`${safe}-repro-bundle.zip`, bytes, 'application/zip');
+      notify('success', t('repro2.bundle_exported'));
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifyBundle = async (file: File) => {
+    try {
+      const { verifyReproBundle } = await import('@/core/repro/bundle');
+      const result = verifyReproBundle(new Uint8Array(await file.arrayBuffer()));
+      if (result.ok) {
+        notify('success', t('repro2.bundle_verified', { count: result.verified.length }));
+      } else {
+        notify('error', t('repro2.bundle_invalid', { reason: result.issues.slice(0, 2).join('; ') }));
+      }
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const handleImport = async (file: File) => {
     if (!project) return;
     try {
@@ -224,6 +274,28 @@ export default function ReproLockPage() {
             content={lock ? lockToJson(lock) : null}
             className="btn"
           />
+          <button
+            type="button"
+            className="btn"
+            disabled={selected.size === 0 || busy}
+            title={t('repro2.bundle_export_hint')}
+            onClick={() => void handleBundle()}
+          >
+            {t('repro2.bundle_export')}
+          </button>
+          <label className="btn" title={t('repro2.bundle_verify_hint')}>
+            {t('repro2.bundle_verify')}
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleVerifyBundle(f);
+                e.target.value = '';
+              }}
+            />
+          </label>
           <label className="btn repro-import">
             {t('reprolock.import')}
             <input
