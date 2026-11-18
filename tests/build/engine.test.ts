@@ -243,4 +243,20 @@ describe('BuildEngine', () => {
     const after = await build.run(chain, countingRunner(counts));
     expect(after.stats.cached).toBe(4);
   });
+
+  it('exposes cache stats and clearCache forces a full recompute', async () => {
+    const counts = new Map<string, number>();
+    const build = engine();
+    await build.run(chain, countingRunner(counts));
+    const stats = await build.cacheStats();
+    expect(stats.entries).toBe(4);
+    expect(stats.bytes).toBeGreaterThan(0);
+
+    await build.clearCache();
+    expect((await build.cacheStats()).entries).toBe(0);
+
+    const after = await build.run(chain, countingRunner(counts));
+    expect(after.stats.computed).toBe(4);
+    expect(after.stats.cached).toBe(0);
+  });
 });

@@ -16,6 +16,7 @@ import {
 } from '@/core/storage';
 import { OpfsChunkStore, isOpfsAvailable } from '@/core/opfs';
 import { migrateIdbToOpfs, type MigrationResult } from '@/core/opfs-migration';
+import type { BuildCacheStats } from '@/core/build/cache';
 import type { SettingsState } from '@/core/settings';
 import { getGpuBackend } from '@/core/gpu';
 import {
@@ -189,6 +190,34 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   const [migrateResult, setMigrateResult] = useState<MigrationResult | null>(null);
   const stopMigrationRef = useRef(false);
 
+  // Incremental build cache (content-addressed Flow results): entries, bytes,
+  // persistence mode and a "clear" action. Loaded lazily so Settings does not
+  // pull the whole block system into its initial chunk.
+  const [buildCache, setBuildCache] = useState<BuildCacheStats | null>(null);
+  const [buildClearOpen, setBuildClearOpen] = useState(false);
+
+  const refreshBuildCache = async () => {
+    try {
+      const { useBlockStore } = await import('@/stores/blockStore');
+      setBuildCache(await useBlockStore.getState().buildCacheStats());
+    } catch {
+      setBuildCache(null);
+    }
+  };
+
+  const doClearBuildCache = async () => {
+    try {
+      const { useBlockStore } = await import('@/stores/blockStore');
+      await useBlockStore.getState().clearBuildCache();
+      notify('success', t('settings.build_cache_cleared'));
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setBuildClearOpen(false);
+      void refreshBuildCache();
+    }
+  };
+
   const refreshChunkUsage = async () => {
     try {
       const [bytes, refs] = await Promise.all([chunkUsageBytes(), listChunkFileRefs()]);
@@ -254,6 +283,7 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   useEffect(() => {
     void storageUsage().then(setUsage);
     void refreshChunkUsage();
+    void refreshBuildCache();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -268,6 +298,16 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
       const { useProjectStore } = await import('@/stores/projectStore');
       useProjectStore.setState({ project: null, dirty: false, status: 'ready', statusText: null, recent: [] });
       void useProjectStore.getState().loadRecent().catch(() => undefined);
+      // The incremental build cache lives in its own database and is keyed by
+      // content, so a full wipe should drop it as well — otherwise the next
+      // run would silently reuse results from a project that no longer exists.
+      try {
+        const { useBlockStore } = await import('@/stores/blockStore');
+        await useBlockStore.getState().clearBuildCache();
+        setBuildCache(await useBlockStore.getState().buildCacheStats());
+      } catch {
+        /* cache clearing is best-effort */
+      }
       notify('success', t('settings.cache_cleared'));
     } catch (err) {
       notify('error', err instanceof Error ? err.message : String(err));
@@ -454,6 +494,56 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
                   <label className="settings-label">{t('settings.clear_cache')}</label>
                   <button type="button" className="btn btn-danger" onClick={() => setClearOpen(true)}>
                     {t('settings.clear_cache')}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {active === 'store' && (
+              <section className="card settings-section">
+                <h2 className="settings-section-title">{t('settings.build_cache')}</h2>
+                <p className="settings-label">{t('settings.build_cache_intro')}</p>
+
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.build_cache_entries')}</label>
+                  <div className="settings-value">
+                    {buildCache
+                      ? `${buildCache.entries} / ${buildCache.maxEntries}`
+                      : t('common.unknown')}
+                  </div>
+                </div>
+
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.build_cache_size')}</label>
+                  <div className="settings-value">
+                    {buildCache
+                      ? `${formatBytes(buildCache.bytes)} / ${formatBytes(buildCache.maxBytes)}`
+                      : t('common.unknown')}
+                  </div>
+                </div>
+
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.build_cache_storage')}</label>
+                  <div className="settings-value">
+                    {!buildCache
+                      ? t('common.unknown')
+                      : buildCache.persistent
+                        ? buildCache.degraded
+                          ? t('settings.build_cache_degraded')
+                          : t('settings.build_cache_persistent')
+                        : t('settings.build_cache_memory')}
+                  </div>
+                </div>
+
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.build_cache_clear')}</label>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={!buildCache || buildCache.entries === 0}
+                    onClick={() => setBuildClearOpen(true)}
+                  >
+                    {t('settings.build_cache_clear')}
                   </button>
                 </div>
               </section>
@@ -658,6 +748,31 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
         }
       >
         <p>{t('settings.clear_cache_confirm')}</p>
+      </Modal>
+
+      <Modal
+        open={buildClearOpen}
+        onClose={() => setBuildClearOpen(false)}
+        title={t('settings.build_cache_clear')}
+        width={460}
+        footer={
+          <>
+            <button type="button" className="btn" onClick={() => setBuildClearOpen(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-danger" onClick={() => void doClearBuildCache()}>
+              {t('common.confirm')}
+            </button>
+          </>
+        }
+      >
+        <p>{t('settings.build_cache_clear_confirm')}</p>
+        <p className="settings-label">
+          {t('settings.build_cache_clear_detail', {
+            count: buildCache?.entries ?? 0,
+            bytes: formatBytes(buildCache?.bytes ?? 0),
+          })}
+        </p>
       </Modal>
 
       <Modal

@@ -27,6 +27,7 @@ import { compiledRegionToPlan, runCompiledRegion } from '@/core/build/blockAdapt
 import { createBuildAttestation } from '@/core/build/provenance';
 import type { BuildAttestation } from '@/core/build/provenance';
 import type { BuildStats, StepDecision } from '@/core/build/engine';
+import type { BuildCacheStats } from '@/core/build/cache';
 import type { RunBuildStats } from '@/core/experiment/record';
 import type { DataValue } from '@/types/datatable';
 
@@ -99,6 +100,10 @@ interface BlockStore {
   run: () => Promise<void>;
   stop: () => void;
   clear: () => void;
+  /** Entries/bytes/persistence of the incremental build cache. */
+  buildCacheStats: () => Promise<BuildCacheStats>;
+  /** Drop all cached build results (memory + IndexedDB) and reset the report. */
+  clearBuildCache: () => Promise<void>;
 
   toJSON: () => BlockGraphState;
   fromJSON: (state: BlockGraphState) => void;
@@ -414,6 +419,13 @@ export function createBlockGraphStore(emitEvents: boolean) {
         buildSteps: {},
       });
       notifyChanged();
+    },
+
+    buildCacheStats: () => getBuildEngine().cacheStats(),
+
+    clearBuildCache: async () => {
+      await getBuildEngine().clearCache();
+      set({ lastBuild: null, lastAttestation: null, buildSteps: {} });
     },
 
     toJSON: () => ({

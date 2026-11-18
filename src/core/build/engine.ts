@@ -184,6 +184,20 @@ export class BuildEngine {
     return this.envFingerprint;
   }
 
+  /** Storage-level stats of the backing cache (UI: build cache panel). */
+  async cacheStats(): ReturnType<BuildCache['stats']> {
+    return this.cache.stats();
+  }
+
+  /**
+   * Drop every cached value (memory + persistence) and the session's producer
+   * identities. Subsequent runs recompute from scratch under fresh keys.
+   */
+  async clearCache(): Promise<void> {
+    await this.cache.clear();
+    this.producers.clear();
+  }
+
   async run(
     plan: BuildPlan,
     runner: StepRunner,
