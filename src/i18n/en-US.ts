@@ -812,6 +812,13 @@ export const enUS: LocaleDictionary = {
   'blocks.build.attestation': 'Provenance',
   'blocks.build.attestation_hint': 'Download a digest-verifiable attestation of this run (plan, keys, output hashes)',
   'blocks.build.attestation_saved': 'Build attestation downloaded',
+  'blocks.build.preview': 'Dry run',
+  'blocks.build.preview_hint': 'Predict which nodes the cache can serve without executing the graph. Downstream of a stale node is undecided until that node runs.',
+  'blocks.build.preview_summary': 'Predicted {cached}/{total} hits · {stale} to recompute',
+  'blocks.build.preview_unknown': 'Undecided downstream: {count}',
+  'blocks.build.preview_node_hint': 'Dry-run prediction for the current graph — not a recorded run result',
+  'blocks.build.node_stale': 'stale',
+  'blocks.build.node_unknown': 'pending',
 
   // Display-time translations for executor error messages (src/blocks/errorL10n.ts)
   'blocks.errors.not_configured_column': 'this block is not configured — pick a column first',

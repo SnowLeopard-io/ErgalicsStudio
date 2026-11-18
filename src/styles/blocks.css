@@ -217,6 +217,20 @@
   color: var(--color-error);
 }
 
+/* Dry-run verdicts are predictions, so draw them softer than a real result. */
+.block-node-build.is-preview {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.block-node-build.is-stale {
+  color: var(--color-warning);
+}
+
+.block-node-build.is-unknown {
+  color: var(--color-text-tertiary);
+}
+
 /* ---- ports ---- */
 
 .block-port {
@@ -321,6 +335,13 @@
 
 .block-build-counts {
   color: var(--color-text-tertiary);
+}
+
+/* The dry-run pill is provisional: dashed border, distinct from a run result. */
+.block-build-summary.is-preview {
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 
 /* ---- param editor ---- */

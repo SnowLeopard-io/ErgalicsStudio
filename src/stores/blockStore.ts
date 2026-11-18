@@ -26,7 +26,7 @@ import { createBuildEnvironment } from '@/core/build/key';
 import { compiledRegionToPlan, runCompiledRegion } from '@/core/build/blockAdapter';
 import { createBuildAttestation } from '@/core/build/provenance';
 import type { BuildAttestation } from '@/core/build/provenance';
-import type { BuildStats, StepDecision } from '@/core/build/engine';
+import type { BuildPreview, BuildStats, StepDecision } from '@/core/build/engine';
 import type { BuildCacheStats } from '@/core/build/cache';
 import type { RunBuildStats } from '@/core/experiment/record';
 import type { DataValue } from '@/types/datatable';
@@ -83,6 +83,8 @@ interface BlockStore {
   lastAttestation: BuildAttestation | null;
   /** Per-node cache hit/recompute decision of the last run. */
   buildSteps: Record<string, FlowBuildStepInfo>;
+  /** Dry-run prediction of the next run (cleared whenever the graph changes). */
+  buildPreview: BuildPreview | null;
 
   addInstance: (blockId: string, position: BlockPosition) => void;
   removeInstance: (id: string) => void;
@@ -104,6 +106,8 @@ interface BlockStore {
   buildCacheStats: () => Promise<BuildCacheStats>;
   /** Drop all cached build results (memory + IndexedDB) and reset the report. */
   clearBuildCache: () => Promise<void>;
+  /** Compile the current graph and predict which nodes the cache can serve. */
+  previewBuild: () => Promise<void>;
 
   toJSON: () => BlockGraphState;
   fromJSON: (state: BlockGraphState) => void;
@@ -196,6 +200,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
     lastBuild: null,
     lastAttestation: null,
     buildSteps: {},
+    buildPreview: null,
 
     addInstance: (blockId, position) => {
       const meta = blockRegistry.get(blockId);
@@ -206,7 +211,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         position,
         params: { ...meta.defaultParams },
       };
-      set((s) => ({ instances: [...s.instances, instance] }));
+      set((s) => ({ instances: [...s.instances, instance], buildPreview: null }));
       notifyChanged();
     },
 
@@ -224,6 +229,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         nodeStatus: omitKey(s.nodeStatus, id),
         executionErrors: omitKey(s.executionErrors, id),
         compileDiagnostics: [],
+        buildPreview: null,
       }));
       notifyChanged();
     },
@@ -240,6 +246,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         instances: s.instances.map((i) =>
           i.id === instanceId ? { ...i, params: { ...i.params, ...params } } : i,
         ),
+        buildPreview: null,
       }));
       notifyChanged();
     },
@@ -264,7 +271,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
       );
       if (dup) return;
       const conn: BlockConnection = { id: newId(), from, to };
-      set((s) => ({ connections: [...s.connections, conn] }));
+      set((s) => ({ connections: [...s.connections, conn], buildPreview: null }));
       notifyChanged();
     },
 
@@ -276,6 +283,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         // data computed with a connection that no longer exists.
         ...(conn ? { nodeOutputs: omitKey(s.nodeOutputs, conn.to.nodeId) } : {}),
         compileDiagnostics: [],
+        buildPreview: null,
       }));
       notifyChanged();
     },
@@ -301,6 +309,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
           lastBuild: null,
           lastAttestation: null,
           buildSteps: {},
+          buildPreview: null,
           isRunning: false,
         });
         return;
@@ -318,6 +327,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         lastBuild: null,
         lastAttestation: null,
         buildSteps: {},
+        buildPreview: null,
       });
 
       const controller = new AbortController();
@@ -417,6 +427,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         lastBuild: null,
         lastAttestation: null,
         buildSteps: {},
+        buildPreview: null,
       });
       notifyChanged();
     },
@@ -425,7 +436,25 @@ export function createBlockGraphStore(emitEvents: boolean) {
 
     clearBuildCache: async () => {
       await getBuildEngine().clearCache();
-      set({ lastBuild: null, lastAttestation: null, buildSteps: {} });
+      set({ lastBuild: null, lastAttestation: null, buildSteps: {}, buildPreview: null });
+    },
+
+    previewBuild: async () => {
+      const { instances, connections } = get();
+      const result = compile({ id: 'main', instances, connections }, blockRegistry);
+      if (!result.ok || !result.program) {
+        set({ buildPreview: null, compileDiagnostics: result.diagnostics });
+        return;
+      }
+      const preview = await getBuildEngine().preview(compiledRegionToPlan(result.program));
+      // A concurrent graph edit or clear() must not resurrect a stale preview.
+      if (
+        get().instances !== instances ||
+        get().connections !== connections
+      ) {
+        return;
+      }
+      set({ buildPreview: preview, compileDiagnostics: [] });
     },
 
     toJSON: () => ({
@@ -466,6 +495,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         lastBuild: null,
         lastAttestation: null,
         buildSteps: {},
+        buildPreview: null,
       });
     },
   }));

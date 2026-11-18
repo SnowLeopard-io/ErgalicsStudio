@@ -123,6 +123,33 @@ export interface BuildStats {
   steps: StepDecision[];
 }
 
+/** Predicted per-step outcome of a dry run. */
+export type PreviewStepStatus = 'cached' | 'stale' | 'unknown';
+
+export interface PreviewStep {
+  id: string;
+  kind: string;
+  status: PreviewStepStatus;
+  /** The exact key a real run would use (for cached + first stale steps). */
+  key: string;
+  /** For `unknown`: the upstream step whose output is not available yet. */
+  blockedBy?: string;
+}
+
+export interface BuildPreview {
+  planId: string;
+  planHash: string;
+  environment: string;
+  total: number;
+  cached: number;
+  stale: number;
+  /** Downstream of a stale step: cannot be decided until that step runs. */
+  unknown: number;
+  /** cached / total, 0 for an empty plan. */
+  hitRate: number;
+  steps: PreviewStep[];
+}
+
 export interface BuildRunResult {
   outputs: Map<string, DataValue>;
   stats: BuildStats;
@@ -196,6 +223,87 @@ export class BuildEngine {
   async clearCache(): Promise<void> {
     await this.cache.clear();
     this.producers.clear();
+  }
+
+  /**
+   * Dry-run: predict, without executing anything, which steps would hit the
+   * cache and which would need computation. Keys are derived from the same
+   * function as a real run; a cached step contributes its exact key to its
+   * consumers, while a stale one makes every downstream step `unknown` (its
+   * output content cannot be known before it runs).
+   *
+   * This is a *lower bound* on hits: a step that marks itself uncacheable at
+   * runtime, or whose producer identity conflicts in this session, may still
+   * recompute even when the entry exists.
+   */
+  async preview(plan: BuildPlan): Promise<BuildPreview> {
+    const topology = topoSort(plan);
+    const byId = new Map<string, BuildStep>();
+    for (const step of plan.steps) byId.set(step.id, step);
+
+    const keys = new Map<string, string>();
+    const status = new Map<string, PreviewStepStatus>();
+    const steps: PreviewStep[] = [];
+
+    for (const layer of topology.layers) {
+      for (const id of layer) {
+        const step = byId.get(id);
+        if (!step) continue;
+        const inputKeys: Record<string, string> = {};
+        const upstreamStale = Object.entries(step.inputs).filter(
+          ([, upstream]) => status.get(upstream) !== 'cached',
+        );
+        for (const [port, upstream] of Object.entries(step.inputs)) {
+          inputKeys[port] = keys.get(upstream) ?? 'missing';
+        }
+
+        let verdict: PreviewStepStatus;
+        let key: string;
+        let blockedBy: string | undefined;
+        if (upstreamStale.length > 0) {
+          verdict = 'unknown';
+          blockedBy = upstreamStale[0]?.[1];
+          key = volatileStepKey(step, `preview:${plan.id}`, this.envFingerprint);
+        } else {
+          const breakdown = computeStepKey(step, inputKeys, this.envFingerprint);
+          key = breakdown.key;
+          const knownProducer = this.producers.get(key);
+          const identityConflict =
+            step.identity !== undefined &&
+            knownProducer !== undefined &&
+            knownProducer !== step.identity;
+          verdict =
+            !identityConflict && (await this.cache.has(key)) ? 'cached' : 'stale';
+        }
+        keys.set(id, key);
+        status.set(id, verdict);
+        steps.push({
+          id,
+          kind: step.kind,
+          status: verdict,
+          key,
+          ...(blockedBy !== undefined ? { blockedBy } : {}),
+        });
+      }
+    }
+
+    // Keep the report in declaration order, like `BuildStats.steps`, so a
+    // preview row and a later run row refer to the same node index.
+    const orderIndex = new Map(topology.order.map((id, index) => [id, index]));
+    steps.sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+    const cached = steps.filter((s) => s.status === 'cached').length;
+    const stale = steps.filter((s) => s.status === 'stale').length;
+    return {
+      planId: plan.id,
+      planHash: planFingerprint(plan),
+      environment: this.envFingerprint,
+      total: steps.length,
+      cached,
+      stale,
+      unknown: steps.length - cached - stale,
+      hitRate: steps.length > 0 ? cached / steps.length : 0,
+      steps,
+    };
   }
 
   async run(

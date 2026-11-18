@@ -38,6 +38,8 @@ export interface BuildCacheStats {
 
 export interface BuildCache {
   get(key: string): Promise<CacheEntry | undefined>;
+  /** Cheap existence probe for dry-run previews (no decode / no LRU bump). */
+  has(key: string): Promise<boolean>;
   put(entry: { key: string; value: EncodedValue; label?: string }): Promise<void>;
   delete(key: string): Promise<void>;
   clear(): Promise<void>;
@@ -84,6 +86,10 @@ export class MemoryBuildCache implements BuildCache {
     this.map.delete(key);
     this.map.set(key, entry);
     return entry;
+  }
+
+  async has(key: string): Promise<boolean> {
+    return this.map.has(key);
   }
 
   async put(entry: { key: string; value: EncodedValue; label?: string }): Promise<void> {
@@ -206,6 +212,14 @@ export class IndexedDbBuildCache implements BuildCache {
     );
     if (entry) this.touch(entry);
     return entry;
+  }
+
+  /** Count-only probe; avoids shipping a potentially huge value to the UI. */
+  async has(key: string): Promise<boolean> {
+    const db = await this.open();
+    const tx = db.transaction(STORE_ENTRIES, 'readonly');
+    const count = await requestResult(tx.objectStore(STORE_ENTRIES).count(key));
+    return count > 0;
   }
 
   /** Fire-and-forget LRU bump; a failed touch must never fail a cache read. */
@@ -362,6 +376,17 @@ class ResilientBuildCache implements BuildCache {
       }
     }
     return this.fallback.get(key);
+  }
+
+  async has(key: string): Promise<boolean> {
+    if (this.primary) {
+      try {
+        return await this.primary.has(key);
+      } catch {
+        this.degrade();
+      }
+    }
+    return this.fallback.has(key);
   }
 
   async put(entry: { key: string; value: EncodedValue; label?: string }): Promise<void> {

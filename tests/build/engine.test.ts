@@ -95,6 +95,52 @@ describe('BuildEngine', () => {
     expect(decisions.get('b')?.status).toBe('computed');
   });
 
+  it('previews cache hits and stale steps without executing anything', async () => {
+    const counts = new Map<string, number>();
+    const build = engine();
+    const before = await build.preview(chain);
+    expect(before.total).toBe(4);
+    expect(before.cached).toBe(0);
+    // Only roots are decidable on a cold cache; everything below is unknown.
+    expect(before.stale).toBe(1);
+    expect(before.unknown).toBe(3);
+    expect(before.hitRate).toBe(0);
+    expect(before.steps.map((s) => s.id)).toEqual(['a', 'b', 'd', 'c']);
+    expect(counts.size).toBe(0);
+
+    await build.run(chain, countingRunner(counts));
+    const after = await build.preview(chain);
+    expect(after.cached).toBe(4);
+    expect(after.stale).toBe(0);
+    expect(after.hitRate).toBe(1);
+    expect(after.steps.every((s) => s.status === 'cached')).toBe(true);
+
+    const changed: BuildPlan = {
+      id: chain.id,
+      steps: chain.steps.map((s) => (s.id === 'b' ? { ...s, params: { k: 3 } } : s)),
+    };
+    const partial = await build.preview(changed);
+    expect(partial.steps.find((s) => s.id === 'a')?.status).toBe('cached');
+    expect(partial.steps.find((s) => s.id === 'd')?.status).toBe('cached');
+    expect(partial.steps.find((s) => s.id === 'b')?.status).toBe('stale');
+    expect(partial.steps.find((s) => s.id === 'c')?.status).toBe('unknown');
+    expect(partial.steps.find((s) => s.id === 'c')?.blockedBy).toBe('b');
+    expect(partial.cached).toBe(2);
+    expect(partial.unknown).toBe(1);
+    expect(counts.size).toBe(4); // the preview itself never ran a step
+  });
+
+  it('a cleared cache makes every step stale in the preview', async () => {
+    const build = engine();
+    await build.run(chain, countingRunner(new Map()));
+    expect((await build.preview(chain)).cached).toBe(4);
+    await build.clearCache();
+    const after = await build.preview(chain);
+    expect(after.cached).toBe(0);
+    expect(after.stale).toBe(1);
+    expect(after.unknown).toBe(3);
+  });
+
   it('survives a cache entry with corrupt bytes by treating it as a miss', async () => {
     const cache = new MemoryBuildCache();
     const build = engine(cache);

@@ -814,6 +814,13 @@ export const zhCN: LocaleDictionary = {
   'blocks.build.attestation': '构建溯源',
   'blocks.build.attestation_hint': '下载本次运行的构建证明（计划、缓存键与输出哈希，可校验摘要）',
   'blocks.build.attestation_saved': '构建溯源已下载',
+  'blocks.build.preview': '增量预览',
+  'blocks.build.preview_hint': '不执行画布，仅预测缓存可命中的节点。处于待重算节点下游的节点在该节点运行前无法确定。',
+  'blocks.build.preview_summary': '预计命中 {cached}/{total} · 待重算 {stale}',
+  'blocks.build.preview_unknown': '下游待定：{count}',
+  'blocks.build.preview_node_hint': '当前画布的增量预览预测——并非已记录的运行结果',
+  'blocks.build.node_stale': '待重算',
+  'blocks.build.node_unknown': '待定',
 
   // Display-time translations for executor error messages (src/blocks/errorL10n.ts)
   'blocks.errors.not_configured_column': '此节点尚未配置——请先选择一列',

@@ -79,6 +79,25 @@ it('reports cache hits and per-node build decisions on an unchanged rerun', asyn
   expect(calls).toBe(1);
 });
 
+it('previews the next run and invalidates it when the graph changes', async () => {
+  blockRegistry.register(meta, async (): Promise<DataValue> => ({ kind: 'scalar', value: 7 }));
+  await useBlockStore.getState().clearBuildCache();
+  useBlockStore.getState().addInstance(meta.id, { x: 0, y: 0 });
+  const nodeId = useBlockStore.getState().instances[0]!.id;
+
+  await useBlockStore.getState().previewBuild();
+  expect(useBlockStore.getState().buildPreview?.total).toBe(1);
+  expect(useBlockStore.getState().buildPreview?.stale).toBe(1);
+  expect(useBlockStore.getState().buildPreview?.steps[0]?.id).toBe(nodeId);
+
+  await useBlockStore.getState().run();
+  await useBlockStore.getState().previewBuild();
+  expect(useBlockStore.getState().buildPreview?.cached).toBe(1);
+
+  useBlockStore.getState().updateParams(nodeId, { previewTick: 1 });
+  expect(useBlockStore.getState().buildPreview).toBeNull();
+});
+
 it('drops build telemetry when the graph is replaced', async () => {
   blockRegistry.register(meta, async (): Promise<DataValue> => ({ kind: 'scalar', value: 1 }));
   useBlockStore.getState().addInstance(meta.id, { x: 0, y: 0 });

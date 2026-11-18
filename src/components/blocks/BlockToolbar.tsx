@@ -10,6 +10,7 @@ import { useBlockStore } from '@/stores/blockStore';
 import type { FlowBuildStats } from '@/stores/blockStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
+import type { BuildPreview } from '@/core/build/engine';
 import { attestationToJson } from '@/core/build/provenance';
 import { downloadBlob } from '@/core/download';
 import { DownloadIcon } from '@/components/icons';
@@ -20,6 +21,22 @@ function formatDuration(ms: number): string {
 }
 
 /** Multi-line tooltip explaining where the numbers came from. */
+function previewTitle(
+  preview: BuildPreview,
+  t: ReturnType<typeof useT>,
+): string {
+  return [
+    t('blocks.build.preview_summary', {
+      cached: preview.cached,
+      total: preview.total,
+      stale: preview.stale,
+    }),
+    t('blocks.build.preview_unknown', { count: preview.unknown }),
+    t('blocks.build.plan', { hash: preview.planHash.slice(0, 16) }),
+    t('blocks.build.preview_hint'),
+  ].join('\n');
+}
+
 function buildTitle(
   build: FlowBuildStats,
   t: ReturnType<typeof useT>,
@@ -46,6 +63,8 @@ export function BlockToolbar() {
   const executionErrors = useBlockStore((s) => s.executionErrors);
   const lastBuild = useBlockStore((s) => s.lastBuild);
   const lastAttestation = useBlockStore((s) => s.lastAttestation);
+  const buildPreview = useBlockStore((s) => s.buildPreview);
+  const previewBuild = useBlockStore((s) => s.previewBuild);
   // `.flow.json` opened from the explorer binds this canvas to that file.
   const boundPath = useEditorStore(
     (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
@@ -92,11 +111,41 @@ export function BlockToolbar() {
         <button type="button" className="btn" disabled={count === 0} onClick={clear}>
           {t('blocks.clear')}
         </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={isRunning || count === 0}
+          title={t('blocks.build.preview_hint')}
+          onClick={() => void previewBuild()}
+        >
+          {t('blocks.build.preview')}
+        </button>
         {boundPath && (
           <button type="button" className="btn" onClick={() => void saveBoundFile()}>
             <DownloadIcon size={12} />
             {t('workbench.editor.save')}
           </button>
+        )}
+        {buildPreview && !lastBuild && (
+          <div
+            className="block-build-summary is-preview"
+            role="status"
+            aria-live="polite"
+            title={previewTitle(buildPreview, t)}
+          >
+            <span className="block-build-rate">
+              {t('blocks.build.hit_rate', {
+                rate: Math.round(buildPreview.hitRate * 100),
+              })}
+            </span>
+            <span className="block-build-counts">
+              {t('blocks.build.preview_summary', {
+                cached: buildPreview.cached,
+                total: buildPreview.total,
+                stale: buildPreview.stale,
+              })}
+            </span>
+          </div>
         )}
         {lastBuild && (
           <div
