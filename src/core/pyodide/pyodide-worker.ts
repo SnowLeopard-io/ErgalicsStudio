@@ -158,6 +158,17 @@ function ensurePyodide(indexURL: string): Promise<PyodideInterface> {
   return load;
 }
 
+/**
+ * Forget a half-initialised interpreter so a second bootstrap can start from
+ * a different origin (local bundle → public CDN fallback).
+ */
+function resetBootstrap(): void {
+  pyodide = null;
+  bootstrap = null;
+  ready = false;
+  activeIndexURL = PYODIDE_INDEX_URL;
+}
+
 /** Boot the interpreter: load packages, register the bridge, inject `studio`. */
 async function init(indexURL: string, loadPackages: string[]): Promise<void> {
   if (bootstrap && activeIndexURL !== indexURL) {
@@ -165,8 +176,24 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
     // the mismatch visible instead of silently ignoring the configured one.
     postNotify('warning', `Pyodide already loading from ${activeIndexURL}; ignoring indexURL ${indexURL}`);
   }
-  const py = await ensurePyodide(indexURL);
-  await py.loadPackage(loadPackages);
+  let py = await ensurePyodide(indexURL);
+  try {
+    await py.loadPackage(loadPackages);
+  } catch (err) {
+    // A fresh checkout vendors Pyodide at dev-start; a blocked mirror can leave
+    // the local bundle without its numpy wheel. Fall back to the public CDN so
+    // code mode still works when the network is available (offline users get a
+    // clear runtime error instead of a broken dev server).
+    const isLocal = indexURL.startsWith(location.origin);
+    if (!isLocal || indexURL === PYODIDE_INDEX_URL) throw err;
+    postNotify(
+      'warning',
+      `Local Pyodide wheels are incomplete (${err instanceof Error ? err.message : String(err)}); falling back to the CDN`,
+    );
+    resetBootstrap();
+    py = await ensurePyodide(PYODIDE_INDEX_URL);
+    await py.loadPackage(loadPackages);
+  }
 
   // JS side of `studio_bridge`: Python's studio.plot / studio.print /
   // studio.notify call into these functions; each posts a message to the host.

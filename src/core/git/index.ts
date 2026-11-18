@@ -22,7 +22,10 @@ export function getGitAdapter(): GitAdapter {
   // Node/Electron environment - lazy load
   if (!nodeAdapter) {
     // Dynamic import to avoid bundling simple-git in browser
-    import('./node-adapter').then((mod) => {
+    // @vite-ignore keeps the browser dependency scanner from following this
+    // Node-only branch (it `require`s `simple-git`, which is intentionally not
+    // an npm dependency of the web app and must not fail `npm run dev`).
+    import(/* @vite-ignore */ './node-adapter').then((mod) => {
       nodeAdapter = new mod.NodeGitAdapter();
     }).catch(() => {
       // Fallback to isomorphic-git if simple-git not available

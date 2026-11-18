@@ -9,6 +9,20 @@ import { ensureBlocklyMedia } from './scripts/vendor-blockly-media.mjs';
 import { ensureWebRAssets } from './scripts/copy-webr.mjs';
 import { injectSwPrecache } from './scripts/gen-sw-precache.mjs';
 
+/**
+ * Vendoring is an optimisation, never a startup dependency. A fresh checkout
+ * has no public/pyodide or public/blockly (both generated/gitignored), and a
+ * blocked mirror must not take down `npm run dev` — Vite must always come up
+ * so the rest of the workbench (block mode, data IO, plots) remains usable.
+ */
+async function safeVendor(name: string, task: () => Promise<unknown>): Promise<void> {
+  try {
+    await task();
+  } catch (err) {
+    console.warn(`[${name}] non-fatal vendoring failure: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // package.json is the single source of truth for the app version. Reading it
 // here (instead of only trusting npm_* env vars) keeps `npx vite` and any
 // non-npm invocation from stamping a stale fallback version into the build.
@@ -24,12 +38,12 @@ const pkgVersion = (
 const vendorPyodide: Plugin = {
   name: 'ergalics-vendor-pyodide',
   async buildStart() {
-    await ensurePyodideAssets();
+    await safeVendor('copy-pyodide', ensurePyodideAssets);
   },
   configureServer() {
     // Belt-and-suspenders for dev requests: make sure assets exist before
     // the first /pyodide/* request lands.
-    void ensurePyodideAssets();
+    void safeVendor('copy-pyodide', ensurePyodideAssets);
   },
 };
 
@@ -40,10 +54,10 @@ const vendorPyodide: Plugin = {
 const vendorBlocklyMedia: Plugin = {
   name: 'ergalics-vendor-blockly-media',
   async buildStart() {
-    await ensureBlocklyMedia();
+    await safeVendor('vendor-blockly-media', ensureBlocklyMedia);
   },
   configureServer() {
-    void ensureBlocklyMedia();
+    void safeVendor('vendor-blockly-media', ensureBlocklyMedia);
   },
 };
 
@@ -55,10 +69,10 @@ const vendorBlocklyMedia: Plugin = {
 const vendorWebR: Plugin = {
   name: 'ergalics-vendor-webr',
   async buildStart() {
-    await ensureWebRAssets();
+    await safeVendor('copy-webr', ensureWebRAssets);
   },
   configureServer() {
-    void ensureWebRAssets();
+    void safeVendor('copy-webr', ensureWebRAssets);
   },
 };
 
@@ -155,5 +169,10 @@ export default defineConfig({
     // always resolved at startup (otherwise a server started before `npm
     // install` caches the "unresolved" state and never recovers).
     include: ['jspdf', 'svg2pdf.js'],
+    // Node-only adapter: `NodeGitAdapter` uses a lazy `require('simple-git')`
+    // that is never reached in the browser. Vite's scanner tries to resolve
+    // that require on a fresh checkout and logs a scary "could not be
+    // resolved" error at dev start, so keep it out of dependency discovery.
+    exclude: ['simple-git'],
   },
 });

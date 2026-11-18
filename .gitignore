@@ -55,10 +55,10 @@ dist-verify*
 
 .workbuddy/
 
-# Local npm mirror registry (npmmirror) — a machine-local preference that
-# must not be committed: every contributor and CI would be forced onto the
-# mirror. Configure it in ~/.npmrc instead.
-.npmrc
+# Machine-local npm preferences (mirror registry, tokens) belong in ~/.npmrc,
+# never in the repo. The committed .npmrc is token-free and only carries the
+# workspace install policy (legacy-peer-deps), so a source-only checkout can
+# run `npm install` on any npm version without ERESOLVE aborts.
 
 # Docs workspace (VitePress): dependencies and build artifacts.
 docs/node_modules/
