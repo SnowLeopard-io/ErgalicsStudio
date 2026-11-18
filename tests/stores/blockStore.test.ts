@@ -52,6 +52,43 @@ it.each(['clear', 'fromJSON'] as const)('prevents late output/status/events afte
   } finally { sub.unsubscribe(); }
 });
 
+it('reports cache hits and per-node build decisions on an unchanged rerun', async () => {
+  let calls = 0;
+  blockRegistry.register(meta, async (): Promise<DataValue> => {
+    calls += 1;
+    return { kind: 'scalar', value: 42 };
+  });
+  useBlockStore.getState().addInstance(meta.id, { x: 0, y: 0 });
+  const nodeId = useBlockStore.getState().instances[0]!.id;
+
+  await useBlockStore.getState().run();
+  const first = useBlockStore.getState().lastBuild;
+  expect(first?.total).toBe(1);
+  expect(first?.computed).toBe(1);
+  expect(first?.cached).toBe(0);
+  expect(useBlockStore.getState().buildSteps[nodeId]?.status).toBe('computed');
+  expect(calls).toBe(1);
+
+  await useBlockStore.getState().run();
+  const second = useBlockStore.getState().lastBuild;
+  expect(second?.computed).toBe(0);
+  expect(second?.cached).toBe(1);
+  expect(second?.cacheHitRate).toBe(1);
+  expect(useBlockStore.getState().buildSteps[nodeId]?.status).toBe('cached');
+  expect(useBlockStore.getState().buildSteps[nodeId]?.reason).toBe('cache-hit');
+  expect(calls).toBe(1);
+});
+
+it('drops build telemetry when the graph is replaced', async () => {
+  blockRegistry.register(meta, async (): Promise<DataValue> => ({ kind: 'scalar', value: 1 }));
+  useBlockStore.getState().addInstance(meta.id, { x: 0, y: 0 });
+  await useBlockStore.getState().run();
+  expect(useBlockStore.getState().lastBuild).not.toBeNull();
+  useBlockStore.getState().fromJSON(empty);
+  expect(useBlockStore.getState().lastBuild).toBeNull();
+  expect(useBlockStore.getState().buildSteps).toEqual({});
+});
+
 it('does not let a stale failure erase results from a new graph run', async () => {
   const result = deferred<DataValue>();
   const started = deferred<void>();

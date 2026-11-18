@@ -305,6 +305,47 @@ describe('FR-11 diffRuns', () => {
     expect(diff.sameInputs).toBe(false);
   });
 
+  it('keeps build telemetry out of params so identical reruns compare as same params', () => {
+    const build = {
+      total: 4,
+      computed: 1,
+      cached: 3,
+      blocked: 0,
+      failed: 0,
+      durationMs: 5,
+      planHash: 'plan-aaaa',
+      environment: 'env-aaaa',
+      cacheHitRate: 0.75,
+    };
+    const a = makeRun({ build: { ...build, durationMs: 5 } });
+    const b = makeRun({ build: { ...build, durationMs: 900 } });
+    const diff = diffRuns(a, b);
+    expect(diff.params).toHaveLength(0);
+    expect(diff.sameParams).toBe(true);
+    expect(diff.config.some((c) => c.key === 'durationMs')).toBe(false);
+    expect(diff.config.some((c) => c.key === 'build.planHash')).toBe(false);
+  });
+
+  it('surfaces a changed build plan or environment as a configuration difference', () => {
+    const build = {
+      total: 2,
+      computed: 0,
+      cached: 2,
+      blocked: 0,
+      failed: 0,
+      durationMs: 3,
+      planHash: 'plan-aaaa',
+      environment: 'env-aaaa',
+      cacheHitRate: 1,
+    };
+    const diff = diffRuns(
+      makeRun({ build }),
+      makeRun({ build: { ...build, planHash: 'plan-bbbb', environment: 'env-bbbb' } }),
+    );
+    expect(diff.config.find((c) => c.key === 'build.planHash')).toBeDefined();
+    expect(diff.config.find((c) => c.key === 'build.environment')).toBeDefined();
+  });
+
   it('marks sameInputs when both runs share the input fingerprint', () => {
     const a = makeRun({ inputsHash: 'same-hash' });
     const b = makeRun({ inputsHash: 'same-hash' });

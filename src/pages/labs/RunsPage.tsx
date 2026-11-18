@@ -7,7 +7,7 @@ import {
   runDiffToJson,
   type RunDiff,
 } from '@/core/repro/lock';
-import type { RunRecord } from '@/core/experiment/record';
+import type { RunRecord, RunBuildStats } from '@/core/experiment/record';
 import { downloadBlob } from '@/core/download';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -28,6 +28,48 @@ function fmtValue(v: unknown): string {
   if (typeof v === 'number') return String(Number(v.toPrecision(6)));
   if (v === undefined || v === null) return '—';
   return JSON.stringify(v) ?? '—';
+}
+
+/** Old records kept the build breakdown inside `params.build`. */
+function buildOf(run: RunRecord): RunBuildStats | undefined {
+  if (run.build) return run.build;
+  const legacy = run.params?.build;
+  if (
+    legacy !== null &&
+    typeof legacy === 'object' &&
+    typeof (legacy as RunBuildStats).total === 'number'
+  ) {
+    return legacy as RunBuildStats;
+  }
+  return undefined;
+}
+
+function fmtBuild(build: RunBuildStats | undefined): string {
+  if (!build) return '—';
+  const ran = build.cached + build.computed;
+  const rate = ran > 0 ? Math.round((build.cached / ran) * 100) : 0;
+  return `${build.cached}/${ran} · ${rate}%`;
+}
+
+function buildTitle(build: RunBuildStats | undefined, t: ReturnType<typeof useT>): string {
+  if (!build) return '';
+  return [
+    t('research.runs.build_title', {
+      cached: build.cached,
+      computed: build.computed,
+      total: build.total,
+      rate: Math.round(build.cacheHitRate * 100),
+    }),
+    `${t('research.runs.build_duration')}: ${fmtDuration(build.durationMs)}`,
+    `plan: ${build.planHash.slice(0, 16)}`,
+    `env: ${build.environment.slice(0, 16)}`,
+    ...(build.blocked > 0
+      ? [t('blocks.build.blocked', { count: build.blocked })]
+      : []),
+    ...(build.failed > 0
+      ? [t('blocks.build.failed', { count: build.failed })]
+      : []),
+  ].join('\n');
 }
 
 /**
@@ -92,6 +134,7 @@ export default function RunsPage() {
                 <th>{t('research.runs.time')}</th>
                 <th>{t('research.runs.source')}</th>
                 <th>{t('research.runs.duration')}</th>
+                <th>{t('research.runs.build')}</th>
                 <th>{t('research.runs.params')}</th>
                 <th>{t('research.runs.metrics')}</th>
                 <th />
@@ -114,6 +157,7 @@ export default function RunsPage() {
                     {run.failed ? ` · ${t('research.runs.failed')}` : ''}
                   </td>
                   <td>{fmtDuration(run.durationMs)}</td>
+                  <td title={buildTitle(buildOf(run), t)}>{fmtBuild(buildOf(run))}</td>
                   <td>{Object.keys(run.params).length}</td>
                   <td>{Object.keys(run.metrics).length}</td>
                   <td>

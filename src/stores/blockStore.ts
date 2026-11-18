@@ -24,7 +24,8 @@ import { BuildEngine } from '@/core/build/engine';
 import { createBuildCache } from '@/core/build/cache';
 import { createBuildEnvironment } from '@/core/build/key';
 import { runCompiledRegion } from '@/core/build/blockAdapter';
-import type { BuildStats } from '@/core/build/engine';
+import type { BuildStats, StepDecision } from '@/core/build/engine';
+import type { RunBuildStats } from '@/core/experiment/record';
 import type { DataValue } from '@/types/datatable';
 
 export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
@@ -33,13 +34,17 @@ export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
 export const FLOW_RUN_FINISHED = 'flow:run:finished';
 
 /** Cache/compute breakdown of a run, for the run history and diagnostics. */
-export type FlowBuildStats = Pick<
-  BuildStats,
-  'total' | 'computed' | 'cached' | 'blocked' | 'failed' | 'durationMs' | 'planHash' | 'environment'
-> & {
-  /** Cached / (cached + computed), 0 when nothing ran. */
-  cacheHitRate: number;
-};
+export type FlowBuildStats = RunBuildStats;
+
+/** Per-node outcome of the last run (drives the canvas cache badges). */
+export interface FlowBuildStepInfo {
+  status: StepDecision['status'];
+  /** Machine-readable reason: `cache-hit`, `computed`, `upstream-failed`, … */
+  reason: string;
+  durationMs: number;
+  /** True when a cache hit came from IndexedDB rather than this session. */
+  fromPersistence?: boolean;
+}
 
 export interface FlowRunFinishedPayload {
   ok: boolean;
@@ -69,6 +74,10 @@ interface BlockStore {
   compileDiagnostics: CompileDiagnostic[];
   /** Output of every executed node from the last run, keyed by node id. */
   nodeOutputs: Record<string, DataValue>;
+  /** Build breakdown of the last successful run (null before the first one). */
+  lastBuild: FlowBuildStats | null;
+  /** Per-node cache hit/recompute decision of the last run. */
+  buildSteps: Record<string, FlowBuildStepInfo>;
 
   addInstance: (blockId: string, position: BlockPosition) => void;
   removeInstance: (id: string) => void;
@@ -175,6 +184,8 @@ export function createBlockGraphStore(emitEvents: boolean) {
     executionErrors: {},
     compileDiagnostics: [],
     nodeOutputs: {},
+    lastBuild: null,
+    buildSteps: {},
 
     addInstance: (blockId, position) => {
       const meta = blockRegistry.get(blockId);
@@ -272,13 +283,30 @@ export function createBlockGraphStore(emitEvents: boolean) {
       const graphHash = JSON.stringify([instances, connections]);
       const result = compile(graph, blockRegistry);
       if (!result.ok || !result.program) {
-        set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {}, nodeOutputs: {}, isRunning: false });
+        set({
+          compileDiagnostics: result.diagnostics,
+          executionErrors: {},
+          nodeStatus: {},
+          nodeOutputs: {},
+          lastBuild: null,
+          buildSteps: {},
+          isRunning: false,
+        });
         return;
       }
 
       // Keep the previous run's outputs visible until the new results arrive
       // — blanking them here made the preview flash empty during long runs.
-      set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {} });
+      set({
+        compileDiagnostics: [],
+        executionErrors: {},
+        isRunning: true,
+        nodeStatus: {},
+        // A build summary describes one run; showing the previous one while
+        // this run is still in flight would read as if it already finished.
+        lastBuild: null,
+        buildSteps: {},
+      });
 
       const controller = new AbortController();
       activeAbort = controller;
@@ -302,14 +330,26 @@ export function createBlockGraphStore(emitEvents: boolean) {
         if (token !== runSeq) return; // superseded by stop() or a newer run
         const nodeOutputs: Record<string, DataValue> = {};
         for (const [nodeId, value] of run.outputs) nodeOutputs[nodeId] = value;
-        set({ isRunning: false, nodeOutputs });
+        const build = buildStatsPayload(run.stats);
+        const buildSteps: Record<string, FlowBuildStepInfo> = {};
+        for (const decision of run.stats.steps) {
+          buildSteps[decision.id] = {
+            status: decision.status,
+            reason: decision.reason,
+            durationMs: decision.durationMs,
+            ...(decision.fromPersistence !== undefined
+              ? { fromPersistence: decision.fromPersistence }
+              : {}),
+          };
+        }
+        set({ isRunning: false, nodeOutputs, lastBuild: build, buildSteps });
         if (emitEvents) {
           emit(FLOW_RUN_FINISHED, {
             ok: true,
             durationMs: Date.now() - startedAt,
             graphHash,
             outputs: nodeOutputs,
-            build: buildStatsPayload(run.stats),
+            build,
           } satisfies FlowRunFinishedPayload);
         }
       } catch (err) {
@@ -354,6 +394,8 @@ export function createBlockGraphStore(emitEvents: boolean) {
         executionErrors: {},
         compileDiagnostics: [],
         nodeOutputs: {},
+        lastBuild: null,
+        buildSteps: {},
       });
       notifyChanged();
     },
@@ -393,6 +435,8 @@ export function createBlockGraphStore(emitEvents: boolean) {
         executionErrors: {},
         compileDiagnostics: [],
         nodeOutputs: {},
+        lastBuild: null,
+        buildSteps: {},
       });
     },
   }));

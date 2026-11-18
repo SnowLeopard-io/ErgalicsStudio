@@ -999,6 +999,8 @@ export function diffRuns(a: RunRecord, b: RunRecord, options: DiffRunsOptions = 
     ['seed', a.seed, b.seed],
     ['inputsHash', a.inputsHash, b.inputsHash],
     ['outputsHash', a.outputsHash, b.outputsHash],
+    ['build.planHash', a.build?.planHash, b.build?.planHash],
+    ['build.environment', a.build?.environment, b.build?.environment],
     ['engine', a.params?.engine, b.params?.engine],
     ['durationMs', a.durationMs, b.durationMs],
     ['failed', a.failed ?? false, b.failed ?? false],

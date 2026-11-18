@@ -783,6 +783,23 @@ export const zhCN: LocaleDictionary = {
   'blocks.compile_error': '编译错误{nodeId}：{message}',
   'blocks.run_error': '运行错误（{nodeId}）：{message}',
 
+  // 增量构建摘要（画布工具栏 + 节点徽章）
+  'blocks.build.hit_rate': '命中率 {rate}%',
+  'blocks.build.summary': '命中 {cached} · 重算 {computed}',
+  'blocks.build.total': '总节点：{total}',
+  'blocks.build.cached': '缓存命中：{cached}',
+  'blocks.build.computed': '重新计算：{computed}',
+  'blocks.build.blocked': '阻断：{count}',
+  'blocks.build.failed': '失败：{count}',
+  'blocks.build.duration': '构建耗时：{duration}',
+  'blocks.build.plan': '计划 {hash}',
+  'blocks.build.environment': '环境 {hash}',
+  'blocks.build.node_cached': '缓存',
+  'blocks.build.node_computed': '重算',
+  'blocks.build.node_blocked': '阻断',
+  'blocks.build.node_failed': '失败',
+  'blocks.build.node_persisted': '来自 IndexedDB',
+
   // Display-time translations for executor error messages (src/blocks/errorL10n.ts)
   'blocks.errors.not_configured_column': '此节点尚未配置——请先选择一列',
   'blocks.errors.not_configured_columns': '此节点尚未配置——请至少选择一列',
@@ -848,6 +865,9 @@ export const zhCN: LocaleDictionary = {
   'research.runs.time': '时间',
   'research.runs.source': '来源',
   'research.runs.duration': '耗时',
+  'research.runs.build': '构建缓存',
+  'research.runs.build_title': '缓存命中 {cached} / {total} 个节点 · 重算 {computed} · 命中率 {rate}%',
+  'research.runs.build_duration': '构建耗时',
   'research.runs.params': '参数',
   'research.runs.metrics': '指标',
   'research.runs.compare': '选择用于对比',

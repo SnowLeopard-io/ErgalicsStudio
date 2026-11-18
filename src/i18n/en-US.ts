@@ -781,6 +781,23 @@ export const enUS: LocaleDictionary = {
   'blocks.compile_error': 'Compile error{nodeId}: {message}',
   'blocks.run_error': 'Runtime error ({nodeId}): {message}',
 
+  // Incremental-build summary (canvas toolbar + node badges)
+  'blocks.build.hit_rate': 'Hit rate {rate}%',
+  'blocks.build.summary': '{cached} cached · {computed} rebuilt',
+  'blocks.build.total': 'Steps: {total}',
+  'blocks.build.cached': 'Cache hits: {cached}',
+  'blocks.build.computed': 'Recomputed: {computed}',
+  'blocks.build.blocked': 'Blocked: {count}',
+  'blocks.build.failed': 'Failed: {count}',
+  'blocks.build.duration': 'Build time: {duration}',
+  'blocks.build.plan': 'Plan {hash}',
+  'blocks.build.environment': 'Environment {hash}',
+  'blocks.build.node_cached': 'cached',
+  'blocks.build.node_computed': 'rebuilt',
+  'blocks.build.node_blocked': 'blocked',
+  'blocks.build.node_failed': 'failed',
+  'blocks.build.node_persisted': 'from IndexedDB',
+
   // Display-time translations for executor error messages (src/blocks/errorL10n.ts)
   'blocks.errors.not_configured_column': 'this block is not configured — pick a column first',
   'blocks.errors.not_configured_columns': 'this block is not configured — select at least one column',
@@ -846,6 +863,9 @@ export const enUS: LocaleDictionary = {
   'research.runs.time': 'Time',
   'research.runs.source': 'Source',
   'research.runs.duration': 'Duration',
+  'research.runs.build': 'Build cache',
+  'research.runs.build_title': 'Cache hits {cached} / {total} steps · recomputed {computed} · hit rate {rate}%',
+  'research.runs.build_duration': 'Build time',
   'research.runs.params': 'Params',
   'research.runs.metrics': 'Metrics',
   'research.runs.compare': 'Select for comparison',

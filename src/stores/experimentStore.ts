@@ -187,10 +187,8 @@ export function initExperimentStore(): void {
   on<FlowRunFinishedPayload>(FLOW_RUN_FINISHED, (payload) => {
     void useExperimentStore.getState().recordRun({
       source: 'flow',
-      params: {
-        graphHash: payload.graphHash,
-        ...(payload.build ? { build: payload.build } : {}),
-      },
+      params: { graphHash: payload.graphHash },
+      ...(payload.build ? { build: payload.build } : {}),
       inputsHash: payload.graphHash,
       metrics: numericMetrics(payload.outputs),
       durationMs: payload.durationMs,
