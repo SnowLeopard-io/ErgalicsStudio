@@ -1,10 +1,10 @@
 # 07 Scientific Computing Subsystems
 
-`src/core` is the product's scientific foundation: **54 domain-subsystem subdirectories + 42 root-level modules**, all implemented in pure TypeScript with little DOM use and directly testable with Vitest in Node. They are consumed by the block system, Studio API, research-tool pages, and delivery pipeline, forming the capability layer that moves the product from “can plot” to “usable for real research.”
+`src/core` is the product's scientific foundation: **55 domain-subsystem subdirectories + 42 root-level modules**, all implemented in pure TypeScript with little DOM use and directly testable with Vitest in Node. They are consumed by the block system, Studio API, research-tool pages, and delivery pipeline, forming the capability layer that moves the product from “can plot” to “usable for real research.”
 
 ## I. Kernel overview {#一、内核总览}
 
-### 1.1 Subsystem directories (54, grouped by domain) {#_1-1-子系统目录-54-个-按领域分组}
+### 1.1 Subsystem directories (55, grouped by domain) {#_1-1-子系统目录-54-个-按领域分组}
 
 | Domain | Subsystem | One-line facts |
 | --- | --- | --- |
@@ -32,6 +32,7 @@
 | Plotting and delivery | package | Paper supplement ZIP packaging (manifest + data + code sessions, fflate compression) |
 | Plotting and delivery | pdf | Pure-TypeScript PDF output: font subsetting (font.ts) and SVG → PDF conversion (svg.ts) |
 | Reproducibility and experiments | repro | Seeded random numbers, stable hashes, run manifests, DAG→Python export, repro.lock, environment snapshots |
+| Reproducibility and experiments | build | Content-addressed incremental build system: pure-node DAG, content-hash cache keys, IndexedDB persistence, parallel wavefront scheduling, provenance and partial recompute |
 | Reproducibility and experiments | experiment | Run-record model and A/B parameter comparison (IndexedDB `runs` store, not written into .clproj) |
 | Reproducibility and experiments | lineage | File → run DAG lineage graph and Sugiyama-style layered layout |
 | Reproducibility and experiments | sweep | Expand SweepPlan into deterministic design points (full grid / list / Latin hypercube) and run sweeps |
@@ -288,6 +289,26 @@ The browser's memory boundary caps data scale: a ~4 GB WASM32 heap and finite ta
 
 **Boundaries and error semantics**: JSON streaming import is unsupported (the user is asked to convert to CSV first); a failed import cleans up the half-built table, and a terminated engine instance is rebuilt automatically on the next call. Large files never enter the project `FileEntry` text store (that is the full-text registry); they exist only as DuckDB tables.
 
+### Science build system (src/core/build)
+
+A classic DAG executor only answers “which nodes are dirty in this run?”, and that dirty set dies with the run. The build system switches to **content addressing**: every node is a pure function, and its cache key is `H(code fingerprint, params, upstream content keys, environment fingerprint)`. Identical content can be reused from last week, another device, or another project; any difference yields a different key, so a stale value is structurally unreachable.
+
+| Module | Responsibility |
+| --- | --- |
+| `hash.ts` | Streaming two-lane 32-bit FNV-1a mixer (effective 64-bit digest); numbers are always encoded explicitly little-endian via `DataView`, so digests match across platforms; `canonicalize` handles NaN / ±Infinity / -0 and order-insensitive Map / Set; `hashTable` / `hashDataset` cover content plus column names / types / units while ignoring table id, tags and provenance |
+| `plan.ts` | Serializable `BuildPlan` (id, kind, params, inputs, implementation fingerprint); Kahn layered topology, cycle detection with the real cycle path, duplicate / dangling-id validation, downstream impact closure `affectedBy` and upstream provenance `upstreamOf` |
+| `key.ts` | Four-component key (kind / params / upstream keys / environment) with `StepKeyBreakdown`; environment = app version + key-schema version + capability fingerprint; `volatileStepKey` for run-local results that must not be persisted |
+| `codec.ts` | `DataValue` ↔ JSON-safe structures: f32 / f64 / i32 / u32 written as typed little-endian bytes, pure-TS base64, string / boolean columns, Dataset axes and attrs; decoding restores real TypedArrays with a bit-identical content hash; `RenderedView` is a live runtime handle and is never persisted |
+| `cache.ts` | One `BuildCache` interface: bounded LRU memory store plus a **separate** IndexedDB database `ergalics-build-cache` (never touches the project schema or its migrations); `lastUsed` eviction, per-entry size cap, and automatic degradation to memory when persistence fails |
+| `engine.ts` | Layered parallel wavefront (concurrent within a layer, dependency-ordered across layers), hit decode / miss recompute, `markDirty` as run-local, downstream blocking on failure (configurable `stopOnError`), `AbortSignal` cancellation, and a per-step decision report (hit / computed / blocked / failed with the reason) |
+| `blockAdapter.ts` | `CompiledRegion` → `BuildPlan`, preserving `getInput` / `getParam` / GPU / storage / progress and node-status semantics; the executor source hash is the “code” component, while same-session function identity prevents a same-source/different-closure false hit |
+
+**Integration**: `blockStore.run()` no longer constructs a fresh `DagExecutor` per run; it reuses one `BuildEngine` whose cache survives runs and reloads. Canvas node status, `stop()` cancellation, compile diagnostics and the `FLOW_RUN_FINISHED` event keep their old semantics; the payload gains a `build` summary (total, cached, computed, blocked, failed, hit rate, plan fingerprint, environment fingerprint) that is also written into `RunRecord.params`.
+
+**Deliberate semantic fixes**: `markDirty()` used to rely on removing a node from the dirty set before execution, and its effect ended with the run. The build system interprets it as “this result has hidden / non-deterministic inputs”: the value is not persisted this run, any same-key entry is deleted, and consumers switch to a volatile key and recompute — strictly stronger than the old behaviour. `RenderedView` is never persisted. In Node test environments there is no `window`, so `blockStore` selects the memory cache, avoiding IndexedDB shims hanging under fake timers.
+
+**Acceptance** (`tests/build/`, 59 tests): a 10,000-node DAG computes fully and hits entirely on the second run; a parameter change recomputes only the affected sub-graph; 25 deterministic random-DAG property tests agree node-for-node with a cold cache and direct evaluation with zero stale values; TypedArray codec round-trips preserve the content hash; corrupt entries are treated as misses; cancellation, failure blocking, the concurrency limit and run-local branches are all covered.
+
 ## XI. Research workflows and delivery {#十一、科研工作流与交付}
 
 | Subsystem | Key capabilities |
@@ -344,4 +365,4 @@ Delivery and collaboration interfaces:
 - **Citation and archival**: `citation.ts` generates software citation and archival metadata; `gen-citation-cff.mjs` and `check-citation.mjs` maintain CITATION.cff.
 - **Performance benchmarks**: `runAllBenchmarks()` in `bench/` runs import / compute / render / memory key-path suites and returns structured results with environment information (Node version, platform, architecture, CPU model, date). `scripts/bench-run.mjs` runs them headlessly in Node, writes `bench-results.json`, and compares with `bench/baseline.json` (see article 08).
 
-These 54 subsystems and 42 root-level modules together form the product's scientific foundation: statistics, modeling and inference ensure professional results; I/O and data engineering provide open and trustworthy inputs; plots and multi-panel figures ensure publication-quality output; and reproducibility and delivery pipelines allow others to replay conclusions unchanged and receive them with a paper.
+These 55 subsystems and 42 root-level modules together form the product's scientific foundation: statistics, modeling and inference ensure professional results; I/O and data engineering provide open and trustworthy inputs; plots and multi-panel figures ensure publication-quality output; and reproducibility and delivery pipelines allow others to replay conclusions unchanged and receive them with a paper.

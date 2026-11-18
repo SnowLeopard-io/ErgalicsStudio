@@ -17,10 +17,14 @@ import type {
 } from '@/types/block';
 import { compile } from '@/blocks/compiler';
 import type { CompileDiagnostic } from '@/blocks/compiler';
-import { DagExecutor } from '@/blocks/executor';
 import { createMemoryStorage } from '@/blocks/context';
 import { blockRegistry } from '@/blocks/registry';
 import { emit } from '@/core/events';
+import { BuildEngine } from '@/core/build/engine';
+import { createBuildCache } from '@/core/build/cache';
+import { createBuildEnvironment } from '@/core/build/key';
+import { runCompiledRegion } from '@/core/build/blockAdapter';
+import type { BuildStats } from '@/core/build/engine';
 import type { DataValue } from '@/types/datatable';
 
 export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
@@ -28,12 +32,23 @@ export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
 /** Emitted when a Flow-mode graph run finishes (experiment tracking hook). */
 export const FLOW_RUN_FINISHED = 'flow:run:finished';
 
+/** Cache/compute breakdown of a run, for the run history and diagnostics. */
+export type FlowBuildStats = Pick<
+  BuildStats,
+  'total' | 'computed' | 'cached' | 'blocked' | 'failed' | 'durationMs' | 'planHash' | 'environment'
+> & {
+  /** Cached / (cached + computed), 0 when nothing ran. */
+  cacheHitRate: number;
+};
+
 export interface FlowRunFinishedPayload {
   ok: boolean;
   durationMs: number;
   /** Fingerprint of the executed graph (instances + connections). */
   graphHash: string;
   outputs: Record<string, unknown>;
+  /** Incremental-build breakdown (absent when compilation failed). */
+  build?: FlowBuildStats;
 }
 
 export type { BlockGraphState };
@@ -99,7 +114,46 @@ function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
 export function createBlockGraphStore(emitEvents: boolean) {
   let notifyTimer: ReturnType<typeof setTimeout> | null = null;
   let runSeq = 0;
-  let activeExecutor: DagExecutor | null = null;
+  let activeAbort: AbortController | null = null;
+  /**
+   * One engine per store instance: its cache survives every `run()`, which is
+   * the whole point of the build system (the old code constructed a fresh
+   * `DagExecutor` per run, so nothing was ever reused across runs).
+   */
+  let buildEngine: BuildEngine | null = null;
+
+  const getBuildEngine = (): BuildEngine => {
+    if (!buildEngine) {
+      buildEngine = new BuildEngine({
+        cache: createBuildCache({
+          // Persist in the real app (browser / desktop renderer) so cache
+          // entries survive reloads. Node-based tests have no `window`:
+          // IndexedDB shims can hang under fake timers, and a test process
+          // gains nothing from persistence.
+          persistent: typeof window !== 'undefined',
+          limits: { maxEntries: 20_000, maxBytes: 512 * 1024 * 1024, maxEntryBytes: 64 * 1024 * 1024 },
+        }),
+        environment: createBuildEnvironment(),
+      });
+    }
+    return buildEngine;
+  };
+
+  /** Map the engine's decision counters onto the run-record payload. */
+  const buildStatsPayload = (stats: BuildStats): FlowBuildStats => {
+    const ran = stats.cached + stats.computed;
+    return {
+      total: stats.total,
+      computed: stats.computed,
+      cached: stats.cached,
+      blocked: stats.blocked,
+      failed: stats.failed,
+      durationMs: stats.durationMs,
+      planHash: stats.planHash,
+      environment: stats.environment,
+      cacheHitRate: ran > 0 ? stats.cached / ran : 0,
+    };
+  };
 
   const notifyChanged = (): void => {
     if (!emitEvents) return;
@@ -226,23 +280,28 @@ export function createBlockGraphStore(emitEvents: boolean) {
       // — blanking them here made the preview flash empty during long runs.
       set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {} });
 
-      const executor = new DagExecutor(result.program, {
-        storage: createMemoryStorage(),
-        onNodeStatus: (nodeId, status) => {
-          // A run superseded by stop() or a newer run must not keep painting
-          // node status onto the graph.
-          if (token !== runSeq) return;
-          set((s) => ({ nodeStatus: { ...s.nodeStatus, [nodeId]: status } }));
-        },
-      });
-
-      activeExecutor = executor;
+      const controller = new AbortController();
+      activeAbort = controller;
+      const engine = getBuildEngine();
 
       try {
-        const cache = await executor.run();
+        const run = await runCompiledRegion(
+          result.program,
+          { storage: createMemoryStorage() },
+          engine,
+          {
+            signal: controller.signal,
+            onStepStatus: (nodeId, status) => {
+              // A run superseded by stop() or a newer run must not keep painting
+              // node status onto the graph.
+              if (token !== runSeq) return;
+              set((s) => ({ nodeStatus: { ...s.nodeStatus, [nodeId]: status } }));
+            },
+          },
+        );
         if (token !== runSeq) return; // superseded by stop() or a newer run
         const nodeOutputs: Record<string, DataValue> = {};
-        for (const [nodeId, value] of cache) nodeOutputs[nodeId] = value;
+        for (const [nodeId, value] of run.outputs) nodeOutputs[nodeId] = value;
         set({ isRunning: false, nodeOutputs });
         if (emitEvents) {
           emit(FLOW_RUN_FINISHED, {
@@ -250,6 +309,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
             durationMs: Date.now() - startedAt,
             graphHash,
             outputs: nodeOutputs,
+            build: buildStatsPayload(run.stats),
           } satisfies FlowRunFinishedPayload);
         }
       } catch (err) {
@@ -270,7 +330,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
           } satisfies FlowRunFinishedPayload);
         }
       } finally {
-        if (activeExecutor === executor) activeExecutor = null;
+        if (activeAbort === controller) activeAbort = null;
       }
     },
 
@@ -279,7 +339,8 @@ export function createBlockGraphStore(emitEvents: boolean) {
       // writes are discarded...
       runSeq += 1;
       // ...and actually stop the computation, not just its result delivery.
-      activeExecutor?.cancel();
+      activeAbort?.abort();
+      activeAbort = null;
       set({ isRunning: false });
     },
 
