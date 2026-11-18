@@ -73,6 +73,8 @@ export function Sidebar() {
   const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
   /** Free-text filter over the plugin registry (localized name, ID, description). */
   const [pluginQuery, setPluginQuery] = useState('');
+  /** Free-text filter over the research tool list (name, id, description). */
+  const [researchQuery, setResearchQuery] = useState('');
   /** Collapsed discipline groups (all expanded by default; persists). */
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
 
@@ -210,6 +212,21 @@ export function Sidebar() {
   }, [allGroups, pluginQuery]);
   const searching = pluginQuery.trim().length > 0;
 
+  const researchGroups = useMemo(() => {
+    const q = researchQuery.trim().toLowerCase();
+    return RESEARCH_GROUP_IDS.map((group) => ({
+      group,
+      tools: RESEARCH_TOOLS.filter((tool) => {
+        if (tool.group !== group) return false;
+        if (!q) return true;
+        return [tool.id, tool.titleKey, tool.descKey, t(tool.titleKey), t(tool.descKey)]
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
+      }),
+    })).filter((entry) => entry.tools.length > 0);
+  }, [researchQuery, t]);
+
   const toggleGroup = (id: string) => {
     const next = { ...collapsed, [id]: !collapsed[id] };
     setCollapsed(next);
@@ -275,38 +292,65 @@ export function Sidebar() {
       {sidebarView === 'git' && <GitPanel alwaysOpen />}
 
       {sidebarView === 'research' && (
-      <nav className="sidebar-group">
-        {RESEARCH_GROUP_IDS.map((group) => {
-          const tools = RESEARCH_TOOLS.filter((tool) => tool.group === group);
-          if (tools.length === 0) return null;
-          return (
-            <section key={group} className="plugin-group">
-              <h3 className="sidebar-heading">{t(`tool.group.${group}`)}</h3>
-              <ul className="plugin-list">
-                {tools.map((tool) => {
-                  const active = activeTab === `tool:${tool.id}`;
-                  return (
-                    <li key={tool.id}>
-                      <button
-                        type="button"
-                        className={`plugin-item util-item${active ? ' active' : ''}`}
-                        title={t(tool.descKey)}
-                        onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
-                      >
-                        <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
-                        <span className="util-item-text">
-                          <span className="plugin-item-name">{t(tool.titleKey)}</span>
-                          <span className="util-item-desc">{t(tool.descKey)}</span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          );
-        })}
-      </nav>
+        <>
+          <div className="search-input-wrap plugin-search">
+            <SearchIcon size={14} className="search-input-icon" />
+            <input
+              className="input search-input"
+              type="search"
+              value={researchQuery}
+              placeholder={t('launcher.search')}
+              aria-label={t('launcher.search')}
+              spellCheck={false}
+              onChange={(e) => setResearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setResearchQuery('');
+              }}
+            />
+            {researchQuery !== '' && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                aria-label={t('search.clear')}
+                title={t('search.clear')}
+                onClick={() => setResearchQuery('')}
+              >
+                <CloseIcon size={12} />
+              </button>
+            )}
+          </div>
+          <nav className="sidebar-group">
+            {researchGroups.length === 0 && (
+              <EmptyState className="sidebar-plugin-empty" title={t('launcher.empty')} />
+            )}
+            {researchGroups.map(({ group, tools }) => (
+              <section key={group} className="plugin-group">
+                <h3 className="sidebar-heading">{t(`tool.group.${group}`)}</h3>
+                <ul className="plugin-list">
+                  {tools.map((tool) => {
+                    const active = activeTab === `tool:${tool.id}`;
+                    return (
+                      <li key={tool.id}>
+                        <button
+                          type="button"
+                          className={`plugin-item util-item${active ? ' active' : ''}`}
+                          title={t(tool.descKey)}
+                          onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
+                        >
+                          <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
+                          <span className="util-item-text">
+                            <span className="plugin-item-name">{t(tool.titleKey)}</span>
+                            <span className="util-item-desc">{t(tool.descKey)}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </nav>
+        </>
       )}
 
       {sidebarView === 'tools' && (

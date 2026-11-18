@@ -78,6 +78,9 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('profiler', () => import('@/pages/labs/ProfilerPage'), {
     icon: 'profiler', titleKey: 'profile.title', group: 'measure',
   }),
+  tool('performance', () => import('@/pages/labs/PerformancePage'), {
+    icon: 'performance', titleKey: 'tool.performance.title', group: 'measure',
+  }),
   tool('model-lab', () => import('@/pages/labs/ModelLabPage'), {
     icon: 'model-lab', titleKey: 'model.title', group: 'model',
   }),

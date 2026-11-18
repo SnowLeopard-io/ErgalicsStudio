@@ -10361,27 +10361,83 @@
   background: var(--color-bg-primary);
 }
 
+/* ---- performance dashboard ---- */
+
+.perf-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--space-2);
+}
+
+.perf-timeline-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(60px, 3fr) 80px minmax(90px, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.perf-timeline-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.perf-timeline-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-accent);
+}
+
+.perf-timeline-bar.is-cached {
+  background: var(--color-success);
+}
+
+.perf-timeline-bar.is-computed {
+  background: var(--color-accent);
+}
+
+.perf-timeline-bar.is-blocked {
+  background: var(--color-warning);
+}
+
+.perf-timeline-bar.is-failed {
+  background: var(--color-error);
+}
+
+.perf-timeline-bar.is-kernel {
+  background: var(--color-info, var(--color-accent));
+}
+
+.perf-timeline-value {
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+
+.perf-timeline-status {
+  color: var(--color-text-tertiary);
+}
+
 /* ---- causal lab ---- */
+
+.causal-pane {
+  flex: 1 1 320px;
+  min-width: 0;
+}
 
 .causal-input {
   width: 100%;
-  min-height: 120px;
-  margin: var(--space-2) 0;
-  resize: vertical;
+  height: 150px;
+  max-width: 100%;
+  margin: var(--space-1) 0;
+  /* A resize grip inside a flex column drags the whole pane along with it —
+     keep a fixed box and scroll instead. */
+  resize: none;
+  overflow: auto;
   line-height: 1.5;
-}
-
-.causal-small {
-  width: 6rem;
-  margin-left: var(--space-1);
-}
-
-.causal-chip {
-  padding: 2px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg-secondary);
-  color: var(--color-accent);
 }
 
 /* ---- quick stats ---- */

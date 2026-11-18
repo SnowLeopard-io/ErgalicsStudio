@@ -90,7 +90,7 @@ What ships today:
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
-| Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Research          | **35 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
 
@@ -423,7 +423,7 @@ prevents node loss) — a round trip fixed by
 
 ## Research Modules
 
-All 33 research tools live in one registry
+All 35 research tools live in one registry
 (`src/pages/research/toolRegistry.ts`) and share the **ToolShell** layout.
 Canonical routes are `/studio/<toolId>` (legacy `/#/<id>` hash routes are
 kept as redirects); every tool can also open **embedded as a tab of the
@@ -437,9 +437,11 @@ page on top, all unit-tested:
 | --- | --- | --- | --- |
 | measure | Uncertainty | `/studio/uncertainty` | Bootstrap CI, Monte Carlo propagation, MCMC — CPU or WGSL GPU engine, R-hat / ESS |
 | measure | Profiler | `/studio/profiler` | Streaming column profiling, correlation matrix, quality score + issue list |
+| measure | Performance | `/studio/performance` | Live frame metrics, GPU kernel samples and last Flow run's per-node timing breakdown |
 | model | Model Lab | `/studio/model-lab` | OLS / logistic / ridge / polynomial regression + coefficient table & residual diagnostics |
 | model | Inference Forge | `/studio/inference` | HMC / NUTS Bayesian inference + WAIC / LOO / PPC + trace & density plots |
 | model | Model Inference | `/studio/model-inference` | Run ONNX models in-browser with WebGPU |
+| model | Causal Lab | `/studio/causal-lab` | Causal DAG back-door adjustment sets, IPW and difference-in-differences from CSV/project data |
 | model | Sweeps | `/studio/sweeps` | Grid / list / Latin-hypercube parameter experiments + response surfaces (requires project) |
 | data | SQL Workbench | `/studio/sql` | DuckDB-WASM queries over project files (join / aggregate / window), results wired into lineage (requires project) |
 | data | Lineage | `/studio/lineage` | File→run DAG rebuilt from runs + imports (SVG canvas) |
@@ -1426,7 +1428,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Causal inference core — DAG d-separation, back-door adjustment sets, IPW and difference-in-differences (pure TS, reusing the logistic regression kernel)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
-- [x] 33 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
+- [x] 35 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
 - [x] Research-grade reliability layer (error taxonomy + validation + data-quality engine)
 - [x] AI assistant (natural language → `studio.*` draft → run; offline / online modes)
 - [x] Full free-form R runtime (webR + CRAN, falling back to the IR engine when absent)

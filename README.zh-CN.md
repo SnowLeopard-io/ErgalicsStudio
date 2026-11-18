@@ -86,7 +86,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建系统**（命中率可视化、逐节点缓存徽章、干跑预览、可校验溯源、可移植缓存快照、一键复现包）、189 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide（import 科学计算包时按需自动安装）；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
-| 科研 | **33 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
+| 科研 | **35 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场）、工作台与文档站点，统一合并部署、深链互通 |
 
@@ -353,15 +353,17 @@ flowchart TB
 
 ## 科研模块
 
-全部 33 个科研工具收录在单一注册表（`src/pages/research/toolRegistry.ts`）中，共享 **ToolShell** 统一布局。规范路由为 `/studio/<toolId>`（旧 `/#/<id>` 哈希路由保留为重定向）；每个工具也可经 `openToolEmbedded` **内嵌为标准模式中央画布的一个标签页**。`requireProject` 的工具在未打开项目时显示 `EmptyProject` 占位。每个模块都遵循"纯 TS 核心（无 React）→ Zustand store → 页面，单元测试覆盖"的分层：
+全部 35 个科研工具收录在单一注册表（`src/pages/research/toolRegistry.ts`）中，共享 **ToolShell** 统一布局。规范路由为 `/studio/<toolId>`（旧 `/#/<id>` 哈希路由保留为重定向）；每个工具也可经 `openToolEmbedded` **内嵌为标准模式中央画布的一个标签页**。`requireProject` 的工具在未打开项目时显示 `EmptyProject` 占位。每个模块都遵循"纯 TS 核心（无 React）→ Zustand store → 页面，单元测试覆盖"的分层：
 
 | 分组 | 页面 | 路由 | 功能 |
 | ---- | ---- | ---- | ---- |
 | measure | 不确定性 | `/studio/uncertainty` | bootstrap 置信区间、蒙特卡洛传播、MCMC——CPU 或 WGSL GPU 引擎，R-hat / ESS |
 | measure | 数据画像 | `/studio/profiler` | 流式列画像、相关矩阵、质量评分 + 问题清单 |
+| measure | 性能剖析 | `/studio/performance` | 实时帧率、GPU 内核采样与最近一次流程运行的逐节点耗时 |
 | model | 模型实验室 | `/studio/model-lab` | OLS / 逻辑 / 岭 / 多项式回归 + 系数表与残差诊断 |
 | model | Inference Forge | `/studio/inference` | HMC / NUTS 贝叶斯推断 + WAIC / LOO / PPC + 轨迹与密度图 |
 | model | 模型推理 | `/studio/model-inference` | 浏览器内用 WebGPU 运行 ONNX 模型 |
+| model | 因果实验室 | `/studio/causal-lab` | 因果 DAG 后门调整集、IPW 与双重差分估计（支持项目数据文件） |
 | model | 参数扫描 | `/studio/sweeps` | 网格 / 列表 / 拉丁超立方参数批量实验，响应面可视化（需项目） |
 | data | SQL 工作台 | `/studio/sql` | DuckDB-WASM 查询项目文件：join / 聚合 / 窗口函数，结果自动接入血缘（需项目） |
 | data | 数据血缘 | `/studio/lineage` | 由运行记录 + 数据导入重建的文件→运行 DAG（SVG 画布） |
@@ -1205,7 +1207,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 - [x] 内容寻址构建系统——10,000 节点 DAG、跨运行 / 跨会话 IndexedDB 缓存、部分重算、逐节点溯源与可并行的波次调度
 - [x] 三语言无缝往返（共享 IR 中枢，`mergeFlowIR` + 签名守卫，测试固化）
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核
-- [x] 33 个独立科研工具分 7 组（含免项目的 utils 小工具组），支持内嵌到工作台画布
+- [x] 35 个独立科研工具分 7 组（含免项目的 utils 小工具组），支持内嵌到工作台画布
 - [x] 研究级可靠性层（错误分类法 + 校验框架 + 数据质量引擎）
 - [x] AI 助手（自然语言 → `studio.*` 代码草稿 → 运行；离线 / 在线两种模式）
 - [x] 完整自由语法 R 运行时（webR + CRAN 包，缺失时回退 IR 引擎）
