@@ -31,6 +31,7 @@ import {
 } from '@/core/repro/lock';
 import { downloadBlob } from '@/core/download';
 import { attestationToJson } from '@/core/build/provenance';
+import { buildSupplement, verifySupplementBundle } from '@/core/package/supplement';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
@@ -134,7 +135,6 @@ export default function ReproLockPage() {
     if (!project || selected.size === 0) return;
     setBusy(true);
     try {
-      const { buildReproBundle } = await import('@/core/repro/bundle');
       let buildCacheJson: string | undefined;
       let attestationJson: string | undefined;
       try {
@@ -146,14 +146,19 @@ export default function ReproLockPage() {
         // Block mode may never have been opened — the bundle is still valid.
       }
       const env = collectEnvironment();
-      const bytes = await buildReproBundle({
-        project,
+      const bytes = await buildSupplement(project, {
         runs,
         runIds: [...selected],
         versions: { runtime: env.runtime },
         dependencies: env.dependencies,
         buildCacheJson,
         attestationJson,
+        includeProject: true,
+        includeData: false,
+        includeCode: false,
+        includeWorkspace: false,
+        reproLock: true,
+        integrity: true,
       });
       const safe = project.name.replace(/[^\w\u4e00-\u9fa5-]+/g, '_').slice(0, 48) || 'project';
       downloadBlob(`${safe}-repro-bundle.zip`, bytes, 'application/zip');
@@ -167,8 +172,7 @@ export default function ReproLockPage() {
 
   const handleVerifyBundle = async (file: File) => {
     try {
-      const { verifyReproBundle } = await import('@/core/repro/bundle');
-      const result = verifyReproBundle(new Uint8Array(await file.arrayBuffer()));
+      const result = verifySupplementBundle(new Uint8Array(await file.arrayBuffer()));
       if (result.ok) {
         notify('success', t('repro2.bundle_verified', { count: result.verified.length }));
       } else {
