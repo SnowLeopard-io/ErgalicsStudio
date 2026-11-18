@@ -27,6 +27,8 @@ import { compiledRegionToPlan, runCompiledRegion } from '@/core/build/blockAdapt
 import { createBuildAttestation } from '@/core/build/provenance';
 import type { BuildAttestation } from '@/core/build/provenance';
 import type { BuildPreview, BuildStats, StepDecision } from '@/core/build/engine';
+import { cacheBundleToJson, exportCacheBundle, importCacheBundle } from '@/core/build/bundle';
+import type { ImportCacheResult } from '@/core/build/bundle';
 import type { BuildCacheStats } from '@/core/build/cache';
 import type { RunBuildStats } from '@/core/experiment/record';
 import type { DataValue } from '@/types/datatable';
@@ -108,6 +110,10 @@ interface BlockStore {
   clearBuildCache: () => Promise<void>;
   /** Compile the current graph and predict which nodes the cache can serve. */
   previewBuild: () => Promise<void>;
+  /** Serialize the content-addressed cache into a portable JSON snapshot. */
+  exportBuildCache: () => Promise<string>;
+  /** Merge a portable cache snapshot; returns per-entry import statistics. */
+  importBuildCache: (json: string, allowForeign?: boolean) => Promise<ImportCacheResult>;
 
   toJSON: () => BlockGraphState;
   fromJSON: (state: BlockGraphState) => void;
@@ -455,6 +461,24 @@ export function createBlockGraphStore(emitEvents: boolean) {
         return;
       }
       set({ buildPreview: preview, compileDiagnostics: [] });
+    },
+
+    exportBuildCache: async () => {
+      const engine = getBuildEngine();
+      const bundle = await exportCacheBundle(engine.cacheStore, {
+        environment: engine.environmentFingerprint,
+      });
+      return cacheBundleToJson(bundle);
+    },
+
+    importBuildCache: async (json, allowForeign = false) => {
+      const engine = getBuildEngine();
+      const result = await importCacheBundle(engine.cacheStore, json, {
+        expectedEnvironment: engine.environmentFingerprint,
+        allowForeignEnvironment: allowForeign,
+      });
+      set({ buildPreview: null });
+      return result;
     },
 
     toJSON: () => ({

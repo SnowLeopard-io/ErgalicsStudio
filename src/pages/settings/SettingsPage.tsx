@@ -25,6 +25,7 @@ import {
   softwareCitationBibtex,
   softwareCitationPlain,
 } from '@/core/citation';
+import { downloadBlob } from '@/core/download';
 import { Modal } from '@/components/Modal';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -195,6 +196,52 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   // pull the whole block system into its initial chunk.
   const [buildCache, setBuildCache] = useState<BuildCacheStats | null>(null);
   const [buildClearOpen, setBuildClearOpen] = useState(false);
+  const [buildImportSummary, setBuildImportSummary] = useState<string | null>(null);
+  const buildFileRef = useRef<HTMLInputElement>(null);
+
+  const doExportBuildCache = async () => {
+    try {
+      const { useBlockStore } = await import('@/stores/blockStore');
+      const json = await useBlockStore.getState().exportBuildCache();
+      const date = new Date().toISOString().slice(0, 10);
+      downloadBlob(
+        `ergalics-build-cache-${date}.json`,
+        new TextEncoder().encode(json),
+        'application/json',
+      );
+      notify('success', t('settings.build_cache_exported'));
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const doImportBuildCache = async (file: File) => {
+    try {
+      const { useBlockStore } = await import('@/stores/blockStore');
+      const result = await useBlockStore.getState().importBuildCache(await file.text());
+      if (result.errors.length > 0) {
+        setBuildImportSummary(result.errors.slice(0, 3).join('\n'));
+      } else {
+        setBuildImportSummary(
+          t('settings.build_cache_imported', {
+            imported: result.imported,
+            skipped: result.skipped,
+          }),
+        );
+      }
+      notify(
+        result.imported > 0 ? 'success' : 'error',
+        t('settings.build_cache_imported', {
+          imported: result.imported,
+          skipped: result.skipped,
+        }),
+      );
+      void refreshBuildCache();
+    } catch (err) {
+      setBuildImportSummary(null);
+      notify('error', err instanceof Error ? err.message : String(err));
+    }
+  };
 
   const refreshBuildCache = async () => {
     try {
@@ -534,6 +581,47 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
                         : t('settings.build_cache_memory')}
                   </div>
                 </div>
+
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.build_cache_export')}</label>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={!buildCache || buildCache.entries === 0}
+                    title={t('settings.build_cache_export_hint')}
+                    onClick={() => void doExportBuildCache()}
+                  >
+                    {t('settings.build_cache_export')}
+                  </button>
+                </div>
+
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.build_cache_import')}</label>
+                  <button
+                    type="button"
+                    className="btn"
+                    title={t('settings.build_cache_import_hint')}
+                    onClick={() => buildFileRef.current?.click()}
+                  >
+                    {t('settings.build_cache_import')}
+                  </button>
+                  <input
+                    ref={buildFileRef}
+                    type="file"
+                    accept=".json,application/json"
+                    hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) void doImportBuildCache(file);
+                    }}
+                  />
+                </div>
+                {buildImportSummary && (
+                  <p className="settings-label" style={{ whiteSpace: 'pre-wrap' }}>
+                    {buildImportSummary}
+                  </p>
+                )}
 
                 <div className="settings-row">
                   <label className="settings-label">{t('settings.build_cache_clear')}</label>

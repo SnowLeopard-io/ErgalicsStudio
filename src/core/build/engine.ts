@@ -211,6 +211,11 @@ export class BuildEngine {
     return this.envFingerprint;
   }
 
+  /** Backing store, exposed for cache snapshot export/import (read/merge only). */
+  get cacheStore(): BuildCache {
+    return this.cache;
+  }
+
   /** Storage-level stats of the backing cache (UI: build cache panel). */
   async cacheStats(): ReturnType<BuildCache['stats']> {
     return this.cache.stats();

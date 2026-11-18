@@ -81,6 +81,20 @@ export {
 } from './engine';
 export { compiledRegionToPlan, createBlockRunner, runCompiledRegion, type BlockRunnerHooks } from './blockAdapter';
 export {
+  BUILD_CACHE_BUNDLE_SCHEMA,
+  bundleDigest,
+  cacheBundleToJson,
+  exportCacheBundle,
+  importCacheBundle,
+  verifyCacheBundle,
+  type BuildCacheBundle,
+  type BundleVerification,
+  type CacheBundleEntry,
+  type ExportCacheOptions,
+  type ImportCacheOptions,
+  type ImportCacheResult,
+} from './bundle';
+export {
   BUILD_ATTESTATION_SCHEMA,
   attestationDigest,
   attestationToJson,

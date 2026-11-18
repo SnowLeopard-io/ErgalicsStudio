@@ -40,6 +40,8 @@ export interface BuildCache {
   get(key: string): Promise<CacheEntry | undefined>;
   /** Cheap existence probe for dry-run previews (no decode / no LRU bump). */
   has(key: string): Promise<boolean>;
+  /** All keys currently stored, for portable cache snapshots. */
+  keys(): Promise<string[]>;
   put(entry: { key: string; value: EncodedValue; label?: string }): Promise<void>;
   delete(key: string): Promise<void>;
   clear(): Promise<void>;
@@ -90,6 +92,10 @@ export class MemoryBuildCache implements BuildCache {
 
   async has(key: string): Promise<boolean> {
     return this.map.has(key);
+  }
+
+  async keys(): Promise<string[]> {
+    return [...this.map.keys()];
   }
 
   async put(entry: { key: string; value: EncodedValue; label?: string }): Promise<void> {
@@ -220,6 +226,14 @@ export class IndexedDbBuildCache implements BuildCache {
     const tx = db.transaction(STORE_ENTRIES, 'readonly');
     const count = await requestResult(tx.objectStore(STORE_ENTRIES).count(key));
     return count > 0;
+  }
+
+  async keys(): Promise<string[]> {
+    const db = await this.open();
+    const tx = db.transaction(STORE_ENTRIES, 'readonly');
+    return requestResult(tx.objectStore(STORE_ENTRIES).getAllKeys() as IDBRequest<IDBValidKey[]>).then(
+      (keys) => keys.filter((key): key is string => typeof key === 'string'),
+    );
   }
 
   /** Fire-and-forget LRU bump; a failed touch must never fail a cache read. */
@@ -387,6 +401,17 @@ class ResilientBuildCache implements BuildCache {
       }
     }
     return this.fallback.has(key);
+  }
+
+  async keys(): Promise<string[]> {
+    if (this.primary) {
+      try {
+        return await this.primary.keys();
+      } catch {
+        this.degrade();
+      }
+    }
+    return this.fallback.keys();
   }
 
   async put(entry: { key: string; value: EncodedValue; label?: string }): Promise<void> {
