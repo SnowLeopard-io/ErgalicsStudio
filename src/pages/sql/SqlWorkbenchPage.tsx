@@ -13,6 +13,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { formatBytes } from '@/core/storage';
 import {
   getSqlEngine,
   hashText,
@@ -285,9 +286,6 @@ export default function SqlWorkbenchPage() {
       : p.phase === 'ingest'
         ? t('sql.import_phase_ingest')
         : t('sql.import_phase_finalize');
-
-  const formatBytes = (n: number): string =>
-    n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} GB` : n >= 1024 ** 2 ? `${(n / 1024 ** 2).toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
 
   const saveResult = async () => {
     if (!project || !result || result.rows.length === 0 || running) return;

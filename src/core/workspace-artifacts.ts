@@ -10,6 +10,7 @@
 import { getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { getVfs } from './vfs';
+import { joinVfsPath as joinPath } from './vfs/path';
 import type { Project } from '@/types/project';
 
 /** Skeleton dirs of the project template; '' = repo root (e.g. repro.lock). */
@@ -20,9 +21,6 @@ export type ArtifactDir =
   | 'manuscript'
   | 'code'
   | '';
-
-/** Join a skeleton dir + filename into a repo-relative path. */
-const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 /** Pick `name`, or `name (2)`, `(3)`, … when the target already exists. */
 async function uniqueName(

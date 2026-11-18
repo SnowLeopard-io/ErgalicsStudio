@@ -21,6 +21,11 @@ import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
 import type { GitFileLetter } from '@/core/git/types';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
+import {
+  joinVfsPath as joinPath,
+  vfsDirname as dirname,
+  vfsBasename as basename,
+} from '@/core/vfs/path';
 import type { VfsEntry } from '@/core/vfs';
 import { codeLanguageForFile } from '@/components/editor/fileEditors/shared';
 import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
@@ -53,15 +58,6 @@ const GUIDE: ReadonlyArray<{ match: (p: string) => boolean; key: string }> = [
   { match: (p) => p === '.gitignore' || p === '.gitattributes', key: 'explorer.dir_ignore' },
 ];
 
-const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
-const dirname = (path: string) => {
-  const i = path.lastIndexOf('/');
-  return i >= 0 ? path.slice(0, i) : '';
-};
-const basename = (path: string) => {
-  const i = path.lastIndexOf('/');
-  return i >= 0 ? path.slice(i + 1) : path;
-};
 /** True when `target` is `src` itself or a descendant of `src`. */
 const isSameOrUnder = (src: string, target: string) =>
   target === src || target.startsWith(`${src}/`);

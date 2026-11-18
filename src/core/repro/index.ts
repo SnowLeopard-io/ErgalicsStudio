@@ -7,7 +7,6 @@ export {
   randomSeed,
   setSeed,
   currentSeed,
-  seededRandom,
   hashString,
 } from './random';
 export {

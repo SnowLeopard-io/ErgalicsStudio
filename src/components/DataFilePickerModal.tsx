@@ -18,6 +18,7 @@ import { DownloadIcon, TableIcon, TrashIcon } from '@/components/icons';
 import { collectProjectFiles, listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { DATA_FILE_ACCEPT, isSupportedDataFileName } from '@/core/fileFormat';
 import { logger } from '@/core/logger';
+import { formatBytes } from '@/core/storage';
 import { useAppStore } from '@/stores/appStore';
 import { useChunkStore } from '@/stores/chunkStore';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
@@ -45,12 +46,6 @@ export function fileIcon(name: string): string {
     default:
       return '▧';
   }
-}
-
-function formatBytes(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** Load the grouped listing, refreshing the workspace snapshot in the back. */

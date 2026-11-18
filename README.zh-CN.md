@@ -17,7 +17,7 @@
 <p>
 <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
 <a href="LICENSE"><img alt="许可证" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
-<img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-4076%2B%20passing-1f2937?style=flat-square" />
+<img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-4259%2B%20passing-1f2937?style=flat-square" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
 </p>
 
@@ -84,7 +84,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | ---- | ---------- |
 | 工作台 | 四种模式、工作台文件资源管理器（工作区搜索 / Git 变更角标 / 外部文件拖入导入）+ 标签页中央区 + 多会话终端 + 按文件类型分派的编辑器（Code / Flow / Block）、**165 个内置插件（155 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
-| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建缓存**、189 个示例数据集 + 11 个示例工程 |
+| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建系统**（命中率可视化、逐节点缓存徽章、干跑预览、可校验溯源、可移植缓存快照、一键复现包）、189 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide（import 科学计算包时按需自动安装）；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **33 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
@@ -187,10 +187,11 @@ cd docs && npm install && npm run dev   # 文档站点
 | 统计内核 | `src/core/stats/` | 描述统计、特殊函数、假设检验、效应量、多重比较校正、功效分析。 |
 | 科研二进制 I/O | `src/core/io/` | HDF5 / NetCDF / FITS / Parquet / Zarr 单一调度器。 |
 | 出版级绘图引擎 | `src/core/plot/` | SVG + PDF 导出。 |
-| 可复现性内核 | `src/core/repro/` | 带种子随机数、稳定哈希、运行清单、DAG→Python 导出；配套 `repro.lock`。 |
+| 可复现性内核 | `src/core/repro/` | 带种子随机数、稳定哈希、运行清单、DAG→Python 导出；`repro.lock` v2 与一键复现包（复用 `src/core/package/supplement.ts` 打包器）。 |
+| 因果推断内核 | `src/core/causal/` | DAG d-分离、反门路径枚举与最小调整集；IPW（复用 logistic 回归内核）与双重差分估计。 |
 | 数据质量引擎与单位系统 | `src/core/data-quality/` · `src/core/units/` | 数据质量引擎；类型化单位系统。 |
 | GB 级流式管道 | `src/core/bigdata/` | 增量 CSV 解析、O(1) 内存流式统计（Welford / t-digest / HyperLogLog / 直方图）、Apache Arrow 批次导入 DuckDB。 |
-| 增量构建系统 | `src/core/build/` | 内容寻址缓存键（代码 + 输入 + 参数 + 环境）、逐位精确的值编解码、IndexedDB 持久化、并行波次调度、部分重算与逐节点溯源。 |
+| 增量构建系统 | `src/core/build/` | 内容寻址缓存键（代码 + 输入 + 参数 + 环境）、逐位精确的值编解码、IndexedDB 持久化、并行波次调度、部分重算、干跑预览、可校验构建证明与可移植缓存快照。 |
 
 **数据规模与文件大小支持**
 
@@ -221,10 +222,12 @@ key = H(kind, 执行器源码哈希, params, {端口 → 上游内容键}, 环�
 | `cache.ts` | 有界 LRU 内存缓存 + **独立** IndexedDB 库（`ergalics-build-cache`，不触碰项目 schema）；单条大小上限，配额 / 隐私模式失败时自动降级内存。 |
 | `engine.ts` | 逐层并行波次（默认 4 路并发）、命中解码与未命中重算、失败只阻断下游、`AbortSignal` 取消、逐节点决策报告（命中 / 重算 / 阻断 / 失败 + 原因）。 |
 | `blockAdapter.ts` | 让编译后的 `CompiledRegion` 走构建引擎，同时保留 `getInput` / `getParam` / GPU / storage / 进度与画布节点状态语义。 |
+| `provenance.ts` | 将每次运行冻结为可校验的构建证明（计划、缓存键、输出哈希、决策原因）；运行耗时被排除，因此不同机器产出字节一致的证明。 |
+| `bundle.ts` | 导出/导入可移植缓存快照，含逐条目与清单摘要，并用环境指纹拦截异源缓存键。 |
 
-`blockStore.run()` 现在为每个 store 保留一个构建引擎，结果可跨运行、跨刷新复用；`FLOW_RUN_FINISHED` 事件携带 `build` 摘要（总数 / 命中 / 重算 / 阻断 / 失败 / 命中率 / 计划与环境指纹），并写入持久化运行记录。`markDirty()` 被解释为"该结果含隐藏或非确定输入"：本次运行不落盘，下游强制重算——严格强于旧的纯内存脏集。
+`blockStore.run()` 为每个 store 保留一个构建引擎，结果可跨运行、跨刷新复用；`FLOW_RUN_FINISHED` 事件携带 `build` 摘要（总数 / 命中 / 重算 / 阻断 / 失败 / 命中率 / 计划与环境指纹），并写入持久化运行记录。画布现在展示命中率摘要、逐节点命中/重算/阻断/失败徽章、**干跑预览**（哪些节点可被缓存服务）与下载构建证明的 **溯源** 按钮；设置 → 本地存储显示缓存条目数、占用与存储方式，并可清空/导出/导入快照。一键**复现包**复用既有 `buildSupplement()` 打包器（锁 + 项目 + 运行记录 + 溯源 + 缓存 + 完整性摘要），因此只有一种归档格式。
 
-验收由 `tests/build/`（8 个文件、59 个测试）覆盖：**10,000 节点 DAG** 全量计算后二次全命中；改参数只重算受影响子图；25 组确定性随机 DAG 与冷缓存 / 直接求值逐节点一致、零陈旧值；TypedArray 编解码后内容哈希不变；损坏条目按未命中处理；取消、失败阻断与并发上限均有测试。详见 [`docs/zh-CN/technical/07-科学计算子系统.md`](docs/zh-CN/technical/07-科学计算子系统.md)。
+验收由 `tests/build/`（10 个文件）覆盖：**10,000 节点 DAG** 全量计算后二次全命中；改参数只重算受影响子图；25 组确定性随机 DAG 与冷缓存 / 直接求值逐节点一致、零陈旧值；TypedArray 编解码后内容哈希不变；损坏条目按未命中处理；取消、失败阻断与并发上限均有测试。详见 [`docs/zh-CN/technical/07-科学计算子系统.md`](docs/zh-CN/technical/07-科学计算子系统.md)。
 
 ---
 
@@ -373,8 +376,8 @@ flowchart TB
 | signal | Notebook | `/studio/notebook` | 项目内 Markdown + Python 混合单元格，运行于专用 Pyodide（需项目） |
 | signal | 实验记录 | `/studio/runs` | 自动记录运行历史（来源/参数/指标/耗时），参数 A/B 对比 |
 | deliver | 报告生成器 | `/studio/report` | 叙述 + 图表 + 表格 + 交互筛选器 → 单个自包含 HTML（需项目） |
-| deliver | 可复现锁 | `/studio/reprolock` | `repro.lock` 导出 / 导入 + 漂移校验与一键复现 |
-| deliver | 补充材料打包 | `/studio/supplement` | 论文随附 ZIP（`manifest.json` + 运行记录 + 血缘 + data/code/files + 可选 `repro.lock`） |
+| deliver | 可复现锁 | `/studio/reprolock` | `repro.lock` 导出 / 导入 + 漂移校验、一键复现，以及**可校验复现包导出/导入** |
+| deliver | 补充材料打包 | `/studio/supplement` | 论文随附 ZIP（`manifest.json` + 运行记录 + 血缘 + data/code/files + 可选 `repro.lock`、构建溯源、缓存快照与完整性摘要） |
 | deliver | 课程模式 | `/studio/course` | 布置作业、收集并离线批改学生实验成果（需项目） |
 | deliver | 作品画廊 | `/studio/gallery` | 浏览并重新打开社区分享的可复现作品 |
 | publish | LaTeX 编辑器 | `/studio/latex-editor` | 在线撰写、实时预览、插入图表与公式，导出 PDF（需项目） |
@@ -1151,7 +1154,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-**4052 个测试（2 个跳过）分布在 258 个测试文件中**，覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、工作区 VFS、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎）、可靠性内核、平台。
+**4259 个测试（2 个跳过）分布在 286 个测试文件中**，覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、工作区 VFS、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎 / 因果推断）、构建引擎、可靠性内核、平台。
 
 E2E 套件（Playwright-core, headless Edge）：
 

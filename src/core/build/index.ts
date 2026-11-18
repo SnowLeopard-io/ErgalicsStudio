@@ -12,7 +12,7 @@
 //   provenance→ portable, digest-verified attestation of a build run
 // ==========================================================================
 
-export { ContentHasher, canonicalize, hashColumn, hashDataValue, hashDataset, hashTable, hashValue } from './hash';
+export { ContentHasher, canonicalize, hashDataValue, hashDataset, hashTable, hashValue } from './hash';
 export {
   BuildPlanError,
   affectedBy,

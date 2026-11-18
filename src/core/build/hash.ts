@@ -20,7 +20,7 @@
 // cache key so algorithm changes invalidate wholesale.
 // ==========================================================================
 
-import type { ColumnData, DataValue, DataTable, Dataset } from '@/types/datatable';
+import type { DataValue, DataTable, Dataset } from '@/types/datatable';
 import { isDataset, isDataTable, isRenderedView, isScalar } from '@/types/datatable';
 
 const FNV_PRIME = 0x01000193;
@@ -241,11 +241,6 @@ export function canonicalize(value: unknown): string {
 /** Hash any canonicalizable value. */
 export function hashValue(value: unknown): string {
   return new ContentHasher().updateValue(value).digest();
-}
-
-/** Hash a column's full content without materializing a string copy. */
-export function hashColumn(data: ColumnData): ContentHasher {
-  return new ContentHasher().updateValue(data);
 }
 
 /**

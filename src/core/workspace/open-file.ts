@@ -21,6 +21,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
 import { readProjectFile } from '@/core/workspace/project-files';
 import { getVfs } from '@/core/vfs';
+import { vfsBasename as basename } from '@/core/vfs/path';
 import { adoptBibFile, adoptTexFile } from '@/core/publish/adopt';
 import {
   classifyFile,
@@ -50,11 +51,6 @@ export function toProjectPath(path: string): string {
   else if (p === WORKSPACE_ROOT) p = '';
   if (p.startsWith('./')) p = p.slice(2);
   return p.replace(/^\/+/, '');
-}
-
-function basename(path: string): string {
-  const i = path.lastIndexOf('/');
-  return i >= 0 ? path.slice(i + 1) : path;
 }
 
 /** Size of a workspace file, or undefined when it cannot be read. */

@@ -37,11 +37,6 @@ export function currentSeed(): number {
   return activeSeed;
 }
 
-/** A seeded RNG bound to the current process seed. */
-export function seededRandom(): () => number {
-  return mulberry32(activeSeed);
-}
-
 /** FNV-1a 32-bit hash of a string (used to fingerprint inputs/outputs). */
 export function hashString(s: string): string {
   let h = 0x811c9dc5;

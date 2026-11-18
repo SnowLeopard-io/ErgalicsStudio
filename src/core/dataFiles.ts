@@ -14,6 +14,7 @@
 
 import type { FileEntry } from '@/types/project';
 import { isSupportedDataFileName } from './fileFormat';
+import { vfsBasename as basename } from './vfs/path';
 
 // Bundled examples are loaded lazily: a non-eager glob keeps the heavy
 // datasets (geo/point-cloud/flux JSON — hundreds of KB each) out of the
@@ -49,11 +50,6 @@ function loadBundledFile(path: string): Promise<string | undefined> {
   );
   bundledLoaders.set(base, p);
   return p;
-}
-
-function basename(path: string): string {
-  const parts = path.split(/[\\/]/);
-  return parts[parts.length - 1] ?? path;
 }
 
 /** Runtime registry of the current project's data files, keyed by name. */

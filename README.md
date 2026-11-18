@@ -17,7 +17,7 @@
 <p>
 <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
-<img alt="Tests" src="https://img.shields.io/badge/Tests-4076%2B%20passing-1f2937?style=flat-square" />
+<img alt="Tests" src="https://img.shields.io/badge/Tests-4259%2B%20passing-1f2937?style=flat-square" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
 </p>
 
@@ -88,7 +88,7 @@ What ships today:
 | ----------------- | ------------- |
 | Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
-| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build cache for Flow runs**, 189 sample datasets + 11 sample projects |
+| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
@@ -211,10 +211,11 @@ Production builds output to `dist/`.
 | Statistics kernel | `src/core/stats/` | Descriptive stats, special functions, hypothesis tests, effect sizes, multiple-comparison corrections, power. |
 | Scientific binary I/O | `src/core/io/` | Single dispatcher for HDF5 / NetCDF / FITS / Parquet / Zarr. |
 | Publication-grade plotting engine | `src/core/plot/` | SVG + PDF. |
-| Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; plus `repro.lock`. |
+| Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; `repro.lock` v2 and one-click reproducibility bundles (via `src/core/package/supplement.ts`). |
+| Causal inference kernel | `src/core/causal/` | DAG d-separation, back-door path enumeration and minimal adjustment sets; IPW (reusing the logistic regression core) and difference-in-differences estimators. |
 | Data-quality engine & unit system | `src/core/data-quality/` · `src/core/units/` | Pandera-style data-quality engine; typed unit system. |
 | GB-scale streaming pipeline | `src/core/bigdata/` | Incremental CSV parser, O(1)-memory streaming statistics (Welford / t-digest / HyperLogLog / histogram), Apache Arrow batch ingestion into DuckDB. |
-| Incremental build system | `src/core/build/` | Content-addressed cache keys (code + inputs + params + environment), bit-exact value codec, IndexedDB persistence, parallel wavefront scheduler, partial recompute and per-step provenance. |
+| Incremental build system | `src/core/build/` | Content-addressed cache keys (code + inputs + params + environment), bit-exact value codec, IndexedDB persistence, parallel wavefront scheduler, partial recompute, dry-run preview, digest-verifiable build attestations and portable cache snapshots. |
 
 **Data scale & file-size support**
 
@@ -245,10 +246,12 @@ key = H(kind, executor-source hash, params, {port → upstream content key}, env
 | `cache.ts` | Bounded LRU memory store plus a **separate** IndexedDB database (`ergalics-build-cache`) so cache churn never touches the project schema; per-entry size caps and automatic degradation to memory on quota/private-mode failures. |
 | `engine.ts` | Layer-by-layer parallel wavefront (default 4 concurrent steps), cache-hit decode vs. recompute, failure blocks only downstream, `AbortSignal` cancellation, and a per-step decision report (hit / computed / blocked / failed + reason). |
 | `blockAdapter.ts` | Runs a compiled `CompiledRegion` through the engine while preserving `getInput` / `getParam` / GPU / storage / progress and canvas node-status semantics. |
+| `provenance.ts` | Freezes each run into a digest-verifiable attestation (plan, keys, output hashes, decision reasons). Runtime timings are excluded so two machines produce byte-identical attestations. |
+| `bundle.ts` | Exports/imports a portable cache snapshot with per-entry and per-manifest digests, plus an environment-fingerprint guard against foreign keys. |
 
-`blockStore.run()` now keeps one build engine per store, so results survive re-runs and reloads. `FLOW_RUN_FINISHED` carries a `build` summary (total / cached / computed / blocked / failed / hit rate / plan + environment fingerprints) that is also written into the persisted run record. `markDirty()` is interpreted as “this result has hidden or non-deterministic inputs”: it is kept run-local and its consumers recompute, which is strictly safer than the old in-memory dirty set.
+`blockStore.run()` keeps one build engine per store, so results survive re-runs and reloads. `FLOW_RUN_FINISHED` carries a `build` summary (total / cached / computed / blocked / failed / hit rate / plan + environment fingerprints) that is also written into the persisted run record. The canvas shows the hit-rate summary, per-node hit/recompute/blocked/failed badges, a **dry-run preview** of which nodes the cache can serve, and a **Provenance** button that downloads the run attestation. Settings → Local Storage shows the cache's entry count, byte usage and persistence mode, and can clear, export or import the snapshot. One-click **reproducibility bundles** are built by the existing `buildSupplement()` packager (lock + project + runs + attestation + cache + integrity digests), so there is exactly one archive format.
 
-Acceptance covered by `tests/build/` (8 files, 59 tests): a **10,000-node DAG** computes fully and then hits entirely; a parameter change recomputes only the affected sub-graph; 25 deterministic random DAGs are checked against a cold cache and direct evaluation with zero stale values; typed-array codec round-trips preserve content hashes; corrupt entries are misses; cancellation, failure blocking and concurrency limits are tested. See [`docs/technical/07-scientific-computing-subsystems.md`](docs/technical/07-scientific-computing-subsystems.md).
+Acceptance covered by `tests/build/` (10 files): a **10,000-node DAG** computes fully and then hits entirely; a parameter change recomputes only the affected sub-graph; 25 deterministic random DAGs are checked against a cold cache and direct evaluation with zero stale values; typed-array codec round-trips preserve content hashes; corrupt entries are misses; cancellation, failure blocking and concurrency limits are tested. See [`docs/technical/07-scientific-computing-subsystems.md`](docs/technical/07-scientific-computing-subsystems.md).
 
 ---
 
@@ -451,8 +454,8 @@ page on top, all unit-tested:
 | signal | Notebook | `/studio/notebook` | Markdown + Python cells persisted in the project, run on a dedicated Pyodide (requires project) |
 | signal | Runs | `/studio/runs` | Auto-recorded run history (source, params, metrics, timings), A/B compare |
 | deliver | Report | `/studio/report` | Narrative + charts + tables + interactive filters → one self-contained HTML (requires project) |
-| deliver | Repro Lock | `/studio/reprolock` | `repro.lock` export / import + drift checks & one-click reproduce |
-| deliver | Supplement | `/studio/supplement` | Paper companion ZIP (`manifest.json` + runs + lineage + data/code/files + optional `repro.lock`) |
+| deliver | Repro Lock | `/studio/reprolock` | `repro.lock` export / import + drift checks, one-click reproduce, and **verified reproducibility bundle export/import** |
+| deliver | Supplement | `/studio/supplement` | Paper companion ZIP (`manifest.json` + runs + lineage + data/code/files + optional `repro.lock`, build attestation, cache snapshot and integrity digests) |
 | deliver | Course | `/studio/course` | Assign homework, collect and offline-grade student lab submissions (requires project) |
 | deliver | Gallery | `/studio/gallery` | Browse and reopen community-shared reproducible works |
 | publish | LaTeX Editor | `/studio/latex-editor` | Author online with live preview, figure and equation insertion, PDF export (requires project) |
@@ -1350,13 +1353,13 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**4076 tests passing (2 skipped) across 263 files**, covering:
+**4259 tests passing (2 skipped) across 286 files**, covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
 the research-grade science-output bus, the block system, three-mode IR sync
 (Block ↔ Flow ↔ Code round-trips), the research modules (uncertainty / units /
 runs / lineage / figures / packaging / notebook / model / profiler / signal /
-sweeps / SQL / report / repro-lock / inference), the reliability core, and
+sweeps / SQL / report / repro-lock / inference / causal), the build engine, the reliability core, and
 the platform.
 
 E2E suite (Playwright-core, headless Edge):
@@ -1419,7 +1422,8 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
 - [x] Flow mode (compiler + incremental executor + 63 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
-- [x] Content-addressed build system — 10,000-node DAG, cross-run/session IndexedDB cache, partial recompute, per-step provenance and worker-friendly parallel scheduling
+- [x] Content-addressed build system — 10,000-node DAG, cross-run/session IndexedDB cache, partial recompute, per-step provenance, dry-run preview, verifiable attestations, portable cache snapshots and worker-friendly parallel scheduling
+- [x] Causal inference core — DAG d-separation, back-door adjustment sets, IPW and difference-in-differences (pure TS, reusing the logistic regression kernel)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
 - [x] 33 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
