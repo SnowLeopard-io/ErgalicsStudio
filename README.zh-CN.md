@@ -189,6 +189,18 @@ cd docs && npm install && npm run dev   # 文档站点
 | 出版级绘图引擎 | `src/core/plot/` | SVG + PDF 导出。 |
 | 可复现性内核 | `src/core/repro/` | 带种子随机数、稳定哈希、运行清单、DAG→Python 导出；配套 `repro.lock`。 |
 | 数据质量引擎与单位系统 | `src/core/data-quality/` · `src/core/units/` | 数据质量引擎；类型化单位系统。 |
+| GB 级流式管道 | `src/core/bigdata/` | 增量 CSV 解析、O(1) 内存流式统计（Welford / t-digest / HyperLogLog / 直方图）、Apache Arrow 批次导入 DuckDB。 |
+
+**数据规模与文件大小支持**
+
+| 规模 | 支持范围 | 路径 |
+| --- | --- | --- |
+| ≤ 24 MB | 全部受支持格式（CSV / TSV / JSON / HDF5 / NetCDF / FITS / Zarr / Parquet …），整文件解析、画像、绘图、ETL，精度完整。 | 常规文件注册表（`resolveDataFile`）——一次性读入。 |
+| 24 MB – 约 2 GB | SQL 工作台中的 **CSV / TSV**：直接流式送入 DuckDB，不整体读入 JS，随后可正常 join / 聚合 / 窗口查询。 | 大文件导入：Chromium 上经 `FileSystemFileHandle` 由 DuckDB 直接读盘；否则增量 CSV → Arrow 批次（`insertArrowFromIPCStream`）。 |
+| 约 2 – 10 GB | 同一套流式导入，受 DuckDB 内存预算（`SET memory_limit='2GB'`，自动落盘溢出）与浏览器存储配额约束——工作集始终只有一个 Arrow 批次。 | 仅流式导入；JSON 需先转 CSV。 |
+| > 约 50 GB | 超出浏览器能力（WASM32 堆 + 标签页内存配额），规划由自托管 / 原生端承接。 | Web 应用不支持。 |
+
+一个参考量级：1 GB CSV（约 500 万行 × 20 列）可导入为可查询表，设计目标为 `GROUP BY` 约 10 秒出结果、JS 峰值内存低于 500 MB、UI 不冻结——JS 侧始终只持有一个 32,768 行的批次。流式统计在同一次扫描中完成，GB 级列画像每列只占 O(1) 内存。
 
 ---
 

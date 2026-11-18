@@ -257,7 +257,8 @@ Modeling and inference in the research-tool interface:
 | cleaning | Cleaning wizard step model and engine: five serializable steps—type conversion, missing-value policy (delete / mean / median / zero / forward fill), outlier marking (IQR / z-score), deduplication, column renaming. Steps never rewrite input tables and support forward / backward / jump and “undo this step.” |
 | profiler | Single-pass streaming column profiles: numeric columns use Welford exact mean and variance plus reservoir sampling for quantiles and MAD; modified z-score (\|0.6745(x−median)/MAD\| > 3.5) counts outliers. Text columns use HyperLogLog for cardinality and Space-Saving for Top-K. Table-level Pearson / Spearman joint sampling and duplicate-rate estimates combine into a deterministic 0–100 quality score and issue list cached by content fingerprint. |
 | chunked | Row-window reading of large delimited files (csv / tsv / dat / xyz / txt), keeping one chunk rather than the whole file in the working set; other formats still use whole-file I/O |
-| sql | DuckDB-WASM engine lazy-loaded on first use; project files registered in DuckDB's virtual file system and exposed as tables; queries support timeout and AbortSignal, terminating the Worker and discarding the singleton on abort/timeout, then rebuilding on the next call |
+| sql | DuckDB-WASM engine lazy-loaded on first use; project files registered in DuckDB's virtual file system and exposed as tables; queries support timeout and AbortSignal, terminating the Worker and discarding the singleton on abort/timeout, then rebuilding on the next call; GB-scale files take the streaming dual-path import (see below) |
+| bigdata | GB-scale streaming pipeline: `csv-stream.ts` incremental CSV parser (RFC-4180 quoting / rows across chunks / streaming UTF-8 / delimiter detection), `stream-stats.ts` single-pass O(1)-memory statistics kernels (Welford fourth moments + Chan parallel merge, t-digest quantiles, HyperLogLog cardinality, online histogram, per-column ProfileBuilder), `arrow-batch.ts` CSV row batches → Apache Arrow columnar batches → DuckDB IPC bulk insert |
 | sanitize | Externally produced SVG is allowlist-sanitized (sanitizeSvg.ts) before rendering, removing scripts and event attributes |
 | validation | Composable validators `(value, path) => issues[]`: composition is ordinary function composition and schema is ordinary data; reusable, partially applicable and testable without React. Type validators skip null / undefined; combine with `required()` when required. |
 | errors | Structured error taxonomy and cause chains, `Result<T, E>` explicit error-value channel, retries with backoff and jitter plus cancellation, assertion guards, deduplicated error registry and bounded diagnostic ring, and global `error` / `unhandledrejection` capture |
@@ -273,6 +274,19 @@ Data profiling and cleaning in the research-tool interface:
 ![Data cleaning — reversible step wizard](../assets/screenshots/platform/laboratory/data-cleaning.png)
 
 *The cleaning wizard is driven by this section's cleaning kernel: type conversion, missing-value policy, IQR / z outlier marking, deduplication and column renaming can all advance / go back / be undone, and never rewrite the input table.*
+
+### GB-scale data processing (src/core/bigdata + SQL workbench streaming import)
+
+The browser's memory boundary caps data scale: a ~4 GB WASM32 heap and finite tab memory quotas. This project turns the breakthrough zone (~2–10 GB) into a streaming pipeline where the data never enters memory as a whole; 50 GB+ exceeds browser capability (the domain of selfhost / native builds).
+
+**SQL workbench large-file import (dual path)**: CSV/TSV files above `LARGE_FILE_THRESHOLD_BYTES` (24 MB) no longer take the small-file path of reading full text into JS; `SqlEngine.registerLargeFile` takes over:
+
+1. **File-handle direct read (Chromium fast path)** — a `FileSystemFileHandle` from `showOpenFilePicker` is handed to DuckDB-WASM via `registerFileHandle(name, handle, BROWSER_FSACCESS, directIO)`; DuckDB reads the file directly inside WASM with its own memory budget and automatic disk spilling (`SET memory_limit='2GB'`), zero JS copies, one `read_csv_auto` statement to create the table.
+2. **Streaming Arrow fallback** — without handle support, `file.stream()` feeds chunks to the incremental CSV parser; the first 500 rows (`TYPE_SAMPLE_ROWS`) vote column types by majority and issue `CREATE TABLE`; every 32768 rows (`LARGE_FILE_BATCH_ROWS`) are built into an Apache Arrow columnar batch (Float64/Bool/Utf8 vectors) and pushed into DuckDB via `insertArrowFromIPCStream`. Peak JS memory holds one batch at a time, the UI never freezes, and progress is reported as `{phase, rows, bytes}`.
+
+**Streaming statistics kernels (O(1) memory / column)**: while importing, `ProfileBuilder` profiles each column in a single pass — numeric columns use Welford exact mean / variance / skewness / kurtosis (merging follows the Chan parallel-combination formulas, so batches computed in parallel combine exactly), quantiles use a t-digest (rank error ≤ 1/(2δ), tails kept as singleton centroids), cardinality uses HyperLogLog (~1 KiB / column at p=10), and an online histogram is accumulated. These kernels are data-scale independent and can in principle process unbounded rows.
+
+**Boundaries and error semantics**: JSON streaming import is unsupported (the user is asked to convert to CSV first); a failed import cleans up the half-built table, and a terminated engine instance is rebuilt automatically on the next call. Large files never enter the project `FileEntry` text store (that is the full-text registry); they exist only as DuckDB tables.
 
 ## XI. Research workflows and delivery {#十一、科研工作流与交付}
 

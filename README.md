@@ -213,6 +213,18 @@ Production builds output to `dist/`.
 | Publication-grade plotting engine | `src/core/plot/` | SVG + PDF. |
 | Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; plus `repro.lock`. |
 | Data-quality engine & unit system | `src/core/data-quality/` · `src/core/units/` | Pandera-style data-quality engine; typed unit system. |
+| GB-scale streaming pipeline | `src/core/bigdata/` | Incremental CSV parser, O(1)-memory streaming statistics (Welford / t-digest / HyperLogLog / histogram), Apache Arrow batch ingestion into DuckDB. |
+
+**Data scale & file-size support**
+
+| Size | What works | Path |
+| --- | --- | --- |
+| ≤ 24 MB | Every supported format (CSV / TSV / JSON / HDF5 / NetCDF / FITS / Zarr / Parquet …), full-precision in-memory parsing, profiling, plots, ETL. | Regular file registry (`resolveDataFile`) — whole file read once. |
+| 24 MB – ~2 GB | **CSV / TSV** in the SQL workbench: streamed straight into DuckDB with no full-scan into JS, then join / aggregate / window queries normally. | Large-file import: direct disk read via `FileSystemFileHandle` on Chromium, otherwise incremental CSV → Arrow batches (`insertArrowFromIPCStream`). |
+| ~2 – 10 GB | Same streaming import, bounded by DuckDB's memory budget (`SET memory_limit='2GB'`, automatic disk spill) plus the browser's storage quota — the working set stays one Arrow batch instead of the whole file. | Streaming import only; JSON must be converted to CSV first. |
+| > ~50 GB | Out of browser range (WASM32 heap + tab memory quotas). Planned for the self-hosted / native editions. | Not supported in the web app. |
+
+One reference point: a 1 GB CSV (≈5 million rows × 20 columns) imports as a queryable table with a design target of a `GROUP BY` in about ten seconds, peak JS memory under 500 MB, and no UI freeze — the JS side only ever holds one 32,768-row batch. Streaming statistics run on the same pass, so GB-scale column profiles cost O(1) memory per column.
 
 ---
 

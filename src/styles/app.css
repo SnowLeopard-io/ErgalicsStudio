@@ -5548,6 +5548,28 @@
   color: var(--color-accent);
 }
 
+.sql-import-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sql-import-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted, var(--color-text));
+  font-family: var(--font-mono, monospace);
+}
+
+.sql-import-bar {
+  width: 100%;
+  height: 8px;
+}
+
+.sql-rows-note {
+  margin-left: var(--space-2);
+  opacity: 0.75;
+}
+
 .sql-error {
   margin: 0;
   padding: var(--space-2) var(--space-3);

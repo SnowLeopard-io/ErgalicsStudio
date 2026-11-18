@@ -1532,6 +1532,15 @@ export const zhCN: LocaleDictionary = {
   'sql.save_name': '文件名，如 sql_result',
   'sql.saved': '已保存为项目数据文件 {name}',
   'sql.too_large': '结果超过 100 万行，无法保存为 CSV',
+  'sql.import_large': '导入大文件',
+  'sql.import_large_hint': '流式导入 GB 级 CSV/TSV（不占用内存，直接可查询）',
+  'sql.import_phase_schema': '读取表结构…',
+  'sql.import_phase_ingest': '流式导入中…',
+  'sql.import_phase_finalize': '生成统计…',
+  'sql.import_done': '已导入 {rows} 行（{name}）',
+  'sql.import_failed': '大文件导入失败：{msg}',
+  'sql.import_unsupported': '此浏览器不支持大文件流式导入（需要 File System Access 或流式读取）',
+  'sql.rows_known': '{rows} 行',
 
   // ---- Tool shell / launcher / grid (UI restructure) ---------------------
   'empty.project.title': '需要先打开项目',

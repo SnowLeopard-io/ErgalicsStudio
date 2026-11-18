@@ -22,6 +22,16 @@ import duckdbMvpWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.work
 import duckdbEhWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import type * as duckdb from '@duckdb/duckdb-wasm';
 
+import { IncrementalCsvParser } from '../bigdata/csv-stream';
+import { ProfileBuilder, type ColumnKind } from '../bigdata/stream-stats';
+import {
+  TYPE_SAMPLE_ROWS,
+  createTableStatement,
+  encodeArrowBatch,
+  inferColumnKinds,
+  rowsToArrowTable,
+} from '../bigdata/arrow-batch';
+
 // ---- Result / schema models ----------------------------------------------
 
 export interface SqlQueryColumn {
@@ -167,6 +177,38 @@ export interface SqlEngineQueryOptions {
   timeoutMs?: number;
 }
 
+// ---- Large-file (GB-scale) ingestion ----------------------------------------
+
+/** Bytes above which a file takes the streaming path instead of full text. */
+export const LARGE_FILE_THRESHOLD_BYTES = 24 * 1024 * 1024;
+/** Rows per Arrow batch in the streaming ingestion fallback (~a few MB). */
+export const LARGE_FILE_BATCH_ROWS = 32_768;
+
+export interface SqlLargeFileRequest {
+  name: string;
+  /** Total size in bytes (progress + threshold decisions). */
+  size: number;
+  /**
+   * A fresh byte stream per call. The engine never materializes the file —
+   * chunks flow straight into DuckDB via Arrow batches.
+   */
+  open: () => ReadableStream<Uint8Array>;
+  /**
+   * Chromium-only fast path: a real file handle lets DuckDB read the file
+   * directly inside WASM (its own memory budget + spilling), no JS copies.
+   * When provided, `open` is never called.
+   */
+  handle?: FileSystemFileHandle;
+}
+
+export interface SqlLargeFileProgress {
+  phase: 'schema' | 'ingest' | 'finalize';
+  /** Rows ingested so far (exact on the fallback path, counted at finalize on the handle path). */
+  rows: number;
+  bytes: number;
+  totalBytes: number;
+}
+
 export interface SqlEngine {
   /** Increments across instances — pages use it to detect a reset. */
   readonly id: number;
@@ -180,6 +222,18 @@ export interface SqlEngine {
    * replaces its table. Returns the refreshed schema list.
    */
   registerFiles(files: { name: string; text: string }[]): Promise<SqlTableSchema[]>;
+  /**
+   * Register a large file without ever materializing it: DuckDB reads
+   * through the file handle when one is provided (Chromium), otherwise the
+   * stream is chunked into Arrow batches. Reports progress; returns the
+   * refreshed schema list.
+   */
+  registerLargeFile(
+    file: SqlLargeFileRequest,
+    onProgress?: (p: SqlLargeFileProgress) => void,
+  ): Promise<SqlTableSchema[]>;
+  /** Exact row count of a registered table once known (undefined until). */
+  rowsFor(fileName: string): number | undefined;
   /**
    * The table name a file was registered under (undefined when it is not
    * registered). The engine owns the naming — a caller that recomputes the
@@ -227,6 +281,15 @@ async function createEngine(): Promise<SqlEngine> {
   const db = new duckdb.AsyncDuckDB(logger, new Worker(bundle.mainWorker));
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
   const conn = await db.connect();
+  // GB-scale headroom: let DuckDB manage its own budget and spill to disk
+  // (OPFS temp files) instead of dying on a 2GB WASM heap OOM. Best-effort —
+  // older bundles may reject the pragma.
+  try {
+    await conn.query(`SET memory_limit='2GB'`);
+    await conn.query(`SET threads=-1`);
+  } catch {
+    /* pragma unsupported — default limits still apply */
+  }
 
   const id = nextEngineId;
   nextEngineId += 1;
@@ -235,6 +298,8 @@ async function createEngine(): Promise<SqlEngine> {
    *  singleton, so a file NAME alone does not identify its content: two
    *  projects can both hold `data/foo.csv` with different rows. */
   const fingerprints = new Map<string, string>();
+  /** Exact row counts, filled right after each large-file registration. */
+  const rowCounts = new Map<string, number>();
   let schemas: SqlTableSchema[] = [];
   let terminated = false;
 
@@ -252,6 +317,141 @@ async function createEngine(): Promise<SqlEngine> {
 
     tableFor(fileName) {
       return tables.get(fileName);
+    },
+
+    rowsFor(fileName) {
+      return rowCounts.get(fileName);
+    },
+
+    async registerLargeFile(file, onProgress) {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.json')) {
+        throw new Error('streaming import supports CSV/TSV only — convert JSON first');
+      }
+      const names = uniqueTableNames([...tables.keys(), file.name]);
+      const tableName = names.get(file.name)!;
+      const progress: SqlLargeFileProgress = {
+        phase: 'schema',
+        rows: 0,
+        bytes: 0,
+        totalBytes: file.size,
+      };
+      const report = () => onProgress?.({ ...progress });
+
+      // Drop any previous table/VFS entry with this name (re-import).
+      await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
+      tables.delete(file.name);
+      fingerprints.delete(file.name);
+      rowCounts.delete(file.name);
+      try {
+        await db.dropFile(file.name);
+      } catch {
+        /* not registered — fine */
+      }
+
+      let usedSchema: SqlTableSchema[] = [];
+      if (file.handle) {
+        // ---- Fast path (Chromium): DuckDB reads the file directly inside
+        // WASM with its own memory budget and spilling — no JS copies at all.
+        await db.registerFileHandle(
+          file.name,
+          file.handle,
+          duckdb.DuckDBDataProtocol.BROWSER_FSACCESS,
+          true, // direct IO: bypass the browser read cache for big files
+        );
+        const literal = file.name.replace(/'/g, "''");
+        await conn.query(
+          `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_csv_auto('${literal}', header=true, sample_size=20000)`,
+        );
+        progress.phase = 'finalize';
+        report();
+        usedSchema = await finishLargeImport(file.name, tableName, progress, report);
+        return usedSchema;
+      }
+
+      // ---- Fallback path: stream → incremental CSV → Arrow batches → DuckDB.
+      const parser = new IncrementalCsvParser();
+      const profiler = new ProfileBuilder();
+      let types: ColumnKind[] | null = null;
+      let header: string[] = [];
+      const warmup: string[][] = [];
+
+      const reader = file.open().getReader();
+      const ingestBatch = async (rows: string[][]) => {
+        if (rows.length === 0) return;
+        const table = rowsToArrowTable(rows, header, types!);
+        await conn.insertArrowFromIPCStream(encodeArrowBatch(table), { name: tableName });
+        progress.rows += rows.length;
+      };
+
+      // Freeze the schema from the warm-up sample and create the table.
+      const initSchema = async () => {
+        header = parser.headerRow ?? [];
+        types = inferColumnKinds(warmup, header.length);
+        profiler.initColumns(header);
+        for (const row of warmup) profiler.pushRow(row);
+        warmup.length = 0;
+        await conn.query(createTableStatement(tableName, header, types));
+        progress.phase = 'ingest';
+        report();
+      };
+
+      // Route a drained batch of rows: warm-up until the schema is frozen,
+      // then convert + insert in LARGE_FILE_BATCH_ROWS-sized Arrow chunks.
+      const processRows = async (rows: string[][]) => {
+        let i = 0;
+        while (i < rows.length && types === null) {
+          const row = rows[i];
+          if (row !== undefined) warmup.push(row);
+          i += 1;
+          if (warmup.length >= TYPE_SAMPLE_ROWS) await initSchema();
+        }
+        if (types === null) return;
+        while (i < rows.length) {
+          const batch: string[][] = [];
+          while (i < rows.length && batch.length < LARGE_FILE_BATCH_ROWS) {
+            const row = rows[i];
+            if (row !== undefined) {
+              profiler.pushRow(row);
+              batch.push(row);
+            }
+            i += 1;
+          }
+          await ingestBatch(batch);
+        }
+        progress.bytes = parser.bytesRead;
+        report();
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parser.pushBytes(value);
+          await processRows(parser.takeRows());
+        }
+        parser.end();
+        // The tail may hold one final buffered row.
+        await processRows(parser.takeRows());
+        reader.releaseLock();
+      } catch (err) {
+        reader.releaseLock();
+        // Partial imports must not leave a half-filled table behind.
+        try {
+          await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
+        } catch {
+          /* engine may be dead — re-registration rebuilds it anyway */
+        }
+        tables.delete(file.name);
+        rowCounts.delete(file.name);
+        throw err;
+      }
+
+      progress.phase = 'finalize';
+      progress.bytes = parser.bytesRead;
+      report();
+      usedSchema = await finishLargeImport(file.name, tableName, progress, report);
+      return usedSchema;
     },
 
     async registerFiles(files) {
@@ -334,6 +534,26 @@ async function createEngine(): Promise<SqlEngine> {
   };
 
   return engine;
+
+  /**
+   * Finalize a large-file import: register the file→table mapping, count the
+   * rows exactly (cheap for DuckDB), refresh the schema list and report.
+   */
+  async function finishLargeImport(
+    fileName: string,
+    tableName: string,
+    progress: SqlLargeFileProgress,
+    report: () => void,
+  ): Promise<SqlTableSchema[]> {
+    tables.set(fileName, tableName);
+    const countResult = await conn.query(`SELECT COUNT(*)::BIGINT AS n FROM "${tableName}"`);
+    const rows = Number(arrowTableToResult(countResult as unknown as ArrowTableLike).rows[0]?.[0] ?? 0);
+    rowCounts.set(fileName, rows);
+    progress.rows = rows;
+    report();
+    schemas = await refreshSchemas(conn, Array.from(tables.values()));
+    return schemas;
+  }
 
   async function hardReset(db: duckdb.AsyncDuckDB): Promise<void> {
     terminated = true;

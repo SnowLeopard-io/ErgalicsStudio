@@ -1532,6 +1532,15 @@ export const enUS: LocaleDictionary = {
   'sql.save_name': 'File name, e.g. sql_result',
   'sql.saved': 'Saved to project data files as {name}',
   'sql.too_large': 'Result exceeds 1,000,000 rows and cannot be saved as CSV',
+  'sql.import_large': 'Import large file',
+  'sql.import_large_hint': 'Stream GB-scale CSV/TSV without loading into memory, instantly queryable',
+  'sql.import_phase_schema': 'Reading schema…',
+  'sql.import_phase_ingest': 'Streaming import…',
+  'sql.import_phase_finalize': 'Building statistics…',
+  'sql.import_done': 'Imported {rows} rows ({name})',
+  'sql.import_failed': 'Large-file import failed: {msg}',
+  'sql.import_unsupported': 'This browser cannot stream large files (needs File System Access or stream reading)',
+  'sql.rows_known': '{rows} rows',
 
   // ---- Tool shell / launcher / grid (UI restructure) ---------------------
   'empty.project.title': 'Open a project first',

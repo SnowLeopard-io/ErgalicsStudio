@@ -19,6 +19,7 @@ import {
   trimHistory,
   type SqlEngine,
   type SqlHistoryEntry,
+  type SqlLargeFileProgress,
   type SqlQueryResult,
   type SqlTableSchema,
 } from '@/core/sql/engine';
@@ -64,6 +65,8 @@ export default function SqlWorkbenchPage() {
   const [result, setResult] = useState<SqlQueryResult | null>(null);
   const [history, setHistory] = useState<SqlHistoryEntry[]>([]);
   const [saveName, setSaveName] = useState('');
+  const [importProgress, setImportProgress] = useState<SqlLargeFileProgress | null>(null);
+  const [importName, setImportName] = useState('');
 
   const engineRef = useRef<SqlEngine | null>(null);
   const registeredKeyRef = useRef('');
@@ -201,6 +204,91 @@ export default function SqlWorkbenchPage() {
 
   const cancelQuery = () => abortRef.current?.abort();
 
+  // ---- Large-file (GB-scale) streaming import ------------------------------
+
+  const importFileRef = useRef<HTMLInputElement | null>(null);
+
+  /** Stream a big CSV/TSV straight into DuckDB (never materialized in JS). */
+  const importLargeFile = async (file: File, handle?: FileSystemFileHandle) => {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.json')) {
+      notify('error', t('sql.import_large_hint'));
+      return;
+    }
+    const engine = await prepareEngine();
+    if (!engine) return;
+    setImportName(file.name);
+    setImportProgress({ phase: 'schema', rows: 0, bytes: 0, totalBytes: file.size });
+    try {
+      const registered = await engine.registerLargeFile(
+        {
+          name: file.name,
+          size: file.size,
+          open: () => file.stream(),
+          handle,
+        },
+        (p) => setImportProgress(p),
+      );
+      setSchemas(registered);
+      const map = new Map(tableByFile);
+      const table = engine.tableFor(file.name);
+      if (table) map.set(file.name, table);
+      setTableByFile(map);
+      notify('success', t('sql.import_done', { rows: engine.rowsFor(file.name) ?? 0, name: file.name }));
+    } catch (err) {
+      // A failed import may have terminated the engine (abort semantics) —
+      // drop it so the next prepare spins up a fresh instance.
+      if (engine.isTerminated) {
+        engineRef.current = null;
+        registeredKeyRef.current = '';
+      }
+      notify('error', t('sql.import_failed', { msg: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      setImportProgress(null);
+      setImportName('');
+    }
+  };
+
+  /** Chromium: pick via showOpenFilePicker to get a direct-read file handle. */
+  const pickLargeFile = async () => {
+    type PickerWindow = Window & {
+      showOpenFilePicker?: (opts?: { types?: { description: string; accept: Record<string, string[]> }[] }) => Promise<FileSystemFileHandle[]>;
+    };
+    const w = window as PickerWindow;
+    if (w.showOpenFilePicker) {
+      try {
+        const [handle] = await w.showOpenFilePicker({
+          types: [{ description: 'CSV/TSV', accept: { 'text/csv': ['.csv', '.tsv'] } }],
+        });
+        if (!handle) return;
+        const file = await handle.getFile();
+        await importLargeFile(file, handle);
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return; // user cancelled
+        // fall through to the plain input path
+      }
+    }
+    importFileRef.current?.click();
+  };
+
+  const onImportInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await importLargeFile(file);
+  };
+
+  const importPhaseText = (p: SqlLargeFileProgress): string =>
+    p.phase === 'schema'
+      ? t('sql.import_phase_schema')
+      : p.phase === 'ingest'
+        ? t('sql.import_phase_ingest')
+        : t('sql.import_phase_finalize');
+
+  const formatBytes = (n: number): string =>
+    n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} GB` : n >= 1024 ** 2 ? `${(n / 1024 ** 2).toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
+
   const saveResult = async () => {
     if (!project || !result || result.rows.length === 0 || running) return;
     if (result.rowCount > MAX_SAVE_ROWS) {
@@ -228,6 +316,20 @@ export default function SqlWorkbenchPage() {
       notify('error', err instanceof Error ? err.message : String(err));
     }
   };
+
+  /** Table name → exact row count for large-file tables (engine-tracked). */
+  const rowsByTable = useMemo(() => {
+    const m = new Map<string, number>();
+    const engine = engineRef.current;
+    if (!engine) return m;
+    const rev = new Map([...tableByFile].map(([f, t]) => [t, f]));
+    for (const s of schemas) {
+      const file = rev.get(s.table);
+      const n = file !== undefined ? engine.rowsFor(file) : undefined;
+      if (n !== undefined) m.set(s.table, n);
+    }
+    return m;
+  }, [schemas, tableByFile]);
 
   const statusChip =
     status === 'loading' ? (
@@ -270,6 +372,11 @@ export default function SqlWorkbenchPage() {
                     >
                       {schema.table}
                     </button>
+                    {rowsByTable.has(schema.table) && (
+                      <span className="sql-col-type sql-rows-note">
+                        {t('sql.rows_known', { rows: rowsByTable.get(schema.table) ?? 0 })}
+                      </span>
+                    )}
                     <ul className="sql-col-list">
                       {schema.columns.map((col) => (
                         <li key={col.name}>
@@ -328,7 +435,7 @@ export default function SqlWorkbenchPage() {
               <button
                 type="button"
                 className="btn sql-run-btn"
-                disabled={running || status === 'loading'}
+                disabled={running || status === 'loading' || importProgress !== null}
                 onClick={() => void runQuery()}
               >
                 {t('sql.run')}
@@ -338,7 +445,40 @@ export default function SqlWorkbenchPage() {
                   {t('sql.cancel')}
                 </button>
               )}
+              <button
+                type="button"
+                className="btn"
+                disabled={running || importProgress !== null}
+                title={t('sql.import_large_hint')}
+                onClick={() => void pickLargeFile()}
+              >
+                {t('sql.import_large')}
+              </button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".csv,.tsv,text/csv,text/tab-separated-values"
+                aria-label={t('sql.import_large')}
+                className="sql-import-input"
+                hidden
+                onChange={(e) => void onImportInput(e)}
+              />
             </div>
+
+            {importProgress && (
+              <div className="sql-import-progress">
+                <div className="sql-import-label">
+                  {importPhaseText(importProgress)} · {importName} · {formatBytes(importProgress.bytes)} /{' '}
+                  {formatBytes(importProgress.totalBytes)}
+                  {importProgress.rows > 0 && ` · ${importProgress.rows.toLocaleString()} rows`}
+                </div>
+                <progress
+                  className="sql-import-bar"
+                  max={importProgress.totalBytes || 1}
+                  value={importProgress.bytes}
+                />
+              </div>
+            )}
 
             {error && <pre className="sql-error">{error}</pre>}
 
