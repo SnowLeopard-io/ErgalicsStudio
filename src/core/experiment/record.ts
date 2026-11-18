@@ -26,6 +26,8 @@ export interface RunBuildStats {
   durationMs: number;
   planHash: string;
   environment: string;
+  /** Digest of the exported build attestation (provenance, optional). */
+  attestationDigest?: string;
   /** Cached / (cached + computed), 0 when nothing ran. */
   cacheHitRate: number;
 }

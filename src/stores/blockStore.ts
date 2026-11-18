@@ -23,7 +23,9 @@ import { emit } from '@/core/events';
 import { BuildEngine } from '@/core/build/engine';
 import { createBuildCache } from '@/core/build/cache';
 import { createBuildEnvironment } from '@/core/build/key';
-import { runCompiledRegion } from '@/core/build/blockAdapter';
+import { compiledRegionToPlan, runCompiledRegion } from '@/core/build/blockAdapter';
+import { createBuildAttestation } from '@/core/build/provenance';
+import type { BuildAttestation } from '@/core/build/provenance';
 import type { BuildStats, StepDecision } from '@/core/build/engine';
 import type { RunBuildStats } from '@/core/experiment/record';
 import type { DataValue } from '@/types/datatable';
@@ -76,6 +78,8 @@ interface BlockStore {
   nodeOutputs: Record<string, DataValue>;
   /** Build breakdown of the last successful run (null before the first one). */
   lastBuild: FlowBuildStats | null;
+  /** Portable attestation of the last successful run (digest-verifiable). */
+  lastAttestation: BuildAttestation | null;
   /** Per-node cache hit/recompute decision of the last run. */
   buildSteps: Record<string, FlowBuildStepInfo>;
 
@@ -185,6 +189,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
     compileDiagnostics: [],
     nodeOutputs: {},
     lastBuild: null,
+    lastAttestation: null,
     buildSteps: {},
 
     addInstance: (blockId, position) => {
@@ -289,6 +294,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
           nodeStatus: {},
           nodeOutputs: {},
           lastBuild: null,
+          lastAttestation: null,
           buildSteps: {},
           isRunning: false,
         });
@@ -305,6 +311,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         // A build summary describes one run; showing the previous one while
         // this run is still in flight would read as if it already finished.
         lastBuild: null,
+        lastAttestation: null,
         buildSteps: {},
       });
 
@@ -330,7 +337,15 @@ export function createBlockGraphStore(emitEvents: boolean) {
         if (token !== runSeq) return; // superseded by stop() or a newer run
         const nodeOutputs: Record<string, DataValue> = {};
         for (const [nodeId, value] of run.outputs) nodeOutputs[nodeId] = value;
-        const build = buildStatsPayload(run.stats);
+        const attestation = createBuildAttestation({
+          plan: compiledRegionToPlan(result.program),
+          stats: run.stats,
+          environment: engine.environment,
+        });
+        const build: FlowBuildStats = {
+          ...buildStatsPayload(run.stats),
+          attestationDigest: attestation.digest,
+        };
         const buildSteps: Record<string, FlowBuildStepInfo> = {};
         for (const decision of run.stats.steps) {
           buildSteps[decision.id] = {
@@ -342,7 +357,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
               : {}),
           };
         }
-        set({ isRunning: false, nodeOutputs, lastBuild: build, buildSteps });
+        set({ isRunning: false, nodeOutputs, lastBuild: build, lastAttestation: attestation, buildSteps });
         if (emitEvents) {
           emit(FLOW_RUN_FINISHED, {
             ok: true,
@@ -395,6 +410,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         compileDiagnostics: [],
         nodeOutputs: {},
         lastBuild: null,
+        lastAttestation: null,
         buildSteps: {},
       });
       notifyChanged();
@@ -436,6 +452,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         compileDiagnostics: [],
         nodeOutputs: {},
         lastBuild: null,
+        lastAttestation: null,
         buildSteps: {},
       });
     },

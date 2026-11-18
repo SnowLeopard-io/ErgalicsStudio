@@ -799,6 +799,9 @@ export const zhCN: LocaleDictionary = {
   'blocks.build.node_blocked': '阻断',
   'blocks.build.node_failed': '失败',
   'blocks.build.node_persisted': '来自 IndexedDB',
+  'blocks.build.attestation': '构建溯源',
+  'blocks.build.attestation_hint': '下载本次运行的构建证明（计划、缓存键与输出哈希，可校验摘要）',
+  'blocks.build.attestation_saved': '构建溯源已下载',
 
   // Display-time translations for executor error messages (src/blocks/errorL10n.ts)
   'blocks.errors.not_configured_column': '此节点尚未配置——请先选择一列',

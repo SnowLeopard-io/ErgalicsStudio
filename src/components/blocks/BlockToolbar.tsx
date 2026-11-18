@@ -10,6 +10,8 @@ import { useBlockStore } from '@/stores/blockStore';
 import type { FlowBuildStats } from '@/stores/blockStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
+import { attestationToJson } from '@/core/build/provenance';
+import { downloadBlob } from '@/core/download';
 import { DownloadIcon } from '@/components/icons';
 import { translateBlockError } from '@/blocks/errorL10n';
 
@@ -43,6 +45,7 @@ export function BlockToolbar() {
   const compileDiagnostics = useBlockStore((s) => s.compileDiagnostics);
   const executionErrors = useBlockStore((s) => s.executionErrors);
   const lastBuild = useBlockStore((s) => s.lastBuild);
+  const lastAttestation = useBlockStore((s) => s.lastAttestation);
   // `.flow.json` opened from the explorer binds this canvas to that file.
   const boundPath = useEditorStore(
     (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
@@ -56,6 +59,17 @@ export function BlockToolbar() {
       2,
     );
     await useAppStore.getState().saveWorkspaceFile(boundPath, payload);
+  };
+
+  const downloadAttestation = () => {
+    if (!lastAttestation) return;
+    const filename = `build-attestation-${lastAttestation.planHash.slice(0, 8)}.json`;
+    downloadBlob(
+      filename,
+      new TextEncoder().encode(attestationToJson(lastAttestation)),
+      'application/json',
+    );
+    useAppStore.getState().notify('success', t('blocks.build.attestation_saved'));
   };
 
   const compileErrors = compileDiagnostics.filter((d) => d.severity === 'error');
@@ -101,6 +115,16 @@ export function BlockToolbar() {
               })}
             </span>
           </div>
+        )}
+        {lastAttestation && (
+          <button
+            type="button"
+            className="btn"
+            title={t('blocks.build.attestation_hint')}
+            onClick={downloadAttestation}
+          >
+            {t('blocks.build.attestation')}
+          </button>
         )}
       </div>
 

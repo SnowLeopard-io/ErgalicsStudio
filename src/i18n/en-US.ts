@@ -797,6 +797,9 @@ export const enUS: LocaleDictionary = {
   'blocks.build.node_blocked': 'blocked',
   'blocks.build.node_failed': 'failed',
   'blocks.build.node_persisted': 'from IndexedDB',
+  'blocks.build.attestation': 'Provenance',
+  'blocks.build.attestation_hint': 'Download a digest-verifiable attestation of this run (plan, keys, output hashes)',
+  'blocks.build.attestation_saved': 'Build attestation downloaded',
 
   // Display-time translations for executor error messages (src/blocks/errorL10n.ts)
   'blocks.errors.not_configured_column': 'this block is not configured — pick a column first',

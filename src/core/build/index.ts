@@ -9,6 +9,7 @@
 //   cache     → memory LRU / IndexedDB stores
 //   engine    → wavefront scheduler with hits, recompute and provenance
 //   adapter   → plug a compiled block region into the engine
+//   provenance→ portable, digest-verified attestation of a build run
 // ==========================================================================
 
 export { ContentHasher, canonicalize, hashColumn, hashDataValue, hashDataset, hashTable, hashValue } from './hash';
@@ -76,3 +77,15 @@ export {
   type StepRunner,
 } from './engine';
 export { compiledRegionToPlan, createBlockRunner, runCompiledRegion, type BlockRunnerHooks } from './blockAdapter';
+export {
+  BUILD_ATTESTATION_SCHEMA,
+  attestationDigest,
+  attestationToJson,
+  createBuildAttestation,
+  verifyBuildAttestation,
+  type AttestationVerification,
+  type AttestedStep,
+  type BuildAttestation,
+  type BuildAttestationTotals,
+  type CreateAttestationArgs,
+} from './provenance';
