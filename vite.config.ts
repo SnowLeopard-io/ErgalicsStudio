@@ -8,6 +8,7 @@ import { ensurePyodideAssets } from './scripts/copy-pyodide.mjs';
 import { ensureBlocklyMedia } from './scripts/vendor-blockly-media.mjs';
 import { ensureWebRAssets } from './scripts/copy-webr.mjs';
 import { injectSwPrecache } from './scripts/gen-sw-precache.mjs';
+import { ensureWasmStub } from './scripts/make-wasm-stub.mjs';
 
 /**
  * Vendoring is an optimisation, never a startup dependency. A fresh checkout
@@ -76,6 +77,19 @@ const vendorWebR: Plugin = {
   },
 };
 
+// A fresh source checkout has no generated `src/native/ergalics_core.js`, so
+// `src/core/wasm.ts`'s dynamic import 404s in dev before the graceful fallback
+// can run. Emit the same stub CI uses, without requiring a Rust toolchain.
+const wasmStub: Plugin = {
+  name: 'ergalics-wasm-stub',
+  buildStart() {
+    ensureWasmStub();
+  },
+  configureServer() {
+    ensureWasmStub();
+  },
+};
+
 // FR-20: after the bundle is written, inject the precache manifest + version
 // hash into dist/sw.js (public/sw.js ships with the placeholder tokens).
 // Runs only for builds; merge-deploy.mjs copies the injected file unchanged.
@@ -88,7 +102,7 @@ const swPrecache: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [react(), vendorPyodide, vendorBlocklyMedia, vendorWebR, swPrecache],
+  plugins: [react(), wasmStub, vendorPyodide, vendorBlocklyMedia, vendorWebR, swPrecache],
   // Build-injected app version (comes from package.json via npm_* env);
   // consumed by the welcome page instead of a hard-coded constant.
   define: {
