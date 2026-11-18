@@ -8261,7 +8261,15 @@
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%;
-  transform: translateX(-50%);
+  /* Keep the node mounted so closing animates too, not just opening. */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px) scale(0.98);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 160ms ease;
   width: 280px;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -8269,6 +8277,19 @@
   box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
   padding: var(--space-3);
   z-index: 60;
+}
+
+.statusbar-popover.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusbar-popover {
+    transition: none;
+  }
 }
 
 .statusbar-popover-title {
