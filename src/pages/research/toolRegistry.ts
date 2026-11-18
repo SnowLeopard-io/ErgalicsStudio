@@ -87,6 +87,9 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('model-inference', () => import('@/pages/labs/InferencePage'), {
     icon: 'model-inference', titleKey: 'tool.model-inference.title', group: 'model',
   }),
+  tool('causal-lab', () => import('@/pages/labs/CausalLabPage'), {
+    icon: 'causal', titleKey: 'tool.causal-lab.title', group: 'model',
+  }),
   tool('sweeps', () => import('@/pages/sweeps/SweepsPage'), {
     icon: 'sweeps', titleKey: 'sweep.title', group: 'model', requireProject: true,
   }),

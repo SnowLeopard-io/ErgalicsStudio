@@ -10361,6 +10361,29 @@
   background: var(--color-bg-primary);
 }
 
+/* ---- causal lab ---- */
+
+.causal-input {
+  width: 100%;
+  min-height: 120px;
+  margin: var(--space-2) 0;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.causal-small {
+  width: 6rem;
+  margin-left: var(--space-1);
+}
+
+.causal-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  color: var(--color-accent);
+}
+
 /* ---- quick stats ---- */
 
 .qs-input {

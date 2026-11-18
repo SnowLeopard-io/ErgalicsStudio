@@ -458,6 +458,8 @@ export type ToolIconKind =
   | 'notebook'
   | 'supplement'
   | 'model-inference'
+  | 'causal'
+  | 'performance'
   | 'course'
   | 'cleaning'
   | 'gallery'
@@ -719,6 +721,24 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
           <path d="M4 5.5 20 3l-4 12-5-3.5z" />
           <path d="m11 11.5 4-4" />
           <path d="M6 15v5h12v-4" />
+        </Svg>
+      );
+    case 'causal': // three nodes joined by directed arrows
+      return (
+        <Svg {...rest}>
+          <circle cx="5" cy="6" r="2" />
+          <circle cx="19" cy="6" r="2" />
+          <circle cx="12" cy="18" r="2" />
+          <path d="M7 6h10M6 8l5 8M18 8l-5 8" />
+          <path d="m14.5 4.5 2.5 1.5-2.5 1.5M10 15.5 7.8 13l2.9-.8M14 14.2l2.2-1.2-2.9-.8" />
+        </Svg>
+      );
+    case 'performance': // stopwatch with a rising bar
+      return (
+        <Svg {...rest}>
+          <circle cx="12" cy="13" r="7.5" />
+          <path d="M9 3h6M12 5.5V3M12 9v4.5l3 2" />
+          <path d="M6 19 4 21M18 19l2 2" />
         </Svg>
       );
   }
