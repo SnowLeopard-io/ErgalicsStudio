@@ -23,8 +23,11 @@ import {
   runUniaxialBenchmark,
   solveEngineeringStudy,
   toResultSnapshot,
+  SOLVER_NAME,
   type BenchmarkResult,
 } from '@/core/engineering/solve';
+// Dynamic import below (inside solve) avoids a module-init cycle:
+// engineeringStore → experimentStore → projectStore → blockStore → engineeringStore.
 import {
   applyDesignPoint,
   defaultCase,
@@ -46,6 +49,12 @@ import {
   meshSummary,
 } from '@/core/engineering';
 import { buildEngineeringReport, type EngineeringReport } from '@/core/engineering/report';
+import {
+  runEngineeringBuild,
+  clearEngineeringBuildCache,
+  type EngineeringBuild,
+} from '@/core/engineering/build';
+import type { BuildStats } from '@/core/build/engine';
 import type {
   BoundaryCondition,
   EngineeringCase,
@@ -73,6 +82,10 @@ interface EngineeringStore {
   benchmark: BenchmarkResult | null;
   solving: boolean;
   error: string | null;
+  /** Content-addressed build report of the last solve (hits / recompute). */
+  buildStats: BuildStats | null;
+  /** True when the last solve came from the cache. */
+  buildCached: boolean;
 
   /** Parse a text payload and make it the active study. Also mirrors the
    *  original file into the workspace (`mesh/` or `geometry/`). */
@@ -101,7 +114,10 @@ interface EngineeringStore {
 
   updateCaseDesign: (design: EngineeringCase['design']) => void;
 
-  solve: (stepId?: string) => EngineeringSolveResult | null;
+  /** Solve through the shared content-addressed build engine (cache + proof). */
+  solve: (stepId?: string) => Promise<EngineeringSolveResult | null>;
+  /** Clear cached engineering solves. */
+  clearBuildCache: () => void;
   runBenchmark: () => BenchmarkResult;
   runScan: (points?: number) => EngineeringScanRow[];
   fingerprint: () => EngineeringFingerprint | null;
@@ -176,6 +192,8 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   benchmark: null,
   solving: false,
   error: null,
+  buildStats: null,
+  buildCached: false,
 
   importText: (text, name, sourcePath) => {
     try {
@@ -295,8 +313,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       : makeMaterial(name ?? `Material ${next.materials.length + 1}`, { E: 2.1e11, nu: 0.3, rho: 7850 });
     if (!material) return;
     next.materials.push(material);
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   updateMaterialProperty: (materialName, property, value) => {
@@ -306,8 +326,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const material = next.materials.find((item) => item.name === materialName);
     if (!material) return;
     material.properties = { ...material.properties, [property]: value };
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   removeMaterial: (materialName) => {
@@ -320,8 +342,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         Object.entries(next.materialAssignment).filter(([, name]) => name !== materialName),
       );
     }
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   assignMaterialTag: (tag, materialName) => {
@@ -329,8 +353,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     if (!study) return;
     const next = cloneStudy(study);
     next.materialAssignment = { ...(next.materialAssignment ?? {}), [String(tag)]: materialName };
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   addBoundaryCondition: (condition) => {
@@ -338,8 +364,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     if (!study) return;
     const next = cloneStudy(study);
     next.boundaryConditions.push(condition);
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   updateBoundaryCondition: (index, patch) => {
@@ -347,8 +375,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     if (!study || !study.boundaryConditions[index]) return;
     const next = cloneStudy(study);
     next.boundaryConditions[index] = { ...next.boundaryConditions[index]!, ...patch };
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   removeBoundaryCondition: (index) => {
@@ -356,8 +386,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     if (!study) return;
     const next = cloneStudy(study);
     next.boundaryConditions.splice(index, 1);
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   activeCase: () => {
@@ -374,8 +406,8 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const step = makeStep(name ?? defaultStepName(kind), kind);
     cases[0]!.steps.push(step);
     next.cases = cases;
-    set({ study: next, activeStepId: step.id });
-    persistStudy(next, get().result, get().scan, step.id);
+    set({ study: next, activeStepId: step.id, result: null, scan: [] });
+    persistStudy(next, null, [], step.id);
   },
 
   updateStep: (stepId, patch) => {
@@ -385,11 +417,15 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     for (const studyCase of ensureCase(next.cases)) {
       const step = studyCase.steps.find((candidate) => candidate.id === stepId);
       if (!step) continue;
+      // Merge solver before Object.assign overwrites it with a partial patch.
+      const mergedSolver = patch.solver ? { ...step.solver, ...patch.solver } : undefined;
       Object.assign(step, patch);
-      if (patch.solver) step.solver = { ...step.solver, ...patch.solver };
+      if (mergedSolver) step.solver = mergedSolver;
     }
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
   removeStep: (stepId) => {
@@ -403,8 +439,8 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     next.cases = ensureCase(next.cases);
     const active =
       get().activeStepId === stepId ? next.cases[0]!.steps[0]!.id : get().activeStepId;
-    set({ study: next, activeStepId: active });
-    persistStudy(next, get().result, get().scan, active);
+    set({ study: next, activeStepId: active, result: null, scan: [] });
+    persistStudy(next, null, [], active);
   },
 
   selectStep: (stepId) => {
@@ -420,11 +456,13 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const cases = ensureCase(next.cases);
     cases[0]!.design = design;
     next.cases = cases;
-    set({ study: next });
-    persistStudy(next, get().result, get().scan, get().activeStepId);
+    // Any study mutation invalidates results/scan: keeping solve metrics
+    // computed from an older model would be silently misleading.
+    set({ study: next, result: null, scan: [] });
+    persistStudy(next, null, [], get().activeStepId);
   },
 
-  solve: (stepId) => {
+  solve: async (stepId) => {
     const study = get().study;
     if (!study) return null;
     const step =
@@ -434,18 +472,49 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       ensureCase(study.cases)[0]!.steps[0]!;
     set({ solving: true, error: null });
     try {
-      const result = solveEngineeringStudy(study, { step });
+      const built: EngineeringBuild = await runEngineeringBuild(study, { step });
+      const result = built.result;
       const next = cloneStudy(study);
       next.fields = result.fields;
-      const benchmark = get().benchmark;
       set({
         study: next,
         result,
         solving: false,
         activeStepId: step.id,
-        benchmark,
+        buildStats: built.stats,
+        buildCached: built.cached,
       });
       persistStudy(next, result, get().scan, step.id);
+      // Make the solve visible in /studio/runs, lineage and auto-commit, just
+      // like a Flow run — with its build breakdown and attestation digest.
+      const stats = built.stats;
+      const ran = stats.cached + stats.computed;
+      // Fire-and-forget: never block the solve on the run recorder, and load
+      // lazily to avoid the store import cycle at module init.
+      void import('./experimentStore').then(({ useExperimentStore }) =>
+        useExperimentStore.getState().recordRun({
+        source: 'industrial',
+        label: `${study.name} · ${step.name}`,
+        params: { stepId: step.id, stepKind: step.kind, solver: SOLVER_NAME },
+        inputsHash: built.attestation.planHash,
+        metrics: Object.fromEntries(
+          Object.entries(result.metrics).filter(([, value]) => typeof value === 'number' && Number.isFinite(value)),
+        ),
+        durationMs: stats.durationMs,
+        build: {
+          total: stats.total,
+          computed: stats.computed,
+          cached: stats.cached,
+          blocked: stats.blocked,
+          failed: stats.failed,
+          durationMs: stats.durationMs,
+          planHash: stats.planHash,
+          environment: stats.environment,
+          cacheHitRate: ran > 0 ? stats.cached / ran : 0,
+          attestationDigest: built.attestation.digest,
+        },
+        }),
+      );
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -454,6 +523,11 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       useAppStore.getState().notify('error', message);
       return null;
     }
+  },
+
+  clearBuildCache: () => {
+    clearEngineeringBuildCache();
+    set({ buildStats: null, buildCached: false });
   },
 
   runBenchmark: () => {
@@ -468,17 +542,22 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const studyCase = ensureCase(study.cases)[0]!;
     const designPoints = expandDesign(studyCase.design, { samples: points });
     if (designPoints.length === 0) return [];
-    const step = studyCase.steps.find((candidate) => candidate.id === get().activeStepId) ?? studyCase.steps[0]!;
+    const stepId = get().activeStepId;
     const rows: EngineeringScanRow[] = [];
-    for (const point of designPoints.slice(0, 512)) {
+    const cap = 2048;
+    for (const point of designPoints.slice(0, cap)) {
       const variant = cloneStudy(study);
+      const variantSteps = ensureCase(variant.cases)[0]!.steps;
       const warnings = applyDesignPoint({
         point,
         materials: variant.materials,
-        steps: ensureCase(variant.cases)[0]!.steps,
+        steps: variantSteps,
         boundaryConditions: variant.boundaryConditions,
       });
       if (warnings.length > 0) logger.debug('engineering', 'scan warnings', warnings);
+      // Resolve the step from the MUTATED variant: step.<id>.* design knobs
+      // only take effect when read after applyDesignPoint.
+      const step = variantSteps.find((candidate) => candidate.id === stepId) ?? variantSteps[0]!;
       try {
         const result = solveEngineeringStudy(variant, { step });
         rows.push({

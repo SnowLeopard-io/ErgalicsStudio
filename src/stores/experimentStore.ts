@@ -33,6 +33,8 @@ interface RecordRunInput {
   parentSweepId?: string;
   inputFileIds?: string[];
   outputFileIds?: string[];
+  /** Incremental-build breakdown (Flow / industrial solve runs). */
+  build?: import('@/core/experiment/record').RunBuildStats;
 }
 
 interface ExperimentStore {
@@ -113,6 +115,7 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
       parentSweepId: input.parentSweepId,
       inputFileIds: input.inputFileIds,
       outputFileIds: input.outputFileIds,
+      ...(input.build ? { build: input.build } : {}),
     });
     try {
       await saveRun(run);

@@ -12,6 +12,7 @@ import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { EmptyState } from '@/components/EmptyState';
 import { EngineeringImportButton } from './ImportButton';
+import { CadViewport, type CadViewPreset } from './CadViewport';
 import { artifactBaseName, downloadIndustrialText, safeName, useIndustrialArtifacts } from './artifacts';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore, primaryMaterial } from '@/stores/engineeringStore';
@@ -34,6 +35,7 @@ import {
   studyDocument,
 } from '@/core/engineering/export';
 import type { PlotSpec } from '@/core/plot/types';
+import { sendSpecToFigure } from '@/pages/research/researchUi';
 import {
   algorithmLabel,
   benchmarkLabel,
@@ -62,12 +64,17 @@ import type {
 
 function useStudyLoaded(): void {
   const project = useProjectStore((s) => s.project);
-  const study = useEngineeringStore((s) => s.study);
+  const projectId = project?.id ?? null;
+  const loadedId = useRef<string | null>(null);
   useEffect(() => {
-    if (!study && project?.state.engineering) {
+    if (projectId === loadedId.current) return;
+    loadedId.current = projectId;
+    // A different project must not inherit the previous study/result.
+    useEngineeringStore.getState().clear();
+    if (project?.state.engineering) {
       useEngineeringStore.getState().loadFromProject(project);
     }
-  }, [project, study]);
+  }, [projectId, project]);
 }
 
 function Page({ toolId, children }: { toolId: string; children: ReactNode }) {
@@ -263,8 +270,18 @@ export function GeometryPage() {
   const geometry = study?.geometry;
   const artifacts = useIndustrialArtifacts();
   const [selected, setSelected] = useState<string>('all');
+  const [view3d, setView3d] = useState(true);
+  const [preset, setPreset] = useState<CadViewPreset>('fit');
+  const [wireframe, setWireframe] = useState(true);
+  const [snapshotTick, setSnapshotTick] = useState(0);
   const entities = geometry?.entities.filter((entity) => selected === 'all' || entity.layer === selected) ?? [];
   const base = artifactBaseName(study);
+  const takeSnapshot = (url: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${base}-cad.png`;
+    link.click();
+  };
   const exportGeometryCsv = () => {
     if (!geometry) return;
     downloadIndustrialText(geometryToCSV(geometry), `${base}-geometry.csv`, 'text/csv');
@@ -302,6 +319,12 @@ export function GeometryPage() {
                 {t('industrial.layers', { n: geometry.layers.length })} · {geometry.sourceFormat.toUpperCase()}
               </span>
               <span className="ind-toolbar-spacer" />
+              <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
+                {view3d ? t('industrial.cad_view') : '2D'}
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
+                {t('industrial.cad_snapshot')}
+              </button>
               <button type="button" className="btn btn-sm" onClick={exportGeometryCsv}>
                 {t('industrial.export_geometry_csv')}
               </button>
@@ -309,6 +332,36 @@ export function GeometryPage() {
                 {t('industrial.save_workspace')}
               </button>
             </div>
+            {view3d && (
+              <>
+                <div className="ind-toolbar">
+                  {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`btn btn-sm${preset === p ? ' is-active' : ''}`}
+                      onClick={() => setPreset(p)}
+                    >
+                      {t(`industrial.cad_view_${p}`)}
+                    </button>
+                  ))}
+                  <label className="research-check">
+                    <input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} />
+                    {t('industrial.cad_wireframe')}
+                  </label>
+                  <span className="ind-hint">{t('industrial.cad_hint')}</span>
+                </div>
+                <CadViewport
+                  geometry={geometry}
+                  layers={selected === 'all' ? undefined : [selected]}
+                  wireframe={wireframe}
+                  preset={preset}
+                  snapshotRequest={snapshotTick}
+                  onSnapshotReady={takeSnapshot}
+                  height={400}
+                />
+              </>
+            )}
             <div className="ind-geometry-list">
               {entities.slice(0, 200).map((entity) => (
                 <div key={entity.id} className="ind-row">
@@ -319,7 +372,7 @@ export function GeometryPage() {
                 </div>
               ))}
             </div>
-            {study && <MeshCanvas mesh={study.mesh} height={360} />}
+            {study && !view3d && <MeshCanvas mesh={study.mesh} height={360} />}
           </>
         )}
       </div>
@@ -337,6 +390,10 @@ export function MeshViewerPage() {
   const study = useEngineeringStore((s) => s.study);
   const result = useEngineeringStore((s) => s.result);
   const [fieldName, setFieldName] = useState('');
+  const [view3d, setView3d] = useState(true);
+  const [preset, setPreset] = useState<CadViewPreset>('fit');
+  const [wireframe, setWireframe] = useState(false);
+  const [snapshotTick, setSnapshotTick] = useState(0);
   const artifacts = useIndustrialArtifacts();
   const fields = study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
@@ -355,6 +412,12 @@ export function MeshViewerPage() {
     await artifacts.saveText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh));
     await artifacts.saveText('results', `${base}-elements.csv`, elementsToCSV(study.mesh));
     await artifacts.saveText('figures', `${base}-mesh.svg`, meshToSVG(study, field, { title: study.name }));
+  };
+  const takeSnapshot = (url: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${base}-mesh.png`;
+    link.click();
   };
   return (
     <Page toolId="mesh-viewer">
@@ -376,6 +439,12 @@ export function MeshViewerPage() {
                 {t('industrial.groups', { n: study.mesh.groups.length })}
               </span>
               <span className="ind-toolbar-spacer" />
+              <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
+                {view3d ? t('industrial.cad_view') : '2D'}
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
+                {t('industrial.cad_snapshot')}
+              </button>
               <button type="button" className="btn btn-sm" onClick={exportMesh}>
                 {t('industrial.export_mesh_csv')}
               </button>
@@ -386,7 +455,32 @@ export function MeshViewerPage() {
                 {t('industrial.save_workspace')}
               </button>
             </div>
-            <MeshCanvas mesh={study.mesh} field={field} />
+            {view3d ? (
+              <>
+                <div className="ind-toolbar">
+                  {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
+                    <button key={p} type="button" className={`btn btn-sm${preset === p ? ' is-active' : ''}`} onClick={() => setPreset(p)}>
+                      {t(`industrial.cad_view_${p}`)}
+                    </button>
+                  ))}
+                  <label className="research-check">
+                    <input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} />
+                    {t('industrial.cad_wireframe')}
+                  </label>
+                  <span className="ind-hint">{t('industrial.cad_hint')}</span>
+                </div>
+                <CadViewport
+                  mesh={study.mesh}
+                  field={field}
+                  wireframe={wireframe}
+                  preset={preset}
+                  snapshotRequest={snapshotTick}
+                  onSnapshotReady={takeSnapshot}
+                />
+              </>
+            ) : (
+              <MeshCanvas mesh={study.mesh} field={field} />
+            )}
             {result && (
               <div className="ind-hint">
                 {t('industrial.last_solve')}: {result.stepName} ·{' '}
@@ -450,7 +544,7 @@ export function MaterialsPage() {
               <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
                 {MATERIAL_LIBRARY.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.nameI18n[locale as 'zh' | 'en'] ?? item.name}
+                    {item.nameI18n[(locale.startsWith('zh') ? 'zh' : 'en') as 'zh' | 'en'] ?? item.name}
                   </option>
                 ))}
               </select>
@@ -726,6 +820,9 @@ export function SolvePage() {
   const result = useEngineeringStore((s) => s.result);
   const solving = useEngineeringStore((s) => s.solving);
   const benchmark = useEngineeringStore((s) => s.benchmark);
+  const buildStats = useEngineeringStore((s) => s.buildStats);
+  const buildCached = useEngineeringStore((s) => s.buildCached);
+  const clearBuildCache = useEngineeringStore((s) => s.clearBuildCache);
   const solve = useEngineeringStore((s) => s.solve);
   const runBenchmark = useEngineeringStore((s) => s.runBenchmark);
   const activeStepId = useEngineeringStore((s) => s.activeStepId);
@@ -757,12 +854,22 @@ export function SolvePage() {
               <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
                 {steps.map((step) => <option key={step.id} value={step.id}>{step.name} ({stepKindLabel(t, step.kind)})</option>)}
               </select>
-              <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => solve()}>
+              <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
                 {solving ? <span className="spinner" /> : t('industrial.solve')}
               </button>
               <button type="button" className="btn btn-sm" onClick={() => runBenchmark()}>
                 {t('industrial.benchmark')}
               </button>
+              <button type="button" className="btn btn-sm" onClick={clearBuildCache}>
+                {t('industrial.clear_build_cache')}
+              </button>
+              {buildStats && (
+                <span className={`tag${buildCached ? ' is-hit' : ''}`}>
+                  {buildCached
+                    ? t('industrial.build_hit', { n: buildStats.cached })
+                    : t('industrial.build_computed', { n: buildStats.computed })}
+                </span>
+              )}
               <span className="ind-toolbar-spacer" />
               <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>
                 {t('industrial.export_metrics_csv')}
@@ -976,6 +1083,18 @@ export function DesignScanPage() {
                   <button type="button" className="btn btn-sm" onClick={() => spec && exportSVG(renderSVG(spec), `${base}-design-scan-${safeName(activeMetric)}.svg`)}>
                     {t('industrial.export_svg')}
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={!spec}
+                    title={t('industrial.send_figure_hint')}
+                    onClick={() => {
+                      if (!spec) return;
+                      sendSpecToFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'));
+                    }}
+                  >
+                    {t('industrial.send_figure')}
+                  </button>
                 </header>
                 {spec && <SvgPlot spec={spec} />}
               </div>
@@ -1028,7 +1147,7 @@ export function FluidPage() {
         <header className="ind-page-head"><h2>{t('industrial.fluid')}</h2><StudyMeta /></header>
         <div className="ind-toolbar">
           <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => solve()}>{t('industrial.solve_flow')}</button>
+          <button type="button" className="btn btn-sm btn-primary" onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
           <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
         </div>
         <EngineeringImportButton />
@@ -1111,17 +1230,14 @@ export function FingerprintPage() {
 export function IndustrialReportPage() {
   useStudyLoaded();
   const t = useT();
-  const { locale } = useLocale();
   const study = useEngineeringStore((s) => s.study);
-  const result = useEngineeringStore((s) => s.result);
-  const benchmark = useEngineeringStore((s) => s.benchmark);
   const buildReport = useEngineeringStore((s) => s.buildReport);
   const artifacts = useIndustrialArtifacts();
   const base = artifactBaseName(study);
-  const report = useMemo(
-    () => buildReport(),
-    [buildReport, study, result, benchmark, locale],
-  );
+  // buildReport reads study/result/benchmark/locale from the store; it is a
+  // cheap pure string build, so recompute on every render instead of faking
+  // hook dependencies (the action itself is the only real dependency).
+  const report = buildReport();
   const download = () => {
     if (!report) return;
     downloadIndustrialText(report.html, `${base}-report.html`, 'text/html');

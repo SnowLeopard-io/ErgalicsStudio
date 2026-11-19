@@ -9,7 +9,7 @@
 // ==========================================================================
 
 /** Which workbench surface produced the run. */
-export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql' | 'inference';
+export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql' | 'inference' | 'industrial';
 
 /**
  * Incremental-build breakdown attached to a run (Flow mode). Kept separate

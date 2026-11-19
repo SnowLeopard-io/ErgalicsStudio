@@ -149,7 +149,7 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
             </div>
           )}
           <div className="suite-intro-actions">
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => solve()}>
+            <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
               {t('industrial.solve')}
             </button>
             <button type="button" className="btn btn-sm" onClick={() => navigate('/studio/industrial-report')}>

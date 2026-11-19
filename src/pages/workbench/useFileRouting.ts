@@ -132,6 +132,8 @@ export function useFileRouting() {
           const geometry = /\.(dxf|step|stp)$/i.test(file.name);
           useAppStore.getState().setMode('standard');
           useAppStore.getState().setEmbeddedTool(geometry ? 'geometry-import' : 'mesh-viewer');
+          // Make the industrial tool list visible, not the research grid.
+          useAppStore.getState().setSidebarView('industrial');
           notify('success', t('industrial.import'));
         }
       } catch (err) {
