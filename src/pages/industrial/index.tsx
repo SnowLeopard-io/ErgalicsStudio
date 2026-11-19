@@ -704,8 +704,10 @@ export function SolvePage() {
                   its (localized) reason on the canvas instead of only a toast. */}
               {!result && (
                 <div className={`ind-canvas-hint${solveError ? ' is-error' : ''}`} role="status">
-                  <strong>{solveError ? t('industrial.solve_failed') : t('industrial.solver_empty_title')}</strong>
-                  <span>{solveError ?? t('industrial.solver_empty_desc')}</span>
+                  <div className="ind-canvas-hint-card">
+                    <strong>{solveError ? t('industrial.solve_failed') : t('industrial.solver_empty_title')}</strong>
+                    <span>{solveError ?? t('industrial.solver_empty_desc')}</span>
+                  </div>
                 </div>
               )}
             </div>
