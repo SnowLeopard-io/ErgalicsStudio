@@ -184,9 +184,13 @@ function readElements(
     for (let i = 1; i <= count && i < lines.length; i += 1) {
       const parts = tokens(lines[i]!).map(Number);
       if (parts.length < 3) continue;
+      // v2 line layout: `elm-number elm-type number-of-tags tag… node…`.
+      // `parts[1]` is the element type, NOT the tag count — treating it as the
+      // count shifts every tag into the node list and mislabels the group.
       const id = parts[0]!;
-      const tagCount = parts[1]!;
-      const labels = parts.slice(2 + tagCount);
+      const tagCount = parts[2] ?? 0;
+      const tags = parts.slice(3, 3 + tagCount);
+      const labels = parts.slice(3 + tagCount);
       const indices = labels
         .map((label) => indexById.get(label))
         .filter((index): index is number => index !== undefined);
@@ -194,7 +198,8 @@ function readElements(
         id,
         type: inferV2Type(indices.length, planar),
         nodes: indices,
-        ...(tagCount > 0 ? { group: parts[2] } : {}),
+        // Gmsh 2.2: tags[0] is the physical group, tags[1] the geometric entity.
+        ...(tags.length > 0 ? { group: tags[0] } : {}),
       });
     }
     return elements;
@@ -241,15 +246,24 @@ export function parseGmsh(text: string, name = 'mesh.msh'): EngineeringStudy {
   const format = section(text, 'MeshFormat');
   if (format.length === 0) throw new GmshParseError('missing $MeshFormat section');
   const header = tokens(format[0] ?? '');
-  const version = Number(header[0] ?? 0);
+  const versionToken = header[0] ?? '';
+  const version = Number(versionToken);
+  // `4.1.0` / `4.01.0` parse to NaN; comparing NaN against the version bounds
+  // is always false, so without this guard a malformed header slipped through
+  // as a valid 4.1 file. Reject anything that is not a finite number.
+  if (!Number.isFinite(version)) {
+    throw new GmshParseError(`unsupported Gmsh version ${versionToken || '(missing)'}`);
+  }
+  const [major, minor] = versionToken.split('.').map(Number);
   const isBinary = Number(header[1] ?? 0) !== 0;
   if (isBinary) throw new GmshParseError('binary Gmsh files are not supported — re-export as ASCII');
   // MSH 4.0 的 $Nodes 是“每行标签+坐标”，与 4.1 的“先标签后坐标”不同。
   // 宁可明确拒绝，也不静默解析出 NaN 坐标。
-  if (version >= 4 && version < 4.1) {
+  if (major === 4 && minor === 0) {
     throw new GmshParseError('暂不支持 MSH 4.0，请用 Gmsh 重新导出 4.1 或 2.2 格式');
   }
-  if (version < 2 || version >= 5) {
+  const supportedVersion = (major === 2 && minor === 2) || (major === 4 && minor === 1);
+  if (!supportedVersion) {
     throw new GmshParseError(`unsupported Gmsh version ${version}`);
   }
 

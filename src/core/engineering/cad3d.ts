@@ -8,6 +8,7 @@
 // ==========================================================================
 
 import * as THREE from 'three';
+import { marchingTets, type VoxelField } from '@/core/mesh3d';
 import type {
   EngineeringField,
   EngineeringGeometry,
@@ -210,6 +211,42 @@ export function meshToScene(
   surface.name = 'surface';
   group.add(surface);
   return group;
+}
+
+/**
+ * Build a shaded isosurface from a sampled VoxelField via marchingTets.
+ * Used by the 3-D post-processor to show contours of stress/temperature.
+ */
+export function isosurfaceToScene(
+  voxel: VoxelField,
+  level: number,
+  colour = 0x38bdf8,
+  bounds?: [number, number, number, number, number, number],
+): THREE.Mesh | null {
+  const surface = marchingTets(voxel, level);
+  if (surface.positions.length === 0) return null;
+  // marchingTets emits voxel-lattice coordinates; map them back to model space
+  // so the isosurface aligns with the mesh rendered in the same scene.
+  let positions = surface.positions;
+  if (bounds) {
+    const [minX, minY, minZ, maxX, maxY, maxZ] = bounds;
+    positions = new Float32Array(surface.positions.length);
+    for (let i = 0; i < surface.positions.length; i += 3) {
+      positions[i] = minX + (surface.positions[i]! / Math.max(1, voxel.nx - 1)) * (maxX - minX);
+      positions[i + 1] = minY + (surface.positions[i + 1]! / Math.max(1, voxel.ny - 1)) * (maxY - minY);
+      positions[i + 2] = minZ + (surface.positions[i + 2]! / Math.max(1, voxel.nz - 1)) * (maxZ - minZ);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshPhongMaterial({
+    color: colour, side: THREE.DoubleSide, transparent: true, opacity: 0.75,
+    shininess: 60,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = 'isosurface';
+  return mesh;
 }
 
 /** Axis-aligned bounding box helper framed by the CAD viewport. */

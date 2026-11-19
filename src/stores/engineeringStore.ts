@@ -69,6 +69,7 @@ import type {
   EngineeringScanRow,
 } from '@/core/engineering/projectState';
 import { ENGINEERING_STUDY_PATH } from '@/core/engineering/projectState';
+import { on } from '@/core/events';
 import { useProjectStore, getProjectRepoPath, getProjectSession } from './projectStore';
 import { useAppStore } from './appStore';
 import { getVfs } from '@/core/vfs';
@@ -252,6 +253,13 @@ export function flushEngineeringPersist(): void {
   }
   persistState(buildProjectState(pending));
 }
+
+// projectStore emits this at the start of applyOpenedProject, while the OLD
+// project/session is still current: the pending write therefore passes the
+// session/project check above and lands in the project it belongs to instead
+// of being dropped by loadFromProject's cancelScheduledPersist(). Module-level
+// for the app lifetime; events.ts is a leaf module, so no import cycle.
+on('host:engineering:flush', () => flushEngineeringPersist());
 
 /** Schedule the trailing write for edit actions (the snapshot itself is built
  *  at flush time, so a burst of keystrokes materialises the study once). */

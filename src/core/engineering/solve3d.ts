@@ -162,6 +162,15 @@ export function solve3DSteadyHeat(
   if (!mesh.elements.some((e) => e.type === 'tet4')) {
     throw new Solve3DError('3-D solve requires tet4 elements in the mesh');
   }
+  // Neumann (heat-flux) boundary conditions are not assembled on the volume
+  // boundary, so refuse them instead of silently dropping the load.
+  const heatFlux = study.boundaryConditions.find((condition) => condition.kind === 'heat-flux');
+  if (heatFlux) {
+    throw new Solve3DError(
+      `3-D steady heat does not support the heat-flux boundary condition "${heatFlux.name}" ` +
+        `(group ${heatFlux.target.dimension}:${heatFlux.target.tag}); use a temperature BC instead`,
+    );
+  }
   const tags = [...new Set(mesh.elements.map((e) => e.group).filter((v): v is number => v !== undefined))];
   const conductivity = coefficientByTag(
     study.materials, study.materialAssignment, 'k', 1,
@@ -220,11 +229,20 @@ export function solve3DSteadyHeat(
   }
   const Kr = toSolverCSR(reduced.toCsr());
   const result: UnifiedSolveResult = solve(Kr, b, {
-    method: 'auto',
+    // The assembled tet stiffness is symmetric positive definite by
+    // construction, so skip the 'auto' symmetry check (it materialises an
+    // O(n²) dense array and becomes an OOM on large meshes).
+    method: 'cg',
     precond: 'jacobi',
     tol: options.tolerance ?? 1e-9,
     maxIter: options.maxIterations ?? 2000,
   });
+  if (!result.converged) {
+    throw new Solve3DError(
+      `3-D steady-heat solve did not converge after ${result.iterations} iterations ` +
+        `(relative residual ${result.relResidual}); increase maxIterations or relax tolerance`,
+    );
+  }
   const solution = Float64Array.from(result.x);
   const values = new Float64Array(n);
   for (const [node, value] of prescribed) values[node] = value;

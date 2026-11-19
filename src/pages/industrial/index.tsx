@@ -13,6 +13,7 @@ import { ToolShell } from '@/components/ToolShell';
 import { EmptyState } from '@/components/EmptyState';
 import { EngineeringImportButton } from './ImportButton';
 import { CadViewport, type CadViewPreset } from './CadViewport';
+import { sampleTetField } from '@/core/engineering/volume';
 import { artifactBaseName, downloadIndustrialText, safeName, useIndustrialArtifacts } from './artifacts';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore, primaryMaterial } from '@/stores/engineeringStore';
@@ -950,6 +951,19 @@ export function PostPage() {
     [field, t],
   );
   const stem = `${base}-${safeName(field?.name ?? 'field')}`;
+  const is3d = study?.mesh.elements.some((e) => e.type === 'tet4') ?? false;
+  const [isoLevel, setIsoLevel] = useState(0.5);
+  const isoVolume = useMemo(() => {
+    if (!study || !is3d || !field) return null;
+    const voxel = sampleTetField(study.mesh, field, { resolution: 48 });
+    // marchingTets expects the level in the SAME units as the field values.
+    const finite = Array.from(voxel.values).filter((v) => Number.isFinite(v));
+    if (finite.length === 0) return voxel;
+    const lo = Math.min(...finite);
+    const hi = Math.max(...finite);
+    return { ...voxel, values: Float32Array.from(voxel.values, (v) =>
+      Number.isFinite(v) ? (v - lo) / (hi - lo || 1) : v) };
+  }, [study, is3d, field]);
   const exportFieldCsv = () => {
     if (!study || !field) return;
     downloadIndustrialText(fieldToCSV(study, field), `${stem}.csv`, 'text/csv');
@@ -1005,7 +1019,32 @@ export function PostPage() {
               <span className="ind-toolbar-spacer" />
               <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveAll()}>{t('industrial.save_workspace')}</button>
             </div>
-            <MeshCanvas mesh={study.mesh} field={field} height={430} />
+            {is3d ? (
+              <>
+                <div className="ind-toolbar analysis-row">
+                  <label className="ind-field">
+                    <span>{t('industrial.iso_level')}</span>
+                    <input
+                      className="input input-sm"
+                      type="range" min={0} max={1} step={0.01}
+                      value={isoLevel}
+                      onChange={(e) => setIsoLevel(Number(e.target.value))}
+                    />
+                    <span className="mono">{isoLevel.toFixed(2)}</span>
+                  </label>
+                  <span className="ind-hint">{t('industrial.cad_hint')}</span>
+                </div>
+                <CadViewport
+                  mesh={study.mesh}
+                  isoVolume={isoVolume}
+                  isoLevel={isoLevel}
+                  wireframe
+                  height={430}
+                />
+              </>
+            ) : (
+              <MeshCanvas mesh={study.mesh} field={field} height={430} />
+            )}
             {histogram && (
               <div className="ind-card">
                 <header className="ind-card-head">

@@ -35,7 +35,7 @@ import {
 import { restoreWorkbenchSession } from '@/core/workspace/session-restore';
 import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
-import { on } from '@/core/events';
+import { emit, on } from '@/core/events';
 import { t } from '@/i18n';
 import { getGitAdapter } from '@/core/git';
 import { assertValidGitRef } from '@/core/git/refname';
@@ -383,6 +383,10 @@ function applyOpenedProject(
   project: Project,
   { seedWorkspace = true }: { seedWorkspace?: boolean } = {},
 ): void {
+  // Must run BEFORE the session bump: the engineering store validates its
+  // pending write against the current session/project, so flushing afterwards
+  // would discard the old project's debounced edits (lost on switch).
+  emit('host:engineering:flush', {});
   projectSession += 1;
   const session = projectSession;
   // Read the stored layout before the canvas is cleared below, so the

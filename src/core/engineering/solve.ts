@@ -18,6 +18,7 @@ import {
 import { solvePoisson } from '@/core/fem/physics/poisson';
 import { solveHeat } from '@/core/fem/physics/heat';
 import { rectStructuredMesh } from '@/core/fem/mesh/domain';
+import { coefficientAt } from '@/core/fem/assemble/stiffness';
 import { nodeCount, triangleSignedArea, type EdgeElement, type PlanarMesh } from '@/core/fem/mesh/types';
 import { vonMises } from '@/core/fem/post/stress';
 import { toPlanarMesh } from './mesh';
@@ -82,11 +83,34 @@ function boundaryEdgesForTarget(
   mesh: EngineeringMesh,
   target: { dimension: number; tag: number },
 ): EdgeElement[] {
-  const tagged = planar.boundaryEdges.filter((edge) => edge.tag === target.tag);
-  if (tagged.length > 0) return tagged;
+  // Gmsh allows the same tag on entities of different dimensions, so a tag
+  // match is only meaningful for dimension-1 (edge) targets. Tag 0 means
+  // "untagged" rather than "every boundary edge", so it must not match by tag.
+  if (target.dimension === 1 && target.tag !== 0) {
+    const tagged = planar.boundaryEdges.filter((edge) => edge.tag === target.tag);
+    if (tagged.length > 0) return tagged;
+  }
   if (target.dimension < 1) return [];
   const members = new Set(targetNodeIndices(mesh, target));
   return planar.boundaryEdges.filter((edge) => members.has(edge.a) && members.has(edge.b));
+}
+
+/** Von Mises invariant for the active plane state. Plane stress has σz = 0;
+ *  plane strain has σz = ν(σx + σy), which must be included in the invariant. */
+function vonMisesInvariant(
+  sx: number,
+  sy: number,
+  txy: number,
+  state: PlaneState,
+  nu: number,
+): number {
+  if (state === 'plane-strain') {
+    const sz = nu * (sx + sy);
+    return Math.sqrt(
+      sx * sx - sx * sy + sy * sy + 3 * txy * txy + sz * sz - sx * sz - sy * sz,
+    );
+  }
+  return vonMises(sx, sy, txy);
 }
 
 function coordinateKey(x: number, y: number): string {
@@ -168,7 +192,20 @@ export function solveEngineeringStudy(
   // (reuses the sparse CG kernel) before the 2-D planar conversion.
   const hasTet4 = study.mesh.elements.some((e) => e.type === 'tet4');
   if (hasTet4 && step.kind === 'steady-heat') {
-    const result3d = solve3DSteadyHeat(study, { source: options.source ?? 0 });
+    const result3d = solve3DSteadyHeat(study, {
+      source: options.source ?? 0,
+      tolerance: step.solver.tolerance,
+      maxIterations: step.solver.maxIterations,
+    });
+    const threeDMetrics: Record<string, number> = {
+      elementCount: study.mesh.elements.length,
+      nodeCount: study.mesh.nodes.length,
+      iterations: result3d.iterations,
+      residual: result3d.residual,
+    };
+    // Same metric keys as the 2-D heat branch (a spread of the Float64Array
+    // would overflow the call stack for large meshes).
+    addRangeMetrics(threeDMetrics, 'temperature', result3d.field);
     return {
       schema: 'ergalics.engineering-result/v1',
       stepId: step.id,
@@ -176,14 +213,7 @@ export function solveEngineeringStudy(
       kind: step.kind,
       solvedAt: Date.now(),
       fields: [result3d.field],
-      metrics: {
-        elementCount: study.mesh.elements.length,
-        nodeCount: study.mesh.nodes.length,
-        iterations: result3d.iterations,
-        residual: result3d.residual,
-        minTemperature: Math.min(...result3d.field.values),
-        maxTemperature: Math.max(...result3d.field.values),
-      },
+      metrics: threeDMetrics,
       iterations: result3d.iterations,
       residual: result3d.residual,
       solver: { name: SOLVER_NAME, version: SOLVER_VERSION, algorithm: 'tet4-p1-cg', tolerance: step.solver.tolerance },
@@ -228,6 +258,20 @@ export function solveEngineeringStudy(
     const pointLoads: Array<{ node: number; fx: number; fy: number }> = [];
 
     for (const condition of study.boundaryConditions) {
+      // A pressure on an edge/face group is resolved from the boundary-edge
+      // set, independent of its node expansion — an empty set would otherwise
+      // contribute a silently zero load.
+      if (condition.kind === 'pressure' && condition.target.dimension >= 1) {
+        const edges = boundaryEdgesForTarget(planar, study.mesh, condition.target);
+        if (edges.length === 0) {
+          throw new EngineeringSolveError(
+            `pressure boundary condition "${condition.name}" matches no boundary edges ` +
+              `(group ${condition.target.dimension}:${condition.target.tag})`,
+          );
+        }
+        pressures.push({ edges, p: condition.components[0] ?? 0 });
+        continue;
+      }
       const nodes = targetNodeIndices(study.mesh, condition.target);
       if (nodes.length === 0) continue;
       if (condition.kind === 'displacement') {
@@ -247,18 +291,10 @@ export function solveEngineeringStudy(
           for (const node of nodes) pointLoads.push({ node, fx, fy });
         }
       } else if (condition.kind === 'pressure') {
-        if (condition.target.dimension >= 1) {
-          // A pressure is a scalar acting along the boundary normal, not a
-          // constant (tx, ty) vector.
-          pressures.push({
-            edges: boundaryEdgesForTarget(planar, study.mesh, condition.target),
-            p: condition.components[0] ?? 0,
-          });
-        } else {
-          const fx = condition.components[0] ?? 0;
-          const fy = condition.components[1] ?? 0;
-          for (const node of nodes) pointLoads.push({ node, fx, fy });
-        }
+        // Dimension-0 pressure targets are nodal loads (handled above).
+        const fx = condition.components[0] ?? 0;
+        const fy = condition.components[1] ?? 0;
+        for (const node of nodes) pointLoads.push({ node, fx, fy });
       }
     }
 
@@ -268,11 +304,12 @@ export function solveEngineeringStudy(
       );
     }
 
+    const planeState = (step.solver.planeState ?? 'plane-stress') as PlaneState;
     const result = solveElasticity({
       mesh: planar,
       E,
       nu,
-      state: (step.solver.planeState ?? 'plane-stress') as PlaneState,
+      state: planeState,
       thickness: step.solver.thickness ?? 1,
       constraints: [...constraints.entries()].map(([node, values]) => ({
         nodes: [node],
@@ -307,15 +344,18 @@ export function solveEngineeringStudy(
     fields.push({ name: 'strain', location: 'element', components: 3, values: result.elementStrain, unit: '-' });
     metrics.maxDisplacement = result.maxDisplacement;
     addRangeMetrics(metrics, 'vonMises', fields[1]!);
-    // min_stress / max_stress are the element von Mises invariant; the raw
-    // stress field is a 3-vector, so a component-vector norm would not be a
-    // standard stress measure.
+    // min_stress / max_stress are the element von Mises invariant, selected by
+    // the plane-stress / plane-strain constitutive state. The raw `stress`
+    // field is a 3-component tensor [σx, σy, τxy], so these scalar metrics must
+    // not be read as a component of that vector (the key is kept for UI labels).
     const elementVonMises = new Float64Array(planar.elements.length);
     for (let e = 0; e < elementVonMises.length; e += 1) {
-      elementVonMises[e] = vonMises(
+      elementVonMises[e] = vonMisesInvariant(
         result.elementStress[e * 3]!,
         result.elementStress[e * 3 + 1]!,
         result.elementStress[e * 3 + 2]!,
+        planeState,
+        coefficientAt(nu, planar.elements[e]!.tag),
       );
     }
     const stressRange = fieldRange('stress', elementVonMises, 1);

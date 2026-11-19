@@ -59,8 +59,8 @@ export interface TractionSpec {
 
 export interface PressureSpec {
   edges: EdgeSelector;
-  /** Scalar pressure (force per unit area); positive acts along the outward
-   *  boundary normal. */
+  /** Scalar pressure (force per unit area). Positive is compressive: it acts
+   *  inward, along −n_outward (Nastran PLOAD2 / Ansys SF/SFE convention). */
   p: number;
 }
 

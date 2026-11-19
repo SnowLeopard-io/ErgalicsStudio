@@ -3,7 +3,7 @@
 // flux/traction integrals for P1 elements.
 // ==========================================================================
 
-import { EdgeElement, PlanarMesh, TriElement, nodeCount } from '../mesh/types';
+import { EdgeElement, PlanarMesh, TriElement, nodeCount, triangleSignedArea } from '../mesh/types';
 
 /** Volume source term f evaluated per element (constant over the element). */
 export type SourceFn = (x: number, y: number, tag: number) => number;
@@ -94,12 +94,17 @@ export function assembleEdgeLoad(
 }
 
 /**
- * Assemble a constant normal-pressure load ∫_Γ p·n·N ds·t over boundary
- * edges. The result is an interleaved 2-DOF vector [fx0, fy0, fx1, fy1, …].
+ * Assemble a constant normal-pressure load ∫_Γ (−p)·n_outward·N ds·t over
+ * boundary edges. The result is an interleaved 2-DOF vector [fx0, fy0, …].
+ *
+ * Sign convention: a positive pressure is COMPRESSIVE (inward), as in the
+ * Nastran PLOAD2 / Ansys SF/SFE formats — it pushes the surface towards the
+ * body interior, so the load direction is −n_outward.
  *
  * Boundary edges are stored undirected (`a < b`), so the outward side comes
  * from the adjacent triangle's CCW ordering: for a CCW-directed edge p→q the
- * outward normal is (qy−py, −(qx−px))/|pq| (the edge rotated by −90°).
+ * outward normal is (qy−py, −(qx−px))/|pq| (the edge rotated by −90°). A
+ * clockwise (negative signed-area) triangle reverses that normal.
  */
 export function assemblePressureLoad(
   mesh: PlanarMesh,
@@ -134,16 +139,20 @@ export function assemblePressureLoad(
     const len = Math.hypot(dx, dy);
     if (len === 0) continue;
     const el = owner.get(keyOf(e.a, e.b));
-    // Does the owning triangle traverse a→b in its CCW edge order?
-    const ccwAtoB = el !== undefined && (
+    // Does the owning triangle traverse a→b in its stored (a,b,c) order?
+    const storedAtoB = el !== undefined && (
       (el.a === e.a && el.b === e.b) ||
       (el.b === e.a && el.c === e.b) ||
       (el.c === e.a && el.a === e.b)
     );
-    const nx = ccwAtoB ? dy / len : -dy / len;
-    const ny = ccwAtoB ? -dx / len : dx / len;
-    // Consistent nodal load of a constant edge traction: half to each node.
-    const nodal = (pressure * thickness * len) / 2;
+    // That ordering is only CCW when the triangle is CCW; a CW triangle
+    // (negative signed area) flips the outward normal.
+    const orientation = el !== undefined && triangleSignedArea(nodes, el.a, el.b, el.c) < 0 ? -1 : 1;
+    const nx = ((storedAtoB ? dy : -dy) / len) * orientation;
+    const ny = ((storedAtoB ? -dx : dx) / len) * orientation;
+    // Consistent nodal load of a constant edge pressure: half to each node.
+    // Negative because a positive pressure acts along −n_outward (compressive).
+    const nodal = -(pressure * thickness * len) / 2;
     load[e.a * 2] = load[e.a * 2]! + nodal * nx;
     load[e.a * 2 + 1] = load[e.a * 2 + 1]! + nodal * ny;
     load[e.b * 2] = load[e.b * 2]! + nodal * nx;

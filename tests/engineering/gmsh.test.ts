@@ -8,7 +8,7 @@ $MeshFormat
 $EndMeshFormat
 $PhysicalNames
 2
-1 1 "left"
+2 1 "left"
 1 2 "right"
 $EndPhysicalNames
 $Nodes
@@ -19,8 +19,8 @@ $Nodes
 $EndNodes
 $Elements
 2
-1 2 1 2 1 2 3
-2 2 2 3 1 3
+1 2 1 1 1 2 3
+2 1 1 2 1 2
 $EndElements
 `;
 
@@ -78,8 +78,8 @@ $Nodes
 $EndNodes
 $Elements
 2
-1 1 5 1 2 3
-2 1 5 1 2
+1 2 2 5 1 1 2 3
+2 1 2 5 1 1 2
 $EndElements
 `;
 
@@ -90,8 +90,11 @@ describe('Gmsh adapter', () => {
     expect(study.mesh.nodes).toHaveLength(3);
     expect(study.mesh.elements).toHaveLength(2);
     expect(study.mesh.elements[0]?.type).toBe('tri3');
+    expect(study.mesh.elements[0]?.nodes).toEqual([0, 1, 2]);
     expect(study.mesh.elements[1]?.type).toBe('line2');
+    expect(study.mesh.elements[1]?.nodes).toEqual([0, 1]);
     expect(study.mesh.groups.map((g) => g.name)).toEqual(['left', 'right']);
+    expect(study.mesh.groups[0]?.members).toEqual([0]);
     expect(study.mesh.groups[1]?.members).toEqual([1]);
     expect(toPlanarMesh(study.mesh)!.elements).toHaveLength(1);
   });
@@ -122,10 +125,21 @@ describe('Gmsh adapter', () => {
     expect(() => parseGmsh(V4.replace('4.1 0 8', '4.0 0 8'))).toThrow(/MSH 4\.0/);
   });
 
+  it('rejects malformed version headers instead of treating NaN as 4.1', () => {
+    expect(() => parseGmsh(V4.replace('4.1 0 8', '4.1.0 0 8'))).toThrow(/unsupported Gmsh version/);
+    expect(() => parseGmsh(V4.replace('4.1 0 8', '4.01.0 0 8'))).toThrow(/unsupported Gmsh version/);
+  });
+
   it('keeps physical groups apart when tags collide across dimensions', () => {
     const study = parseGmsh(V2_DIM_COLLISION, 'collision.msh');
     const edge = study.mesh.groups.find((g) => g.name === 'edge');
     const face = study.mesh.groups.find((g) => g.name === 'face');
+    // The tags must not leak into the node list: both elements keep their
+    // real topology and node ids, and each group points at its own element.
+    expect(study.mesh.elements[0]?.type).toBe('tri3');
+    expect(study.mesh.elements[0]?.nodes).toEqual([0, 1, 2]);
+    expect(study.mesh.elements[1]?.type).toBe('line2');
+    expect(study.mesh.elements[1]?.nodes).toEqual([0, 1]);
     expect(edge?.dimension).toBe(1);
     expect(edge?.members).toEqual([1]);
     expect(face?.dimension).toBe(2);

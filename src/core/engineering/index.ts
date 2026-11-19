@@ -16,6 +16,7 @@ export * from './geometry';
 export * from './study';
 export * from './solve';
 export * from './solve3d';
+export * from './volume';
 export * from './report';
 export * from './examples';
 export * from './export';
@@ -49,12 +50,29 @@ const EXTENSIONS: Record<string, EngineeringFormat> = {
   '.step': 'step',
   '.stp': 'step',
   '.bdf': 'nastran',
-  '.dat': 'nastran',
+  '.dat': 'nastran', // only a default; `.dat` is sniffed for Ansys below
   '.nas': 'nastran',
   '.cdb': 'ansys',
-  '.db': 'ansys',
-  '.foam': 'openfoam',
+  '.db': 'ansys', // recognized so the router can report a clear binary error
+  '.foam': 'openfoam', // case marker; the actual mesh lives in constant/polyMesh
 };
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot < 0 ? '' : name.slice(dot).toLowerCase();
+}
+
+/**
+ * `.dat` is ambiguous: Ansys and Nastran both use it. Nastran-only tokens win
+ * first (`BEGIN BULK`, `GRID`, `CHEXA`, …); otherwise Ansys block/command
+ * hints select Ansys. When the header is inconclusive the historical Nastran
+ * default is kept.
+ */
+function sniffDatFormat(text: string): EngineeringFormat | null {
+  if (/BEGIN\s+BULK|\bGRID\b|\bCHEXA\b|\bCTETRA\b|\bCQUAD4\b/i.test(text)) return 'nastran';
+  if (/\bNBLOCK\b|\bEBLOCK\b|\*\s*NODE\b|^\s*(?:ET|N)\s*,|^\s*BEGIN\b/im.test(text)) return 'ansys';
+  return null;
+}
 
 export class EngineeringParseError extends Error {
   constructor(message: string) {
@@ -82,8 +100,12 @@ export function isGeometryExtension(name: string): boolean {
 
 /** Guess a format from the file name, falling back to distinctive headers. */
 export function detectEngineeringFormat(name: string, text = ''): EngineeringFormat | null {
-  const dot = name.lastIndexOf('.');
-  const fromName = dot >= 0 ? EXTENSIONS[name.slice(dot).toLowerCase()] : undefined;
+  const ext = extensionOf(name);
+  if (ext === '.dat') {
+    // Both Ansys and Nastran ship `.dat`; sniff before trusting the extension.
+    return sniffDatFormat(text) ?? 'nastran';
+  }
+  const fromName = ext !== '' ? EXTENSIONS[ext] : undefined;
   if (fromName) return fromName;
   const geometry = detectGeometryFormat(name, text);
   if (geometry) return geometry;
@@ -92,6 +114,7 @@ export function detectEngineeringFormat(name: string, text = ''): EngineeringFor
   if (/<VTKFile\b/i.test(text)) return 'vtu';
   if (/vtk DataFile Version/i.test(text) && /UNSTRUCTURED_GRID/i.test(text)) return 'vtk';
   if (/^GRID[,\s]/im.test(text)) return 'nastran';
+  if (/^\s*(?:NBLOCK|EBLOCK)\s*,/im.test(text)) return 'ansys';
   if (/^\s*ET\s*,/im.test(text) && /^\s*N\s*,/im.test(text)) return 'ansys';
   if (/FoamFile|polyMesh|internalField\s+nonuniform/im.test(text)) return 'openfoam';
   return null;
@@ -99,6 +122,17 @@ export function detectEngineeringFormat(name: string, text = ''): EngineeringFor
 
 /** Parse a supported mesh file into an EngineeringStudy. */
 export function parseEngineeringFile(text: string, name: string): EngineeringStudy {
+  const ext = extensionOf(name);
+  if (ext === '.db') {
+    throw new EngineeringParseError(
+      'ansys: binary .db databases cannot be read as text — export an ASCII .cdb file (暂不支持二进制 .db，请导出 .cdb)',
+    );
+  }
+  if (ext === '.foam' && !/\bobject\s+points\s*;|^\s*points\s*$|polyMeshPoints/im.test(text)) {
+    throw new EngineeringParseError(
+      'openfoam: .foam is only a case marker — select the ASCII polyMesh files under constant/polyMesh (points/faces/owner/neighbour) (.foam 只是标记文件，请选择 constant/polyMesh 下的文本网格文件)',
+    );
+  }
   const format = detectEngineeringFormat(name, text);
   if (!format) {
     throw new EngineeringParseError(`unsupported engineering file: ${name}`);

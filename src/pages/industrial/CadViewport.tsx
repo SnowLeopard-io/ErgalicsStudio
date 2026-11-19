@@ -10,8 +10,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   engineeringBounds,
   geometryToScene,
+  isosurfaceToScene,
   meshToScene,
 } from '@/core/engineering/cad3d';
+import type { VoxelField } from '@/core/mesh3d';
 import { disposeObjectTree, fitCameraToObject } from '@/core/three-utils';
 import type {
   EngineeringField,
@@ -30,6 +32,9 @@ export interface CadViewportProps {
   showGrid?: boolean;
   layers?: readonly string[];
   preset?: CadViewPreset;
+  /** Optional 3-D isosurface overlay (sampled volume + contour level). */
+  isoVolume?: VoxelField | null;
+  isoLevel?: number;
   /** Called with a PNG data URL when the user asks for a snapshot. */
   onSnapshotReady?: (url: string) => void;
   snapshotRequest?: number;
@@ -60,6 +65,8 @@ export function CadViewport({
   showGrid = true,
   layers,
   preset = 'fit',
+  isoVolume = null,
+  isoLevel = 0.5,
   snapshotRequest = 0,
   onSnapshotReady,
 }: CadViewportProps) {
@@ -157,6 +164,13 @@ export function CadViewport({
     if (mesh) {
       handle.content.add(meshToScene(mesh, field ?? null, { wireframe }));
     }
+    if (isoVolume) {
+      const iso = isosurfaceToScene(
+        isoVolume, isoLevel, 0x38bdf8,
+        mesh ? mesh.bounds : undefined,
+      );
+      if (iso) handle.content.add(iso);
+    }
     const box = engineeringBounds(geometry, mesh);
     const size = box.getSize(new THREE.Vector3());
     const radius = Math.max(size.x, size.y, size.z, 1) * 0.5;
@@ -167,7 +181,7 @@ export function CadViewport({
       margin: 1.4,
     });
     handle.grid.visible = showGrid;
-  }, [geometry, mesh, field, wireframe, layers, preset, showGrid, ready]);
+  }, [geometry, mesh, field, wireframe, layers, preset, showGrid, ready, isoVolume, isoLevel]);
 
   // Snapshot is request-driven to avoid re-rendering on every frame.
   useEffect(() => {
