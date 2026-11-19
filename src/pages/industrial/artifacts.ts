@@ -9,9 +9,17 @@
 import { useCallback } from 'react';
 import { useT } from '@/i18n';
 import { logger } from '@/core/logger';
-import { downloadText } from '@/core/plot/export';
+import {
+  buildPDF,
+  downloadText,
+  exportPDF,
+  exportPNG,
+  exportSVG,
+  rasterizePNG,
+} from '@/core/plot/export';
 import { saveBinaryArtifact, saveTextArtifact } from '@/core/workspace-artifacts';
 import { useAppStore } from '@/stores/appStore';
+import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { useProjectStore } from '@/stores/projectStore';
 import type { EngineeringStudy } from '@/core/engineering/types';
 
@@ -81,4 +89,89 @@ export function downloadIndustrialText(
   mime: string,
 ): void {
   downloadText(content, filename, mime);
+}
+
+/** MIME type derived from the export filename (text artifacts only). */
+function mimeFor(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  const ext = dot >= 0 ? filename.slice(dot + 1).toLowerCase() : '';
+  switch (ext) {
+    case 'csv': return 'text/csv';
+    case 'json': return 'application/json';
+    case 'md': return 'text/markdown';
+    case 'html': return 'text/html';
+    case 'svg': return 'image/svg+xml';
+    default: return 'text/plain';
+  }
+}
+
+/**
+ * Export routing shared by the industrial pages. The right panel exposes an
+ * "output to workspace directory" toggle: when it is on, exports are written
+ * into the project workspace (results/ · figures/ · study/) and the file
+ * explorer is notified, exactly like the explicit save buttons; when it is
+ * off the exporter falls back to the browser download.
+ */
+export function useIndustrialOutput() {
+  const t = useT();
+  const { saveText, saveBinary, notify } = useIndustrialArtifacts();
+  const toWorkspace = useIndustrialChrome((s) => s.outputToWorkspace);
+
+  const outputText = useCallback(
+    async (dir: 'results' | 'figures' | 'study', filename: string, content: string) => {
+      if (!toWorkspace) {
+        downloadText(content, filename, mimeFor(filename));
+        return null;
+      }
+      return saveText(dir, filename, content);
+    },
+    [saveText, toWorkspace],
+  );
+
+  const outputFigure = useCallback(
+    async (filename: string, svg: string) => {
+      if (!toWorkspace) {
+        exportSVG(svg, filename);
+        return null;
+      }
+      return saveText('figures', filename, svg);
+    },
+    [saveText, toWorkspace],
+  );
+
+  const outputPng = useCallback(
+    async (filename: string, svg: string) => {
+      if (!toWorkspace) {
+        exportPNG(svg, filename);
+        return null;
+      }
+      try {
+        return await saveBinary('figures', filename, await rasterizePNG(svg));
+      } catch (err) {
+        logger.warn('engineering', 'artifact write failed', err);
+        notify('error', t('industrial.save_failed'));
+        return null;
+      }
+    },
+    [notify, saveBinary, t, toWorkspace],
+  );
+
+  const outputPdf = useCallback(
+    async (filename: string, svg: string) => {
+      if (!toWorkspace) {
+        await exportPDF(svg, filename);
+        return null;
+      }
+      try {
+        return await saveBinary('figures', filename, await buildPDF(svg));
+      } catch (err) {
+        logger.warn('engineering', 'artifact write failed', err);
+        notify('error', t('industrial.save_failed'));
+        return null;
+      }
+    },
+    [notify, saveBinary, t, toWorkspace],
+  );
+
+  return { outputText, outputFigure, outputPng, outputPdf };
 }

@@ -264,6 +264,7 @@ export const enUS: LocaleDictionary = {
   'workbench.right.fileinfo': 'File Info',
   'workbench.right.open_with': 'Open with',
   'workbench.right.suite': 'Research Suite',
+  'workbench.right.actions': 'Actions',
   'suite.open_standalone': 'Open standalone page',
   'suite.close': 'Close suite',
   'suite.tabs': 'Canvas tabs',

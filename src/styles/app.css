@@ -12051,6 +12051,81 @@
   gap: 12px;
 }
 
+/* Action-bar host: industrial pages portal their toolbars here (see
+   IndustrialActions) so the canvas keeps only the viewport, charts and
+   tables. Stack the rows into the narrow sidebar column. */
+.rp-engineering-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rp-engineering-actions:empty {
+  display: none;
+}
+
+.rp-engineering-output {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.rp-engineering-actions .ind-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+}
+
+/* Inputs, hints and checkboxes span the full sidebar width; plain buttons
+   flow two per row. */
+.rp-engineering-actions .ind-toolbar > .ind-field,
+.rp-engineering-actions .ind-toolbar > .ind-hint,
+.rp-engineering-actions .ind-toolbar > .data-file-field,
+.rp-engineering-actions .ind-toolbar > .tag,
+.rp-engineering-actions .ind-toolbar > .research-check,
+.rp-engineering-actions .ind-toolbar > .btn-primary {
+  grid-column: 1 / -1;
+}
+
+.rp-engineering-actions .ind-toolbar-spacer {
+  display: none;
+}
+
+.rp-engineering-actions .ind-toolbar .btn {
+  width: 100%;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.rp-engineering-actions .ind-field,
+.rp-engineering-actions .data-file-field {
+  width: 100%;
+  max-width: none;
+}
+
+.rp-engineering-actions .ind-field .input,
+.rp-engineering-actions .ind-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.rp-engineering-actions .research-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rp-engineering-actions .ind-hint {
+  font-size: var(--font-size-xs);
+}
+
 .rp-engineering-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));

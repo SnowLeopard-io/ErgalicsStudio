@@ -8,20 +8,22 @@
 // ==========================================================================
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { EmptyState } from '@/components/EmptyState';
 import { EngineeringImportButton } from './ImportButton';
 import { CadViewport, type CadViewPreset } from './CadViewport';
 import { sampleTetField } from '@/core/engineering/volume';
-import { artifactBaseName, downloadIndustrialText, safeName, useIndustrialArtifacts } from './artifacts';
+import { artifactBaseName, safeName, useIndustrialArtifacts, useIndustrialOutput } from './artifacts';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore, primaryMaterial } from '@/stores/engineeringStore';
 import { useAppStore } from '@/stores/appStore';
+import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { useLocale } from '@/i18n';
 import { mdToHtml } from '@/core/notebook/notebook';
 import { renderSVG } from '@/core/plot';
-import { exportPDF, exportPNG, exportSVG } from '@/core/plot/export';
 import {
   elementsToCSV,
   fieldHistogramSpec,
@@ -82,6 +84,19 @@ function useStudyLoaded(): void {
 function Page({ toolId, children }: { toolId: string; children: ReactNode }) {
   useStudyLoaded();
   return <ToolShell toolId={toolId}>{children}</ToolShell>;
+}
+
+/**
+ * Operation bars for industrial pages. Embedded in the workbench they portal
+ * into the right sidebar (RightPanel registers the host), so the canvas only
+ * shows the viewport, charts and tables. Standalone /studio pages have no
+ * sidebar and keep the bars inline; a collapsed sidebar simply hides them.
+ */
+function IndustrialActions({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const host = useIndustrialChrome((s) => s.host);
+  if (pathname.startsWith('/studio')) return <>{children}</>;
+  return host ? createPortal(children, host) : null;
 }
 
 /** Lightweight SVG mesh viewer with field colouring. */
@@ -287,6 +302,7 @@ export function GeometryPage() {
   const study = useEngineeringStore((s) => s.study);
   const geometry = study?.geometry;
   const artifacts = useIndustrialArtifacts();
+  const { outputText } = useIndustrialOutput();
   const [selected, setSelected] = useState<string>('all');
   const [view3d, setView3d] = useState(true);
   const [preset, setPreset] = useState<CadViewPreset>('fit');
@@ -305,7 +321,7 @@ export function GeometryPage() {
   };
   const exportGeometryCsv = () => {
     if (!geometry) return;
-    downloadIndustrialText(geometryToCSV(geometry), `${base}-geometry.csv`, 'text/csv');
+    void outputText('results', `${base}-geometry.csv`, geometryToCSV(geometry));
   };
   const saveGeometry = async () => {
     if (!geometry) return;
@@ -318,41 +334,39 @@ export function GeometryPage() {
           <h2>{t('industrial.geometry')}</h2>
           <StudyMeta />
         </header>
-        <EngineeringImportButton hint="DXF / STEP" />
-        {!geometry ? (
-          <NoStudy />
-        ) : (
-          <>
-            <div className="ind-toolbar analysis-row">
-              <label className="ind-field">
-                <span>{t('industrial.layer')}</span>
-                <select className="input input-sm" value={selected} onChange={(e) => setSelected(e.target.value)}>
-                  <option value="all">{t('industrial.all_layers')}</option>
-                  {geometry.layers.map((layer) => (
-                    <option key={layer} value={layer}>{layer}</option>
-                  ))}
-                </select>
-              </label>
-              <span className="ind-hint">
-                {t('industrial.entities', { n: geometry.entities.length })} ·{' '}
-                {t('industrial.layers', { n: geometry.layers.length })} · {geometry.sourceFormat.toUpperCase()}
-              </span>
-              <span className="ind-toolbar-spacer" />
-              <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
-                {view3d ? t('industrial.cad_view') : '2D'}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
-                {t('industrial.cad_snapshot')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={exportGeometryCsv}>
-                {t('industrial.export_geometry_csv')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => void saveGeometry()}>
-                {t('industrial.save_workspace')}
-              </button>
-            </div>
-            {view3d && (
-              <>
+        <IndustrialActions>
+          <EngineeringImportButton hint="DXF / STEP" />
+          {geometry && (
+            <>
+              <div className="ind-toolbar analysis-row">
+                <label className="ind-field">
+                  <span>{t('industrial.layer')}</span>
+                  <select className="input input-sm" value={selected} onChange={(e) => setSelected(e.target.value)}>
+                    <option value="all">{t('industrial.all_layers')}</option>
+                    {geometry.layers.map((layer) => (
+                      <option key={layer} value={layer}>{layer}</option>
+                    ))}
+                  </select>
+                </label>
+                <span className="ind-hint">
+                  {t('industrial.entities', { n: geometry.entities.length })} ·{' '}
+                  {t('industrial.layers', { n: geometry.layers.length })} · {geometry.sourceFormat.toUpperCase()}
+                </span>
+                <span className="ind-toolbar-spacer" />
+                <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
+                  {view3d ? t('industrial.cad_view') : '2D'}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
+                  {t('industrial.cad_snapshot')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={exportGeometryCsv}>
+                  {t('industrial.export_geometry_csv')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => void saveGeometry()}>
+                  {t('industrial.save_workspace')}
+                </button>
+              </div>
+              {view3d && (
                 <div className="ind-toolbar analysis-row">
                   {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
                     <button
@@ -370,16 +384,24 @@ export function GeometryPage() {
                   </label>
                   <span className="ind-hint">{t('industrial.cad_hint')}</span>
                 </div>
-                <CadViewport
-                  geometry={geometry}
-                  layers={layers}
-                  wireframe={wireframe}
-                  preset={preset}
-                  snapshotRequest={snapshotTick}
-                  onSnapshotReady={takeSnapshot}
-                  height={400}
-                />
-              </>
+              )}
+            </>
+          )}
+        </IndustrialActions>
+        {!geometry ? (
+          <NoStudy />
+        ) : (
+          <>
+            {view3d && (
+              <CadViewport
+                geometry={geometry}
+                layers={layers}
+                wireframe={wireframe}
+                preset={preset}
+                snapshotRequest={snapshotTick}
+                onSnapshotReady={takeSnapshot}
+                height={400}
+              />
             )}
             <div className="ind-geometry-list">
               {entities.slice(0, 200).map((entity) => (
@@ -414,17 +436,18 @@ export function MeshViewerPage() {
   const [wireframe, setWireframe] = useState(false);
   const [snapshotTick, setSnapshotTick] = useState(0);
   const artifacts = useIndustrialArtifacts();
+  const { outputText, outputFigure } = useIndustrialOutput();
   const fields = study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
   const base = artifactBaseName(study);
   const exportMesh = () => {
     if (!study) return;
-    downloadIndustrialText(nodesToCSV(study.mesh), `${base}-nodes.csv`, 'text/csv');
-    downloadIndustrialText(elementsToCSV(study.mesh), `${base}-elements.csv`, 'text/csv');
+    void outputText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh));
+    void outputText('results', `${base}-elements.csv`, elementsToCSV(study.mesh));
   };
   const exportFigure = () => {
     if (!study) return;
-    exportSVG(meshToSVG(study, field, { title: study.name }), `${base}-mesh.svg`);
+    void outputFigure(`${base}-mesh.svg`, meshToSVG(study, field, { title: study.name }));
   };
   const saveAll = async () => {
     if (!study) return;
@@ -445,37 +468,35 @@ export function MeshViewerPage() {
           <h2>{t('industrial.mesh')}</h2>
           <StudyMeta />
         </header>
-        <EngineeringImportButton hint="Gmsh .msh · Abaqus .inp · VTK .vtk/.vtu" />
-        {!study ? (
-          <NoStudy />
-        ) : (
-          <>
-            <div className="ind-toolbar analysis-row">
-              <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
-              <span className="ind-hint">
-                {t('industrial.nodes', { n: study.mesh.nodes.length })} ·{' '}
-                {t('industrial.elements', { n: study.mesh.elements.length })} ·{' '}
-                {t('industrial.groups', { n: study.mesh.groups.length })}
-              </span>
-              <span className="ind-toolbar-spacer" />
-              <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
-                {view3d ? t('industrial.cad_view') : '2D'}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
-                {t('industrial.cad_snapshot')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={exportMesh}>
-                {t('industrial.export_mesh_csv')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={exportFigure}>
-                {t('industrial.export_mesh_svg')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => void saveAll()}>
-                {t('industrial.save_workspace')}
-              </button>
-            </div>
-            {view3d ? (
-              <>
+        <IndustrialActions>
+          <EngineeringImportButton hint="Gmsh .msh · Abaqus .inp · VTK .vtk/.vtu" />
+          {study && (
+            <>
+              <div className="ind-toolbar analysis-row">
+                <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
+                <span className="ind-hint">
+                  {t('industrial.nodes', { n: study.mesh.nodes.length })} ·{' '}
+                  {t('industrial.elements', { n: study.mesh.elements.length })} ·{' '}
+                  {t('industrial.groups', { n: study.mesh.groups.length })}
+                </span>
+                <span className="ind-toolbar-spacer" />
+                <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
+                  {view3d ? t('industrial.cad_view') : '2D'}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
+                  {t('industrial.cad_snapshot')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={exportMesh}>
+                  {t('industrial.export_mesh_csv')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={exportFigure}>
+                  {t('industrial.export_mesh_svg')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => void saveAll()}>
+                  {t('industrial.save_workspace')}
+                </button>
+              </div>
+              {view3d && (
                 <div className="ind-toolbar analysis-row">
                   {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
                     <button key={p} type="button" className={`btn btn-sm${preset === p ? ' is-active' : ''}`} onClick={() => setPreset(p)}>
@@ -488,15 +509,23 @@ export function MeshViewerPage() {
                   </label>
                   <span className="ind-hint">{t('industrial.cad_hint')}</span>
                 </div>
-                <CadViewport
-                  mesh={study.mesh}
-                  field={field}
-                  wireframe={wireframe}
-                  preset={preset}
-                  snapshotRequest={snapshotTick}
-                  onSnapshotReady={takeSnapshot}
-                />
-              </>
+              )}
+            </>
+          )}
+        </IndustrialActions>
+        {!study ? (
+          <NoStudy />
+        ) : (
+          <>
+            {view3d ? (
+              <CadViewport
+                mesh={study.mesh}
+                field={field}
+                wireframe={wireframe}
+                preset={preset}
+                snapshotRequest={snapshotTick}
+                onSnapshotReady={takeSnapshot}
+              />
             ) : (
               <MeshCanvas mesh={study.mesh} field={field} />
             )}
@@ -555,22 +584,24 @@ export function MaterialsPage() {
           <h2>{t('industrial.materials')}</h2>
           <StudyMeta />
         </header>
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
+              {MATERIAL_LIBRARY.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nameI18n[(locale.startsWith('zh') ? 'zh' : 'en') as 'zh' | 'en'] ?? item.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => addMaterial(template)}>
+              {t('industrial.material_add')}
+            </button>
+          </div>
+        </IndustrialActions>
         {!study ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar analysis-row">
-              <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
-                {MATERIAL_LIBRARY.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nameI18n[(locale.startsWith('zh') ? 'zh' : 'en') as 'zh' | 'en'] ?? item.name}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => addMaterial(template)}>
-                {t('industrial.material_add')}
-              </button>
-            </div>
             {study.materials.length === 0 && <EmptyState title={t('industrial.no_material')} />}
             <div className="ind-cards">
               {study.materials.map((material) => (
@@ -650,16 +681,18 @@ export function CasesPage() {
     <Page toolId="load-cases">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.cases')}</h2><StudyMeta /></header>
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as EngineeringStepKind)}>
+              {STEP_KINDS.map((item) => <option key={item} value={item}>{stepKindLabel(t, item)}</option>)}
+            </select>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => addStep(kind)}>{t('industrial.step_add')}</button>
+          </div>
+        </IndustrialActions>
         {!study || !studyCase ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar analysis-row">
-              <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as EngineeringStepKind)}>
-                {STEP_KINDS.map((item) => <option key={item} value={item}>{stepKindLabel(t, item)}</option>)}
-              </select>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => addStep(kind)}>{t('industrial.step_add')}</button>
-            </div>
             <div className="ind-cards">
               {studyCase.steps.map((step) => (
                 <section key={step.id} className={`ind-card${activeStepId === step.id ? ' is-active' : ''}`}>
@@ -847,13 +880,14 @@ export function SolvePage() {
   const activeStepId = useEngineeringStore((s) => s.activeStepId);
   const selectStep = useEngineeringStore((s) => s.selectStep);
   const artifacts = useIndustrialArtifacts();
+  const { outputText } = useIndustrialOutput();
   const steps = study ? ensureCase(study.cases)[0]!.steps : [];
   const base = artifactBaseName(study);
   const exportMetrics = () => {
-    if (result) downloadIndustrialText(resultToCSV(result), `${base}-metrics.csv`, 'text/csv');
+    if (result) void outputText('results', `${base}-metrics.csv`, resultToCSV(result));
   };
   const exportStudy = () => {
-    if (study) downloadIndustrialText(studyDocument(study), `${base}-study.json`, 'application/json');
+    if (study) void outputText('study', `${base}-study.json`, studyDocument(study));
   };
   const saveOutputs = async () => {
     if (!study) return;
@@ -865,41 +899,43 @@ export function SolvePage() {
     <Page toolId="fea-solver">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.solver')}</h2><StudyMeta /></header>
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
+              {steps.map((step) => <option key={step.id} value={step.id}>{step.name} ({stepKindLabel(t, step.kind)})</option>)}
+            </select>
+            <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
+              {solving ? <span className="spinner" /> : t('industrial.solve')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => runBenchmark()}>
+              {t('industrial.benchmark')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={clearBuildCache}>
+              {t('industrial.clear_build_cache')}
+            </button>
+            {buildStats && (
+              <span className={`tag${buildCached ? ' is-hit' : ''}`}>
+                {buildCached
+                  ? t('industrial.build_hit', { n: buildStats.cached })
+                  : t('industrial.build_computed', { n: buildStats.computed })}
+              </span>
+            )}
+            <span className="ind-toolbar-spacer" />
+            <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>
+              {t('industrial.export_metrics_csv')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={exportStudy}>
+              {t('industrial.export_study_json')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => void saveOutputs()}>
+              {t('industrial.save_workspace')}
+            </button>
+          </div>
+        </IndustrialActions>
         {!study ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar analysis-row">
-              <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
-                {steps.map((step) => <option key={step.id} value={step.id}>{step.name} ({stepKindLabel(t, step.kind)})</option>)}
-              </select>
-              <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
-                {solving ? <span className="spinner" /> : t('industrial.solve')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => runBenchmark()}>
-                {t('industrial.benchmark')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={clearBuildCache}>
-                {t('industrial.clear_build_cache')}
-              </button>
-              {buildStats && (
-                <span className={`tag${buildCached ? ' is-hit' : ''}`}>
-                  {buildCached
-                    ? t('industrial.build_hit', { n: buildStats.cached })
-                    : t('industrial.build_computed', { n: buildStats.computed })}
-                </span>
-              )}
-              <span className="ind-toolbar-spacer" />
-              <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>
-                {t('industrial.export_metrics_csv')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={exportStudy}>
-                {t('industrial.export_study_json')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => void saveOutputs()}>
-                {t('industrial.save_workspace')}
-              </button>
-            </div>
             {benchmark && (
               <div className="ind-card">
                 <header className="ind-card-head"><strong>{benchmarkLabel(t, benchmark.name)}</strong></header>
@@ -943,6 +979,7 @@ export function PostPage() {
   const result = useEngineeringStore((s) => s.result);
   const [fieldName, setFieldName] = useState('');
   const artifacts = useIndustrialArtifacts();
+  const { outputText, outputFigure, outputPng, outputPdf } = useIndustrialOutput();
   const fields = result?.fields ?? study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
   const base = artifactBaseName(study);
@@ -964,30 +1001,32 @@ export function PostPage() {
     return { ...voxel, values: Float32Array.from(voxel.values, (v) =>
       Number.isFinite(v) ? (v - lo) / (hi - lo || 1) : v) };
   }, [study, is3d, field]);
+  const figureSvg = () =>
+    study ? meshToSVG(study, field, { title: `${study.name} · ${field?.name ?? ''}` }) : '';
   const exportFieldCsv = () => {
     if (!study || !field) return;
-    downloadIndustrialText(fieldToCSV(study, field), `${stem}.csv`, 'text/csv');
+    void outputText('results', `${stem}.csv`, fieldToCSV(study, field));
   };
   const exportMeshCsv = () => {
     if (!study) return;
-    downloadIndustrialText(nodesToCSV(study.mesh), `${base}-nodes.csv`, 'text/csv');
-    downloadIndustrialText(elementsToCSV(study.mesh), `${base}-elements.csv`, 'text/csv');
+    void outputText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh));
+    void outputText('results', `${base}-elements.csv`, elementsToCSV(study.mesh));
   };
   const exportMetrics = () => {
     if (!result) return;
-    downloadIndustrialText(resultToCSV(result), `${base}-metrics.csv`, 'text/csv');
+    void outputText('results', `${base}-metrics.csv`, resultToCSV(result));
   };
   const exportFigure = () => {
     if (!study) return;
-    exportSVG(meshToSVG(study, field, { title: `${study.name} · ${field?.name ?? ''}` }), `${stem}.svg`);
+    void outputFigure(`${stem}.svg`, figureSvg());
   };
   const exportFigurePng = () => {
     if (!study) return;
-    void exportPNG(meshToSVG(study, field, { title: `${study.name} · ${field?.name ?? ''}` }), `${stem}.png`);
+    void outputPng(`${stem}.png`, figureSvg());
   };
   const exportFigurePdf = () => {
     if (!study) return;
-    void exportPDF(meshToSVG(study, field, { title: `${study.name} · ${field?.name ?? ''}` }), `${stem}.pdf`);
+    void outputPdf(`${stem}.pdf`, figureSvg());
   };
   const saveAll = async () => {
     if (!study) return;
@@ -999,49 +1038,71 @@ export function PostPage() {
     <Page toolId="post-processing">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.post')}</h2><StudyMeta /></header>
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
+            {field && <span className="ind-hint">{locationLabel(t, field.location)} · {t('industrial.component_count', { n: field.components })} {field.unit ? `· ${field.unit}` : ''}</span>}
+            <span className="ind-toolbar-spacer" />
+            <button type="button" className="btn btn-sm" onClick={exportFieldCsv} disabled={!field}>{t('industrial.export_field_csv')}</button>
+            <button type="button" className="btn btn-sm" onClick={exportMeshCsv}>{t('industrial.export_mesh_csv')}</button>
+            <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>{t('industrial.export_metrics_csv')}</button>
+          </div>
+          <div className="ind-toolbar analysis-row">
+            <span className="ind-hint">{t('industrial.export_figure')}</span>
+            <button type="button" className="btn btn-sm" onClick={exportFigure}>{t('industrial.export_svg')}</button>
+            <button type="button" className="btn btn-sm" onClick={exportFigurePng}>{t('industrial.export_png')}</button>
+            <button type="button" className="btn btn-sm" onClick={exportFigurePdf}>{t('industrial.export_pdf')}</button>
+            <span className="ind-toolbar-spacer" />
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveAll()}>{t('industrial.save_workspace')}</button>
+          </div>
+          {is3d && (
+            <div className="ind-toolbar analysis-row">
+              <label className="ind-field">
+                <span>{t('industrial.iso_level')}</span>
+                <input
+                  className="input input-sm"
+                  type="range" min={0} max={1} step={0.01}
+                  value={isoLevel}
+                  onChange={(e) => setIsoLevel(Number(e.target.value))}
+                />
+                <span className="mono">{isoLevel.toFixed(2)}</span>
+              </label>
+              <span className="ind-hint">{t('industrial.cad_hint')}</span>
+            </div>
+          )}
+          {histogram && (
+            <div className="ind-toolbar analysis-row">
+              <span className="ind-hint">{t('industrial.field_distribution')}</span>
+              <button type="button" className="btn btn-sm" onClick={() => void outputFigure(`${stem}-histogram.svg`, renderSVG(histogram))}>
+                {t('industrial.export_svg')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                title={t('industrial.send_figure_hint')}
+                onClick={() => sendSpecToFigure(
+                  `${study?.name ?? 'Study'} · ${t('industrial.field_distribution')}`,
+                  histogram,
+                  field ? fieldLabel(t, field.name) : undefined,
+                )}
+              >
+                {t('industrial.send_figure')}
+              </button>
+            </div>
+          )}
+        </IndustrialActions>
         {!study ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar analysis-row">
-              <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
-              {field && <span className="ind-hint">{locationLabel(t, field.location)} · {t('industrial.component_count', { n: field.components })} {field.unit ? `· ${field.unit}` : ''}</span>}
-              <span className="ind-toolbar-spacer" />
-              <button type="button" className="btn btn-sm" onClick={exportFieldCsv} disabled={!field}>{t('industrial.export_field_csv')}</button>
-              <button type="button" className="btn btn-sm" onClick={exportMeshCsv}>{t('industrial.export_mesh_csv')}</button>
-              <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>{t('industrial.export_metrics_csv')}</button>
-            </div>
-            <div className="ind-toolbar analysis-row">
-              <span className="ind-hint">{t('industrial.export_figure')}</span>
-              <button type="button" className="btn btn-sm" onClick={exportFigure}>{t('industrial.export_svg')}</button>
-              <button type="button" className="btn btn-sm" onClick={exportFigurePng}>{t('industrial.export_png')}</button>
-              <button type="button" className="btn btn-sm" onClick={exportFigurePdf}>{t('industrial.export_pdf')}</button>
-              <span className="ind-toolbar-spacer" />
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveAll()}>{t('industrial.save_workspace')}</button>
-            </div>
             {is3d ? (
-              <>
-                <div className="ind-toolbar analysis-row">
-                  <label className="ind-field">
-                    <span>{t('industrial.iso_level')}</span>
-                    <input
-                      className="input input-sm"
-                      type="range" min={0} max={1} step={0.01}
-                      value={isoLevel}
-                      onChange={(e) => setIsoLevel(Number(e.target.value))}
-                    />
-                    <span className="mono">{isoLevel.toFixed(2)}</span>
-                  </label>
-                  <span className="ind-hint">{t('industrial.cad_hint')}</span>
-                </div>
-                <CadViewport
-                  mesh={study.mesh}
-                  isoVolume={isoVolume}
-                  isoLevel={isoLevel}
-                  wireframe
-                  height={430}
-                />
-              </>
+              <CadViewport
+                mesh={study.mesh}
+                isoVolume={isoVolume}
+                isoLevel={isoLevel}
+                wireframe
+                height={430}
+              />
             ) : (
               <MeshCanvas mesh={study.mesh} field={field} height={430} />
             )}
@@ -1049,21 +1110,6 @@ export function PostPage() {
               <div className="ind-card">
                 <header className="ind-card-head">
                   <strong>{t('industrial.field_distribution')}</strong>
-                  <button type="button" className="btn btn-sm" onClick={() => exportSVG(renderSVG(histogram), `${stem}-histogram.svg`)}>
-                    {t('industrial.export_svg')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    title={t('industrial.send_figure_hint')}
-                    onClick={() => sendSpecToFigure(
-                      `${study?.name ?? 'Study'} · ${t('industrial.field_distribution')}`,
-                      histogram,
-                      field ? fieldLabel(t, field.name) : undefined,
-                    )}
-                  >
-                    {t('industrial.send_figure')}
-                  </button>
                 </header>
                 <SvgPlot spec={histogram} />
               </div>
@@ -1108,9 +1154,10 @@ export function DesignScanPage() {
     [activeMetric, scan, t],
   );
   const base = artifactBaseName(study);
+  const { outputText, outputFigure } = useIndustrialOutput();
   const exportCsv = () => {
     if (scan.length === 0) return;
-    downloadIndustrialText(scanToCSV(scan), `${base}-design-scan.csv`, 'text/csv');
+    void outputText('results', `${base}-design-scan.csv`, scanToCSV(scan));
   };
   const saveScan = async () => {
     if (scan.length === 0) return;
@@ -1121,10 +1168,8 @@ export function DesignScanPage() {
     <Page toolId="design-scan">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.design_scan')}</h2><StudyMeta /></header>
-        {!study || !design ? (
-          <NoStudy />
-        ) : (
-          <>
+        <IndustrialActions>
+          {design && (
             <div className="ind-toolbar analysis-row">
               <button type="button" className="btn btn-sm btn-primary" disabled={busy || design.parameters.length === 0}
                 onClick={async () => { setBusy(true); try { await runScan(); } finally { setBusy(false); } }}>
@@ -1139,31 +1184,42 @@ export function DesignScanPage() {
                 {t('industrial.save_workspace')}
               </button>
             </div>
+          )}
+          {scan.length > 0 && keys.length > 0 && (
+            <div className="ind-toolbar analysis-row">
+              <label className="ind-field">
+                <span>{t('industrial.metric')}</span>
+                <select className="input input-sm" value={activeMetric} onChange={(e) => setMetric(e.target.value)}>
+                  {keys.map((key) => <option key={key} value={key}>{metricLabel(t, key)}</option>)}
+                </select>
+              </label>
+              <button type="button" className="btn btn-sm" onClick={() => spec && void outputFigure(`${base}-design-scan-${safeName(activeMetric)}.svg`, renderSVG(spec))}>
+                {t('industrial.export_svg')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={!spec}
+                title={t('industrial.send_figure_hint')}
+                onClick={() => {
+                  if (!spec) return;
+                  sendSpecToFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'));
+                }}
+              >
+                {t('industrial.send_figure')}
+              </button>
+            </div>
+          )}
+        </IndustrialActions>
+        {!study || !design ? (
+          <NoStudy />
+        ) : (
+          <>
             {design.parameters.length === 0 && <NoStudy />}
             {scan.length > 0 && keys.length > 0 && (
               <div className="ind-card">
                 <header className="ind-card-head">
-                  <label className="ind-field">
-                    <span>{t('industrial.metric')}</span>
-                    <select className="input input-sm" value={activeMetric} onChange={(e) => setMetric(e.target.value)}>
-                      {keys.map((key) => <option key={key} value={key}>{metricLabel(t, key)}</option>)}
-                    </select>
-                  </label>
-                  <button type="button" className="btn btn-sm" onClick={() => spec && exportSVG(renderSVG(spec), `${base}-design-scan-${safeName(activeMetric)}.svg`)}>
-                    {t('industrial.export_svg')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    disabled={!spec}
-                    title={t('industrial.send_figure_hint')}
-                    onClick={() => {
-                      if (!spec) return;
-                      sendSpecToFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'));
-                    }}
-                  >
-                    {t('industrial.send_figure')}
-                  </button>
+                  <strong>{t('industrial.design_scan')}</strong>
                 </header>
                 {spec && <SvgPlot spec={spec} />}
               </div>
@@ -1215,12 +1271,14 @@ export function FluidPage() {
     <Page toolId="quick-fluid">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.fluid')}</h2><StudyMeta /></header>
-        <div className="ind-toolbar analysis-row">
-          <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
-          <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
-          <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
-        </div>
-        <EngineeringImportButton />
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
+            <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
+            <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
+          </div>
+          <EngineeringImportButton />
+        </IndustrialActions>
         {!study ? <NoStudy /> : (
           <>
             <MeshCanvas mesh={study.mesh} field={field} height={380} />
@@ -1266,17 +1324,19 @@ export function FingerprintPage() {
     <Page toolId="repro-fingerprint">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.fingerprint')}</h2><StudyMeta /></header>
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <button type="button" className="btn btn-sm" onClick={() => void copy()}>{t('industrial.copy')}</button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveStudyJson()}>
+              {t('industrial.save_study')}
+            </button>
+            <span className="ind-hint">{t('industrial.project')} {project?.name ?? '—'} · {t('industrial.lock_v3')}</span>
+          </div>
+        </IndustrialActions>
         {!study || !fingerprint ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar analysis-row">
-              <button type="button" className="btn btn-sm" onClick={() => void copy()}>{t('industrial.copy')}</button>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveStudyJson()}>
-                {t('industrial.save_study')}
-              </button>
-              <span className="ind-hint">{t('industrial.project')} {project?.name ?? '—'} · {t('industrial.lock_v3')}</span>
-            </div>
             <div className="ind-card">
               <div className="ind-metrics">
                 <div><span>{t('industrial.mesh_hash')}</span><strong className="mono">{fingerprint.meshHash}</strong></div>
@@ -1308,13 +1368,14 @@ export function IndustrialReportPage() {
   // cheap pure string build, so recompute on every render instead of faking
   // hook dependencies (the action itself is the only real dependency).
   const report = buildReport();
+  const { outputText } = useIndustrialOutput();
   const download = () => {
     if (!report) return;
-    downloadIndustrialText(report.html, `${base}-report.html`, 'text/html');
+    void outputText('results', `${base}-report.html`, report.html);
   };
   const downloadMarkdown = () => {
     if (!report) return;
-    downloadIndustrialText(report.markdown, `${base}-report.md`, 'text/markdown');
+    void outputText('results', `${base}-report.md`, report.markdown);
   };
   const saveReport = async () => {
     if (!report) return;
@@ -1325,16 +1386,20 @@ export function IndustrialReportPage() {
     <Page toolId="industrial-report">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.report')}</h2><StudyMeta /></header>
+        <IndustrialActions>
+          <div className="ind-toolbar analysis-row">
+            <button type="button" className="btn btn-sm btn-primary" onClick={download}>{t('industrial.download_report')}</button>
+            <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>{t('industrial.download_markdown')}</button>
+            <button type="button" className="btn btn-sm" onClick={() => void saveReport()}>{t('industrial.save_workspace')}</button>
+            {report && (
+              <span className="ind-hint">{t('industrial.report_fingerprint', { hash: report.fingerprint.meshHash.slice(0, 12) })}</span>
+            )}
+          </div>
+        </IndustrialActions>
         {!study || !report ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar analysis-row">
-              <button type="button" className="btn btn-sm btn-primary" onClick={download}>{t('industrial.download_report')}</button>
-              <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>{t('industrial.download_markdown')}</button>
-              <button type="button" className="btn btn-sm" onClick={() => void saveReport()}>{t('industrial.save_workspace')}</button>
-              <span className="ind-hint">{t('industrial.report_fingerprint', { hash: report.fingerprint.meshHash.slice(0, 12) })}</span>
-            </div>
             <div
               className="central-md-preview"
               dangerouslySetInnerHTML={{ __html: mdToHtml(report.markdown) }}

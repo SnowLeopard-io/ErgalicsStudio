@@ -267,6 +267,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.right.fileinfo': '文件信息',
   'workbench.right.open_with': '用插件打开',
   'workbench.right.suite': '科研套件',
+  'workbench.right.actions': '操作',
   'suite.open_standalone': '独立页面打开',
   'suite.close': '关闭套件',
   'suite.tabs': '画布标签页',

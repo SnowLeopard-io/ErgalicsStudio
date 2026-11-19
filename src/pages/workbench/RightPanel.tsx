@@ -26,6 +26,7 @@ import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useSurfaceChrome } from '@/stores/surfaceChromeStore';
+import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 
 /** Introduction card for the suite currently embedded in the central canvas:
@@ -90,6 +91,13 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
   const toolDef = getTool(toolId);
   const fingerprint = study ? engineeringFingerprint(study) : null;
   const steps = study ? ensureCase(study.cases)[0]!.steps : [];
+  // Host for the active industrial page's action bars (import / solve /
+  // export / view presets …). Pages portal into it so no action buttons sit
+  // in the canvas; when this panel is collapsed the host unmounts and the
+  // bars disappear with it.
+  const setActionsHost = useIndustrialChrome((s) => s.setHost);
+  const outputToWorkspace = useIndustrialChrome((s) => s.outputToWorkspace);
+  const setOutputToWorkspace = useIndustrialChrome((s) => s.setOutputToWorkspace);
   return (
     <div className="rp-engineering">
       <div className="suite-intro-head">
@@ -101,6 +109,15 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
           <span className="tag">{t('industrial.group.' + (toolDef?.group ?? 'mesh'))}</span>
         </div>
       </div>
+      <label className="research-check rp-engineering-output">
+        <input
+          type="checkbox"
+          checked={outputToWorkspace}
+          onChange={(e) => setOutputToWorkspace(e.target.checked)}
+        />
+        {t('industrial.output_to_workspace')}
+      </label>
+      <div className="rp-engineering-actions" ref={setActionsHost} />
       {!study ? (
         <p className="suite-intro-desc">{t('industrial.no_study_desc')}</p>
       ) : (
