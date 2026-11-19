@@ -410,20 +410,48 @@ export function parseStep(text: string, name = 'part.step'): EngineeringGeometry
   if (points.length === 0) {
     throw new GeometryParseError('STEP file contains no CARTESIAN_POINT geometry');
   }
-  // A point cloud is not a solid, but a light wire through the points gives
-  // the viewer something measurable; real curve entities are out of scope.
-  const entity: GeometryEntity = {
-    id: 'step-wire',
-    kind: 'polyline',
-    layer: 'STEP',
-    points,
-    closed: false,
-  };
-  return finishGeometry('step', [entity], {
+
+  // Reconstruct real wire-frame topology where present: map entity ids to
+  // coordinates, VERTEX_POINT → cartesian point, EDGE_CURVE → vertex pair.
+  // This yields genuine CAD edges instead of a naive point-cloud polyline.
+  const cartesianById = new Map<string, [number, number, number]>();
+  const pointRe = /#(\d+)\s*=\s*CARTESIAN_POINT\s*\(\s*'[^']*'\s*,\s*\(([^)]*)\)\s*\)/g;
+  let pm: RegExpExecArray | null = null;
+  while ((pm = pointRe.exec(text)) !== null) {
+    const coords = pm[2]!.split(',').map((v) => Number(v.trim()) * factor);
+    if (coords.length >= 2 && coords.every((v) => Number.isFinite(v))) {
+      cartesianById.set(pm[1]!, [coords[0]!, coords[1]!, coords[2] ?? 0]);
+    }
+  }
+  const vertexToPoint = new Map<string, string>();
+  const vertexRe = /#(\d+)\s*=\s*VERTEX_POINT\s*\(\s*'[^']*'\s*,\s*#(\d+)\s*\)/g;
+  let vm: RegExpExecArray | null = null;
+  while ((vm = vertexRe.exec(text)) !== null) vertexToPoint.set(vm[1]!, vm[2]!);
+
+  const wireEntities: GeometryEntity[] = [];
+  const edgeRe =
+    /#(\d+)\s*=\s*EDGE_CURVE\s*\(\s*'[^']*'\s*,\s*#(\d+)\s*,\s*#(\d+)\s*,/g;
+  let em: RegExpExecArray | null = null;
+  while ((em = edgeRe.exec(text)) !== null) {
+    const pa = cartesianById.get(vertexToPoint.get(em[2]!) ?? '');
+    const pb = cartesianById.get(vertexToPoint.get(em[3]!) ?? '');
+    if (pa && pb) {
+      wireEntities.push({
+        id: `edge-${em[1]}`, kind: 'line', layer: 'STEP', points: [pa, pb], closed: false,
+      });
+    }
+  }
+  if (wireEntities.length === 0) {
+    // Fallback: no explicit EDGE_CURVE topology — keep the point cloud as a
+    // measurable polyline so the viewer still shows something informative.
+    wireEntities.push({ id: 'step-wire', kind: 'polyline', layer: 'STEP', points, closed: false });
+  }
+  return finishGeometry('step', wireEntities, {
     name,
-    entities: '1',
+    entities: String(wireEntities.length),
     points: String(points.length),
     units: unit.name,
+    topology: wireEntities.length > 1 ? 'edge-curves' : 'point-cloud',
   });
 }
 

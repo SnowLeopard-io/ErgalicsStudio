@@ -170,6 +170,26 @@ EOF
     expect(geometry.bounds[3]).toBe(10);
   });
 
+  it('reconstructs STEP edge-curve wireframe topology', () => {
+    const STEP_TOPO = `ISO-10303-21;
+HEADER; FILE_DESCRIPTION(('x'),'2;1'); ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(1.,0.,0.));
+#12 = CARTESIAN_POINT('',(1.,1.,0.));
+#20 = VERTEX_POINT('',#10);
+#21 = VERTEX_POINT('',#11);
+#22 = VERTEX_POINT('',#12);
+#30 = EDGE_CURVE('edge1',#20,#21,.T.);
+#31 = EDGE_CURVE('edge2',#21,#22,.T.);
+ENDSEC;
+END-ISO-10303-21;`;
+    const geometry = parseStep(STEP_TOPO, 'wire.step');
+    expect(geometry.metadata.topology).toBe('edge-curves');
+    expect(geometry.entities.length).toBe(2);
+    expect(geometry.entities.every((e) => e.kind === 'line')).toBe(true);
+  });
+
   it('reads STEP cartesian points and dispatches through the index', () => {
     const STEP = `ISO-10303-21;
 HEADER; FILE_DESCRIPTION(('x'),'2;1'); ENDSEC;
