@@ -189,6 +189,32 @@ export function resolveMaterial(
   return materials[0];
 }
 
+/**
+ * Build a per-element-tag coefficient for the FEM core from material
+ * assignments. Tags without an explicit assignment use the first material,
+ * matching `resolveMaterial`'s fallback. Returns a constant number when every
+ * tag resolves to the same value (keeps the common single-material case cheap).
+ */
+export function coefficientByTag(
+  materials: readonly EngineeringMaterial[],
+  assignment: Record<string, string> | undefined,
+  property: string,
+  fallback: number,
+  tags: Iterable<number>,
+): number | Record<number, number> {
+  const byTag = new Map<number, number>();
+  let uniform = true;
+  let first: number | undefined;
+  for (const tag of tags) {
+    const value = materialProperty(resolveMaterial(materials, assignment, tag), property, fallback);
+    byTag.set(tag, value);
+    if (first === undefined) first = value;
+    else if (value !== first) uniform = false;
+  }
+  if (uniform) return first ?? fallback;
+  return Object.fromEntries(byTag);
+}
+
 /** Assigning a material to a tag, returning a new assignment map. */
 export function assignMaterial(
   assignment: Record<string, string> | undefined,

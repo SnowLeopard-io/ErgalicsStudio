@@ -25,7 +25,10 @@ export class VtkParseError extends Error {
 }
 
 function numbers(text: string): number[] {
-  return text.trim().split(/[\s,]+/).filter(Boolean).map(Number).filter((v) => Number.isFinite(v));
+  // Keep every token so a bad value becomes NaN PLACEHOLDER rather than
+  // shifting every following coordinate/field component. Consumers already
+  // guard with Number.isFinite where needed.
+  return text.trim().split(/[\s,]+/).filter(Boolean).map(Number);
 }
 
 function decodeNodes(values: number[]): EngineeringNode[] {

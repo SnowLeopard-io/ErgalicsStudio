@@ -23,6 +23,7 @@ import {
   verifyEngineeringFingerprint,
 } from '@/core/engineering/study';
 import { makeStudy, type EngineeringMesh } from '@/core/engineering';
+import { coefficientByTag } from '@/core/engineering/materials';
 import { INDUSTRIAL_EXAMPLES } from '@/core/engineering/examples';
 import { runUniaxialBenchmark, solveEngineeringStudy } from '@/core/engineering/solve';
 import { buildEngineeringReport } from '@/core/engineering/report';
@@ -221,6 +222,20 @@ describe('analytic benchmark', () => {
   });
 });
 
+describe('per-group materials', () => {
+  it('builds a per-tag coefficient from material assignments', () => {
+    const materials = [
+      { name: 'soft', properties: { E: 1e9 } },
+      { name: 'stiff', properties: { E: 2e11 } },
+    ];
+    const assignment = { '1': 'soft', '2': 'stiff' };
+    const coefficient = coefficientByTag(materials, assignment, 'E', 1e11, [1, 2]);
+    expect(coefficient).toEqual({ 1: 1e9, 2: 2e11 });
+    // A single uniform assignment collapses to a constant.
+    expect(coefficientByTag(materials, { '1': 'soft', '2': 'soft' }, 'E', 1e11, [1, 2])).toBe(1e9);
+  });
+});
+
 describe('industrial examples + report', () => {
   it('ships sample studies that solve out of the box', () => {
     expect(INDUSTRIAL_EXAMPLES.length).toBeGreaterThanOrEqual(3);
@@ -231,6 +246,12 @@ describe('industrial examples + report', () => {
       const result = solveEngineeringStudy(built);
       expect(result.fields.length).toBeGreaterThan(0);
       expect(result.metrics.elementCount).toBe(built.mesh.elements.length);
+      // A traction/pressure load must actually produce deformation — a zero
+      // displacement would mean the load BC was silently dropped.
+      const step = built.cases?.[0]?.steps[0];
+      if (step?.kind === 'static-structural') {
+        expect(result.metrics.maxDisplacement).toBeGreaterThan(0);
+      }
     }
   });
 

@@ -124,7 +124,39 @@ function inferV2Type(nodeCount: number, planar: boolean): ElementType {
   }
 }
 
-function readElements(lines: string[], nodes: readonly EngineeringNode[]): EngineeringElement[] {
+/**
+ * Parse `$Entities` into `${dim}:${entityTag}` → physical tags. Used by MSH 4
+ * where element lines carry no physical tag (the entity block does).
+ */
+function readEntityPhysicalTags(lines: string[]): Map<string, number[]> {
+  const map = new Map<string, number[]>();
+  if (lines.length === 0) return map;
+  const counts = tokens(lines[0]!).map(Number);
+  // Order after the header: points (dim 0), curves (1), surfaces (2), volumes (3).
+  const perDim = counts.slice(0, 4);
+  let cursor = 1;
+  for (let dim = 0; dim < 4; dim += 1) {
+    const n = perDim[dim] ?? 0;
+    for (let i = 0; i < n && cursor < lines.length; i += 1) {
+      const parts = tokens(lines[cursor++]!).map(Number);
+      const entityTag = parts[0]!;
+      // Point: tag x y z numPhys phys… ; Curve/Surface/Volume: tag 6 bbox coords
+      // numPhys phys… then bounding entities. Physical count is at index 4/8.
+      const physCountIndex = dim === 0 ? 4 : 8;
+      const physCount = parts[physCountIndex] ?? 0;
+      const physical: number[] = [];
+      for (let p = 0; p < physCount; p += 1) physical.push(parts[physCountIndex + 1 + p]!);
+      map.set(`${dim}:${entityTag}`, physical);
+    }
+  }
+  return map;
+}
+
+function readElements(
+  lines: string[],
+  nodes: readonly EngineeringNode[],
+  entityPhysical: ReadonlyMap<string, number[]> = new Map(),
+): EngineeringElement[] {
   const elements: EngineeringElement[] = [];
   const header = tokens(lines[0] ?? '');
   if (header.length <= 1) {
@@ -157,13 +189,19 @@ function readElements(lines: string[], nodes: readonly EngineeringNode[]): Engin
     const parts = tokens(lines[cursor++] ?? '').map(Number);
     const elementType = GMSH_TYPES[parts[2]!] ?? 'polyhedron';
     const inBlock = Number(parts[3] ?? 0);
+    const physical = entityPhysical.get(`${parts[0]}:${parts[1]}`);
     for (let i = 0; i < inBlock && cursor < lines.length; i += 1, cursor += 1) {
       const values = tokens(lines[cursor]!).map(Number);
       const nodeIndices = values
         .slice(1)
         .map((label) => indexById.get(label))
         .filter((index): index is number => index !== undefined);
-      elements.push({ id: values[0]!, type: elementType, nodes: nodeIndices });
+      elements.push({
+        id: values[0]!,
+        type: elementType,
+        nodes: nodeIndices,
+        ...(physical && physical.length > 0 ? { group: physical[0] } : {}),
+      });
     }
   }
   return elements;
@@ -182,8 +220,9 @@ export function parseGmsh(text: string, name = 'mesh.msh'): EngineeringStudy {
   }
 
   const names = physicalNames(section(text, 'PhysicalNames'));
+  const entityPhysical = readEntityPhysicalTags(section(text, 'Entities'));
   const nodes = readNodes(section(text, 'Nodes'));
-  const elements = readElements(section(text, 'Elements'), nodes);
+  const elements = readElements(section(text, 'Elements'), nodes, entityPhysical);
   if (nodes.length === 0) throw new GmshParseError('mesh contains no nodes');
 
   const groups: EngineeringGroup[] = [];
@@ -198,13 +237,15 @@ export function parseGmsh(text: string, name = 'mesh.msh'): EngineeringStudy {
     groups.push(group);
     byTag.set(tag, group);
   }
-  for (const element of elements) {
-    if (element.group === undefined) continue;
+  elements.forEach((element, elementIndex) => {
+    if (element.group === undefined) return;
     const group = byTag.get(element.group);
-    if (!group) continue;
+    if (!group) return;
     const dimension = DIMENSION_BY_TYPE[element.type];
-    if (dimension === group.dimension) group.members.push(element.id - 1);
-  }
+    // Group members are element ARRAY indices, not format ids (which may have
+    // gaps) — use the loop index so BC/material targeting stays correct.
+    if (dimension === group.dimension) group.members.push(elementIndex);
+  });
 
   // Physical groups are selections, not boundary conditions — a caller that
   // knows the analysis adds BCs on top of these groups.

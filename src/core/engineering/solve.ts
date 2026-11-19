@@ -20,7 +20,7 @@ import { solveHeat } from '@/core/fem/physics/heat';
 import { rectStructuredMesh } from '@/core/fem/mesh/domain';
 import { nodeCount } from '@/core/fem/mesh/types';
 import { toPlanarMesh } from './mesh';
-import { resolveMaterial, materialProperty } from './materials';
+import { coefficientByTag } from './materials';
 import { ensureCase, normalizeStep } from './cases';
 import type {
   BoundaryCondition,
@@ -140,15 +140,21 @@ export function solveEngineeringStudy(
       'mesh is not planarly solvable: only 2-D tri3/quad4 meshes with z ≈ 0 are supported',
     );
   }
-  const material = resolveMaterial(study.materials, study.materialAssignment, 0);
+  // Element physical tags present in the mesh — per-tag materials are only
+  // meaningful for tags that actually exist in the mesh.
+  const elementTags = new Set<number>();
+  for (const element of study.mesh.elements) {
+    if (typeof element.group === 'number') elementTags.add(element.group);
+  }
+  const tags = elementTags.size > 0 ? [...elementTags] : [0];
   const fields: EngineeringField[] = [];
   const metrics: Record<string, number> = {};
   let iterations = 0;
   let residual = 0;
 
   if (step.kind === 'static-structural') {
-    const E = materialProperty(material, 'E', 2.1e11);
-    const nu = materialProperty(material, 'nu', 0.3);
+    const E = coefficientByTag(study.materials, study.materialAssignment, 'E', 2.1e11, tags);
+    const nu = coefficientByTag(study.materials, study.materialAssignment, 'nu', 0.3, tags);
     const constraints = new Map<number, { ux?: number; uy?: number }>();
     const tractions: Array<{ tags: number[]; tx: number; ty: number }> = [];
     const pointLoads: Array<{ node: number; fx: number; fy: number }> = [];
@@ -163,7 +169,11 @@ export function solveEngineeringStudy(
           if (condition.components[1] !== undefined) current.uy = condition.components[1];
           constraints.set(node, current);
         }
-      } else if (condition.kind === 'force' || condition.kind === 'pressure') {
+      } else if (
+        condition.kind === 'force' ||
+        condition.kind === 'pressure' ||
+        condition.kind === 'traction'
+      ) {
         const fx = condition.components[0] ?? 0;
         const fy = condition.components[1] ?? 0;
         if (condition.target.dimension >= 1) {
@@ -221,9 +231,9 @@ export function solveEngineeringStudy(
     addRangeMetrics(metrics, 'vonMises', fields[1]!);
     addRangeMetrics(metrics, 'stress', fields[2]!);
   } else if (step.kind === 'steady-heat' || step.kind === 'transient-heat') {
-    const k = materialProperty(material, 'k', 1);
-    const rho = materialProperty(material, 'rho', 1);
-    const cp = materialProperty(material, 'cp', 1);
+    const k = coefficientByTag(study.materials, study.materialAssignment, 'k', 1, tags);
+    const rho = coefficientByTag(study.materials, study.materialAssignment, 'rho', 1, tags);
+    const cp = coefficientByTag(study.materials, study.materialAssignment, 'cp', 1, tags);
     const dirichlet = combinedDirichlet(
       study.mesh,
       study.boundaryConditions.filter((condition) => condition.kind === 'temperature'),
@@ -259,7 +269,11 @@ export function solveEngineeringStudy(
       const result = solveHeat({
         mesh: planar,
         k,
-        heatCapacity: rho * cp,
+        heatCapacity: () => {
+          const rv = typeof rho === 'number' ? rho : rho[0] ?? 1;
+          const cv = typeof cp === 'number' ? cp : cp[0] ?? 1;
+          return rv * cv;
+        },
         initial: () => options.initialTemperature ?? 0,
         dirichlet: { nodes: heatDirichlet.nodes, value: heatDirichlet.value },
         dt: step.solver.dt ?? 0.01,

@@ -100,7 +100,7 @@ function arcPoints(
   startDeg: number,
   endDeg: number,
 ): Array<[number, number, number]> {
-  let start = startDeg;
+  const start = startDeg;
   let end = endDeg;
   if (end <= start) end += 360;
   const span = Math.min(360, end - start);

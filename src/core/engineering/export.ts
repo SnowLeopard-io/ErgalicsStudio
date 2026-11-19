@@ -10,7 +10,7 @@
 // ==========================================================================
 
 import type { PlotSpec, PlotSeries } from '@/core/plot/types';
-import { engineeringFingerprint } from './study';
+import { engineeringFingerprint, toStudySnapshot } from './study';
 import { ensureCase } from './cases';
 import type {
   EngineeringField,
@@ -123,7 +123,9 @@ export function geometryToCSV(geometry: EngineeringGeometry): string {
 /** Full study document: snapshot + fingerprint, matching study/engineering.json. */
 export function studyDocument(study: EngineeringStudy): string {
   return JSON.stringify(
-    { study, fingerprint: engineeringFingerprint(study), exportedAt: new Date().toISOString() },
+    // Use the snapshot form: raw fields hold Float64Arrays which JSON would
+    // serialise as {"0":…} objects, losing every value on reload.
+    { study: toStudySnapshot(study), fingerprint: engineeringFingerprint(study), exportedAt: new Date().toISOString() },
     null,
     2,
   );

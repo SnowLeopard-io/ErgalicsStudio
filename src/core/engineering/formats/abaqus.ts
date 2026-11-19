@@ -192,11 +192,25 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
         if (values.length < 3) break;
         const label = line.parts[0]!;
         const set = groups.find((group) => group.name === label);
-        const target = set
-          ? { dimension: set.dimension, tag: set.tag }
-          : { dimension: 0, tag: groupTag(`NODE-${label}`) };
+        let target: { dimension: number; tag: number };
+        if (set) {
+          target = { dimension: set.dimension, tag: set.tag };
+        } else {
+          // A raw node label: resolve the node and give the synthetic group a
+          // real member, otherwise the BC would target an empty selection.
+          const node = nodeIdToIndex.get(Number(label));
+          const tag = groupTag(`NODE-${label}`);
+          if (node !== undefined) groups.find((group) => group.tag === tag)!.members.push(node);
+          target = { dimension: 0, tag };
+        }
         const components: Record<number, number> = {};
-        for (let i = 1; i + 1 < values.length; i += 2) components[values[i]! - 1] = values[i + 1]!;
+        // Abaqus syntax is (firstDOF, lastDOF, magnitude) triples.
+        for (let i = 1; i + 2 < values.length; i += 3) {
+          const first = values[i]!;
+          const last = values[i + 1]!;
+          const magnitude = values[i + 2]!;
+          for (let dof = first; dof <= last; dof += 1) components[dof - 1] = magnitude;
+        }
         boundaryConditions.push({
           name: `BC-${label}`,
           kind: 'displacement',

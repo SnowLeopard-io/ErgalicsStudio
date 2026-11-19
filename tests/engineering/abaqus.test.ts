@@ -14,7 +14,7 @@ Plane test
 *NSET, NSET=left, GENERATE
 1, 1, 1
 *BOUNDARY
-left, 1, 0., 2, 0.
+left, 1, 2, 0.
 *CLOAD
 3, 2, -100.
 *MATERIAL, NAME=steel
