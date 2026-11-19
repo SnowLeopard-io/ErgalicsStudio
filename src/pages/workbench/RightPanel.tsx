@@ -17,6 +17,11 @@ import { EmptyState } from '@/components/EmptyState';
 import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
 import { ToolIcon } from '@/components/icons';
 import { getTool } from '@/pages/research/toolRegistry';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+import { engineeringFingerprint } from '@/core/engineering/study';
+import { formatEngineering } from '@/core/engineering/materials';
+import { localizedMeshSummary, metricLabel } from '@/pages/industrial/labels';
+import { ensureCase } from '@/core/engineering/cases';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
@@ -67,6 +72,95 @@ function SuiteIntro({ toolId }: { toolId: string }) {
           {t('suite.close')}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Engineering summary shown while an industrial tool is embedded. It reads
+ *  the live study so mesh/material/case edits appear without leaving the
+ *  canvas tab. */
+function EngineeringPanel({ toolId }: { toolId: string }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const closeTab = useAppStore((s) => s.closeTab);
+  const study = useEngineeringStore((s) => s.study);
+  const result = useEngineeringStore((s) => s.result);
+  const solving = useEngineeringStore((s) => s.solving);
+  const solve = useEngineeringStore((s) => s.solve);
+  const toolDef = getTool(toolId);
+  const fingerprint = study ? engineeringFingerprint(study) : null;
+  const steps = study ? ensureCase(study.cases)[0]!.steps : [];
+  return (
+    <div className="rp-engineering">
+      <div className="suite-intro-head">
+        <span className="suite-intro-icon" aria-hidden="true">
+          {toolDef ? <ToolIcon kind={toolDef.icon} size={18} /> : null}
+        </span>
+        <div className="suite-intro-heading">
+          <div className="suite-intro-name">{toolDef ? t(toolDef.titleKey) : toolId}</div>
+          <span className="tag">{t('industrial.group.' + (toolDef?.group ?? 'mesh'))}</span>
+        </div>
+      </div>
+      {!study ? (
+        <p className="suite-intro-desc">{t('industrial.no_study_desc')}</p>
+      ) : (
+        <>
+          <dl className="suite-intro-facts">
+            <div className="suite-intro-fact">
+              <dt>{t('industrial.right.mesh')}</dt>
+              <dd>{localizedMeshSummary(t, study.mesh)}</dd>
+            </div>
+            <div className="suite-intro-fact">
+              <dt>{t('industrial.right.materials')}</dt>
+              <dd>{study.materials.map((m) => m.name).join(', ') || '—'}</dd>
+            </div>
+            <div className="suite-intro-fact">
+              <dt>{t('industrial.right.steps')}</dt>
+              <dd>{steps.map((step) => step.name).join(', ') || '—'}</dd>
+            </div>
+            <div className="suite-intro-fact">
+              <dt>{t('industrial.right.solve')}</dt>
+              <dd>
+                {solving
+                  ? '…'
+                  : result
+                    ? `${result.stepName} · ${t('industrial.iterations', { n: result.iterations })}`
+                    : '—'}
+              </dd>
+            </div>
+            {fingerprint && (
+              <div className="suite-intro-fact">
+                <dt>{t('industrial.right.fingerprint')}</dt>
+                <dd className="mono">{fingerprint.meshHash.slice(0, 12)}…</dd>
+              </div>
+            )}
+          </dl>
+          {result && (
+            <div className="rp-engineering-metrics">
+              {Object.entries(result.metrics)
+                .filter(([key]) => key !== 'nodeCount' && key !== 'elementCount')
+                .slice(0, 6)
+                .map(([key, value]) => (
+                  <div key={key}>
+                    <span>{metricLabel(t, key)}</span>
+                    <strong>{formatEngineering(value)}</strong>
+                  </div>
+                ))}
+            </div>
+          )}
+          <div className="suite-intro-actions">
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => solve()}>
+              {t('industrial.solve')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => navigate('/studio/industrial-report')}>
+              {t('tool.industrial-report.title')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => closeTab(toolTabKey(toolId))}>
+              {t('suite.close')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -383,7 +477,11 @@ export function RightPanel() {
       ) : embeddedToolId ? (
         <>
           <h3 className="panel-title">{t('workbench.right.suite')}</h3>
-          <SuiteIntro toolId={embeddedToolId} />
+          {getTool(embeddedToolId)?.rightPanel === 'engineering' ? (
+            <EngineeringPanel toolId={embeddedToolId} />
+          ) : (
+            <SuiteIntro toolId={embeddedToolId} />
+          )}
         </>
       ) : filePreview ? (
         <>

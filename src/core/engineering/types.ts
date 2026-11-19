@@ -116,7 +116,92 @@ export interface EngineeringMaterial {
   properties: Record<string, number | number[]>;
 }
 
-export type EngineeringFormat = 'gmsh' | 'abaqus' | 'vtk' | 'vtu';
+export type EngineeringFormat =
+  | 'gmsh'
+  | 'abaqus'
+  | 'vtk'
+  | 'vtu'
+  | 'dxf'
+  | 'step';
+
+// ---- geometry (P3, lightweight B-rep-free representation) -----------------
+
+export type GeometryEntityKind = 'point' | 'line' | 'polyline' | 'circle' | 'arc';
+
+/** One drawable geometry entity. Points are XYZ; `closed` closes a polyline. */
+export interface GeometryEntity {
+  id: string;
+  kind: GeometryEntityKind;
+  points: Array<[number, number, number]>;
+  closed?: boolean;
+  layer?: string;
+}
+
+/** Lightweight geometry model produced by the DXF / STEP readers. */
+export interface EngineeringGeometry {
+  schema: 'ergalics.geometry/v1';
+  sourceFormat: 'dxf' | 'step';
+  entities: GeometryEntity[];
+  bounds: [number, number, number, number, number, number];
+  layers: string[];
+  metadata: Record<string, string>;
+}
+
+// ---- solver / case model (P2, P4) -----------------------------------------
+
+export type EngineeringStepKind =
+  | 'static-structural'
+  | 'steady-heat'
+  | 'transient-heat'
+  | 'potential-flow';
+
+export interface EngineeringSolverConfig {
+  /** Linear solver identifier (only 'cg' ships today, kept open-ended). */
+  algorithm: string;
+  tolerance: number;
+  maxIterations: number;
+  /** Plane stress / plane strain for structural steps. */
+  planeState?: 'plane-stress' | 'plane-strain';
+  thickness?: number;
+  /** Transient heat controls. */
+  dt?: number;
+  timeSteps?: number;
+  theta?: number;
+}
+
+export interface EngineeringStep {
+  id: string;
+  name: string;
+  kind: EngineeringStepKind;
+  solver: EngineeringSolverConfig;
+}
+
+export interface EngineeringDesignParameter {
+  name: string;
+  min: number;
+  max: number;
+  levels: number;
+}
+
+export interface EngineeringDesignPoint {
+  id: string;
+  name: string;
+  params: Record<string, number>;
+}
+
+export interface EngineeringDesignSpace {
+  parameters: EngineeringDesignParameter[];
+  points: EngineeringDesignPoint[];
+}
+
+export interface EngineeringCase {
+  name: string;
+  steps: EngineeringStep[];
+  design: EngineeringDesignSpace;
+}
+
+/** Element group tag → material name. Omitted tags use the first material. */
+export type MaterialAssignment = Record<string, string>;
 
 export interface EngineeringStudy {
   schema: typeof ENGINEERING_MODEL_SCHEMA;
@@ -128,6 +213,34 @@ export interface EngineeringStudy {
   fields: EngineeringField[];
   /** Original format metadata worth keeping (sections, units, version). */
   metadata: Record<string, string>;
+  /** Imported geometry (DXF / STEP). Mesh formats leave this undefined. */
+  geometry?: EngineeringGeometry;
+  /** Load case / solver steps (P2/P4). */
+  cases?: EngineeringCase[];
+  /** Physical element-group tag → material name. */
+  materialAssignment?: MaterialAssignment;
+}
+
+/** Solver identity written into results and repro fingerprints. */
+export interface EngineeringSolverIdentity {
+  name: string;
+  version: string;
+  algorithm: string;
+  tolerance: number;
+}
+
+/** Result of one engineering step (fields + scalar metrics). */
+export interface EngineeringSolveResult {
+  schema: 'ergalics.engineering-result/v1';
+  stepId: string;
+  stepName: string;
+  kind: EngineeringStepKind;
+  solvedAt: number;
+  fields: EngineeringField[];
+  metrics: Record<string, number>;
+  iterations: number;
+  residual: number;
+  solver: EngineeringSolverIdentity;
 }
 
 export function emptyMesh(): EngineeringMesh {
@@ -164,5 +277,8 @@ export function makeStudy(
     boundaryConditions: extra.boundaryConditions ?? [],
     fields: extra.fields ?? [],
     metadata: extra.metadata ?? {},
+    ...(extra.geometry ? { geometry: extra.geometry } : {}),
+    ...(extra.cases ? { cases: extra.cases } : {}),
+    ...(extra.materialAssignment ? { materialAssignment: extra.materialAssignment } : {}),
   };
 }

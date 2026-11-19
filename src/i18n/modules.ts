@@ -24,6 +24,7 @@ import { publishZh, publishEn } from './dicts/publish';
 import { ambienceZh, ambienceEn } from './dicts/ambience';
 import { causalLabZh, causalLabEn } from './dicts/causal-lab';
 import { performanceZh, performanceEn } from './dicts/performance';
+import { industrialZh, industrialEn } from './dicts/industrial';
 
 export const MODULE_ZH: LocaleDictionary = {
   ...pluginSigningZh,
@@ -48,6 +49,7 @@ export const MODULE_ZH: LocaleDictionary = {
   ...ambienceZh,
   ...causalLabZh,
   ...performanceZh,
+  ...industrialZh,
 };
 export const MODULE_EN: LocaleDictionary = {
   ...pluginSigningEn,
@@ -72,4 +74,5 @@ export const MODULE_EN: LocaleDictionary = {
   ...ambienceEn,
   ...causalLabEn,
   ...performanceEn,
+  ...industrialEn,
 };

@@ -64,11 +64,11 @@ function toV1(lock: ReproLock): ReproLock {
 // --------------------------------------------------------------------------
 
 describe('FR-11 buildLock v2', () => {
-  it('writes lockVersion 2 with a dependencies section', () => {
+  it('writes lockVersion 3 with a dependencies section', () => {
     const project = makeProject();
     const lock = buildLock(project, { runs: [makeRun({ projectId: project.id })] });
     expect(lock.lockVersion).toBe(LOCK_VERSION);
-    expect(lock.lockVersion).toBe(2);
+    expect(lock.lockVersion).toBe(3);
     expect(Array.isArray(lock.dependencies)).toBe(true);
   });
 

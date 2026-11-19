@@ -20,7 +20,8 @@ import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useAppStore } from '@/stores/appStore';
-import { GRID_GROUPS, RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
+import { GRID_GROUPS, INDUSTRIAL_GROUPS, INDUSTRIAL_TOOLS, RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
+import { getVisiblePlugins, getVisibleTools, projectDomain } from '@/core/domains';
 
 /** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
 const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
@@ -65,6 +66,7 @@ export function Sidebar() {
   const navigate = useNavigate();
 
   const registry = usePluginStore((s) => s.registry);
+  const project = useProjectStore((s) => s.project);
   const activeId = usePluginStore((s) => s.activeId);
   const loadingIds = usePluginStore((s) => s.loadingIds);
   const activate = usePluginStore((s) => s.activate);
@@ -75,6 +77,8 @@ export function Sidebar() {
   const [pluginQuery, setPluginQuery] = useState('');
   /** Free-text filter over the research tool list (name, id, description). */
   const [researchQuery, setResearchQuery] = useState('');
+  /** Free-text filter over the industrial tool list. */
+  const [industrialQuery, setIndustrialQuery] = useState('');
   /** Collapsed discipline groups (all expanded by default; persists). */
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
 
@@ -160,9 +164,13 @@ export function Sidebar() {
   // Group the loaded registry by discipline, keeping the registry's own
   // order inside each group; empty groups are omitted.
   const { locale } = useLocale();
+  const visibleRegistry = useMemo(
+    () => getVisiblePlugins(registry, projectDomain(project)),
+    [registry, project],
+  );
   const groups = useMemo(() => {
     const byDiscipline = new Map<string, PluginRegistryEntry[]>();
-    for (const entry of registry) {
+    for (const entry of visibleRegistry) {
       const d = disciplineOf(entry.id);
       const list = byDiscipline.get(d) ?? [];
       list.push(entry);
@@ -173,18 +181,18 @@ export function Sidebar() {
       label: d.nameI18n[locale] ?? d.nameI18n['en-US']!,
       entries: byDiscipline.get(d.id)!,
     }));
-  }, [registry, locale]);
+  }, [visibleRegistry, locale]);
 
   // "New Releases" showcase group pinned above the discipline groups; only
   // shown while at least one featured plugin is actually loaded.
   const allGroups = useMemo(() => {
-    const fresh = registry.filter((e) => FRESH_PLUGIN_IDS.includes(e.id));
+    const fresh = visibleRegistry.filter((e) => FRESH_PLUGIN_IDS.includes(e.id));
     if (fresh.length === 0) return groups;
     return [
       { id: 'fresh', label: t('workbench.sidebar.fresh'), entries: fresh },
       ...groups,
     ];
-  }, [groups, registry, t]);
+  }, [groups, visibleRegistry, t]);
 
   // Search spans both locales' names/descriptions so a Chinese query still
   // finds a plugin while the UI is in English (and vice versa).
@@ -214,9 +222,10 @@ export function Sidebar() {
 
   const researchGroups = useMemo(() => {
     const q = researchQuery.trim().toLowerCase();
+    const visible = getVisibleTools(RESEARCH_TOOLS, 'research');
     return RESEARCH_GROUP_IDS.map((group) => ({
       group,
-      tools: RESEARCH_TOOLS.filter((tool) => {
+      tools: visible.filter((tool) => {
         if (tool.group !== group) return false;
         if (!q) return true;
         return [tool.id, tool.titleKey, tool.descKey, t(tool.titleKey), t(tool.descKey)]
@@ -226,6 +235,24 @@ export function Sidebar() {
       }),
     })).filter((entry) => entry.tools.length > 0);
   }, [researchQuery, t]);
+
+  /** Industrial groups follow the design doc order regardless of registry
+   *  insertion order, so the sidebar always reads geometry → … → post. */
+  const industrialGroups = useMemo(() => {
+    const q = industrialQuery.trim().toLowerCase();
+    const visible = getVisibleTools(INDUSTRIAL_TOOLS, 'industrial');
+    return INDUSTRIAL_GROUPS.map((group) => ({
+      group,
+      tools: visible.filter((tool) => {
+        if (tool.group !== group) return false;
+        if (!q) return true;
+        return [tool.id, tool.titleKey, tool.descKey, t(tool.titleKey), t(tool.descKey)]
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
+      }),
+    })).filter((entry) => entry.tools.length > 0);
+  }, [industrialQuery, t]);
 
   const toggleGroup = (id: string) => {
     const next = { ...collapsed, [id]: !collapsed[id] };
@@ -334,6 +361,70 @@ export function Sidebar() {
                         <button
                           type="button"
                           className={`plugin-item util-item${active ? ' active' : ''}`}
+                          title={t(tool.descKey)}
+                          onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
+                        >
+                          <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
+                          <span className="util-item-text">
+                            <span className="plugin-item-name">{t(tool.titleKey)}</span>
+                            <span className="util-item-desc">{t(tool.descKey)}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </nav>
+        </>
+      )}
+
+      {sidebarView === 'industrial' && (
+        <>
+          <div className="search-input-wrap plugin-search">
+            <SearchIcon size={14} className="search-input-icon" />
+            <input
+              className="input search-input"
+              type="search"
+              value={industrialQuery}
+              placeholder={t('industrial.search')}
+              aria-label={t('industrial.search')}
+              spellCheck={false}
+              onChange={(e) => setIndustrialQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setIndustrialQuery('');
+              }}
+            />
+            {industrialQuery !== '' && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                aria-label={t('search.clear')}
+                title={t('search.clear')}
+                onClick={() => setIndustrialQuery('')}
+              >
+                <CloseIcon size={12} />
+              </button>
+            )}
+          </div>
+          <nav className="sidebar-group" aria-label={t('workbench.activity.industrial')}>
+            {industrialGroups.length === 0 && (
+              <EmptyState className="sidebar-plugin-empty" title={t('industrial.empty')} />
+            )}
+            {industrialGroups.map(({ group, tools }) => (
+              <section key={group} className="plugin-group">
+                <h3 className="sidebar-heading">{t(`industrial.group.${group}`)}</h3>
+                <ul className="plugin-list">
+                  {tools.map((tool) => {
+                    const active = activeTab === `tool:${tool.id}`;
+                    return (
+                      <li key={tool.id}>
+                        <button
+                          type="button"
+                          className={`plugin-item util-item${active ? ' active' : ''}`}
+                          data-tool-id={tool.id}
+                          data-tool-kind={tool.kind ?? 'editor'}
                           title={t(tool.descKey)}
                           onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
                         >

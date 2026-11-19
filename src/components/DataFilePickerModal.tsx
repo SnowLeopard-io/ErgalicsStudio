@@ -15,6 +15,12 @@ import { useT, useLocale } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DownloadIcon, TableIcon, TrashIcon } from '@/components/icons';
+import {
+  FilePickerPanel,
+  fileIcon,
+  type FilePickerColumn,
+  type FilePickerItem,
+} from '@/components/FilePicker';
 import { collectProjectFiles, listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { DATA_FILE_ACCEPT, isSupportedDataFileName } from '@/core/fileFormat';
 import { logger } from '@/core/logger';
@@ -30,23 +36,7 @@ interface DataFileGroups {
   examples: string[];
 }
 
-/** Monochrome glyph per file format, shared by both modes. */
-export function fileIcon(name: string): string {
-  const dot = name.lastIndexOf('.');
-  const ext = dot < 0 ? '' : name.slice(dot + 1).toLowerCase();
-  switch (ext) {
-    case 'csv':
-      return '▦';
-    case 'json':
-      return '▣';
-    case 'xyz':
-      return '◈';
-    case 'dat':
-      return '▤';
-    default:
-      return '▧';
-  }
-}
+export { fileIcon };
 
 /** Load the grouped listing, refreshing the workspace snapshot in the back. */
 function useDataFileGroups(): [DataFileGroups, () => void] {
@@ -70,52 +60,114 @@ export function DataFilePickerBody({ value, onChoose }: PickerBodyProps) {
   const t = useT();
   const [groups] = useDataFileGroups();
 
-  const columns = [
+  const columns: FilePickerColumn[] = [
     {
       key: 'project',
       title: t('block.data_file.project'),
-      names: groups.project,
+      items: groups.project.map((name) => ({ id: name, name })),
       empty: t('block.data_file.empty_project'),
     },
     {
       key: 'examples',
       title: t('block.data_file.examples'),
-      names: groups.examples,
+      items: groups.examples.map((name) => ({ id: name, name })),
       empty: t('block.data_file.empty_examples'),
     },
   ];
 
   return (
-    <div className="data-file-picker">
-      {columns.map((column) => (
-        <section key={column.key} className="data-file-picker-col">
-          <div className="data-file-picker-head">
-            <span>{column.title}</span>
-            <span className="data-file-picker-count">{column.names.length}</span>
-          </div>
-          <div className="data-file-picker-list" role="listbox">
-            {column.names.map((name) => (
-              <button
-                key={name}
-                type="button"
-                role="option"
-                aria-selected={value === name}
-                className={`data-file-picker-item${value === name ? ' is-current' : ''}`}
-                title={name}
-                onClick={() => onChoose(name)}
-              >
-                <span className="data-file-picker-icon">{fileIcon(name)}</span>
-                <span className="data-file-picker-name">{name}</span>
-              </button>
-            ))}
-            {column.names.length === 0 && (
-              <div className="empty-hint">{column.empty}</div>
-            )}
-          </div>
-        </section>
-      ))}
-    </div>
+    <FilePickerPanel
+      columns={columns}
+      value={value}
+      onChoose={(item) => onChoose(item.id)}
+    />
   );
+}
+
+interface ManagerColumnArgs {
+  t: (key: string, params?: Record<string, string | number>) => string;
+  project: string[];
+  examples: string[];
+  entryOf: (name: string) => FileEntry | undefined;
+  canChunk: (name: string) => boolean;
+  loadIntoActive: (name: string) => void | Promise<void>;
+  setDeleteFile: (entry: FileEntry) => void;
+  startIngest: (entry: FileEntry, chunkSize: number) => unknown;
+  chunkRunning: boolean;
+  hasActivePlugin: boolean;
+}
+
+/** Manager rows = picker rows + per-file actions. */
+function managerColumns({
+  t,
+  project,
+  examples,
+  entryOf,
+  canChunk,
+  loadIntoActive,
+  setDeleteFile,
+  startIngest,
+  chunkRunning,
+  hasActivePlugin,
+}: ManagerColumnArgs): FilePickerColumn[] {
+  return [
+    {
+      key: 'project',
+      title: t('block.data_file.project'),
+      empty: t('workbench.example.files_empty'),
+      items: project.map((name): FilePickerItem => {
+        const entry = entryOf(name);
+        return {
+          id: name,
+          name,
+          meta: entry ? formatBytes(entry.size) : undefined,
+          actions: (
+            <>
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('workbench.files.load')}
+                aria-label={t('workbench.files.load')}
+                disabled={!hasActivePlugin}
+                onClick={() => void loadIntoActive(name)}
+              >
+                <DownloadIcon size={13} />
+              </button>
+              {entry && canChunk(name) && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={t('workbench.files.chunk_preview')}
+                  aria-label={t('workbench.files.chunk_preview')}
+                  disabled={chunkRunning}
+                  onClick={() => void startIngest(entry, 1000)}
+                >
+                  <TableIcon size={13} />
+                </button>
+              )}
+              {entry && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={t('common.delete')}
+                  aria-label={t('common.delete')}
+                  onClick={() => setDeleteFile(entry)}
+                >
+                  <TrashIcon size={13} />
+                </button>
+              )}
+            </>
+          ),
+        };
+      }),
+    },
+    {
+      key: 'examples',
+      title: t('block.data_file.examples'),
+      empty: t('block.data_file.empty_examples'),
+      items: examples.map((name) => ({ id: name, name, readonly: true })),
+    },
+  ];
 }
 
 /** Manage mode: the same two-column list, plus import / load / delete. */
@@ -230,88 +282,21 @@ function DataFilesManagerBody() {
         )}
 
         {/* Same two-column list as the picker — the manager only adds actions. */}
-        <div className="data-file-picker">
-          <section className="data-file-picker-col">
-            <div className="data-file-picker-head">
-              <span>{t('block.data_file.project')}</span>
-              <span className="data-file-picker-count">{groups.project.length}</span>
-            </div>
-            <div className="data-file-picker-list">
-              {groups.project.map((name) => {
-                const entry = entryOf(name);
-                return (
-                  <div key={name} className="data-file-picker-item" title={name}>
-                    <span className="data-file-picker-icon">{fileIcon(name)}</span>
-                    <span className="data-file-picker-name">{name}</span>
-                    {entry && (
-                      <span className="data-file-row-meta">{formatBytes(entry.size)}</span>
-                    )}
-                    <span className="data-file-row-actions">
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={t('workbench.files.load')}
-                        aria-label={t('workbench.files.load')}
-                        disabled={!activeEntry?.plugin}
-                        onClick={() => void loadIntoActive(name)}
-                      >
-                        <DownloadIcon size={13} />
-                      </button>
-                      {entry && canChunk(name) && (
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title={t('workbench.files.chunk_preview')}
-                          aria-label={t('workbench.files.chunk_preview')}
-                          disabled={chunkState?.running}
-                          onClick={() => void startIngest(entry, 1000)}
-                        >
-                          <TableIcon size={13} />
-                        </button>
-                      )}
-                      {entry && (
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title={t('common.delete')}
-                          aria-label={t('common.delete')}
-                          onClick={() => setDeleteFile(entry)}
-                        >
-                          <TrashIcon size={13} />
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-              {groups.project.length === 0 && (
-                <div className="empty-hint">{t('workbench.example.files_empty')}</div>
-              )}
-            </div>
-          </section>
-
-          <section className="data-file-picker-col">
-            <div className="data-file-picker-head">
-              <span>{t('block.data_file.examples')}</span>
-              <span className="data-file-picker-count">{groups.examples.length}</span>
-            </div>
-            <div className="data-file-picker-list">
-              {groups.examples.map((name) => (
-                <div
-                  key={name}
-                  className="data-file-picker-item is-readonly"
-                  title={name}
-                >
-                  <span className="data-file-picker-icon">{fileIcon(name)}</span>
-                  <span className="data-file-picker-name">{name}</span>
-                </div>
-              ))}
-              {groups.examples.length === 0 && (
-                <div className="empty-hint">{t('block.data_file.empty_examples')}</div>
-              )}
-            </div>
-          </section>
-        </div>
+        <FilePickerPanel
+          columns={managerColumns({
+            t,
+            project: groups.project,
+            examples: groups.examples,
+            entryOf,
+            canChunk,
+            loadIntoActive,
+            setDeleteFile,
+            startIngest,
+            chunkRunning: Boolean(chunkState?.running),
+            hasActivePlugin: Boolean(activeEntry?.plugin),
+          })}
+          onChoose={() => undefined}
+        />
 
         {chunkState && (
           <div className="chunk-panel">

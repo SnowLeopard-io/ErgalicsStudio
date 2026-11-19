@@ -23,6 +23,8 @@ import { readProjectFile } from '@/core/workspace/project-files';
 import { getVfs } from '@/core/vfs';
 import { vfsBasename as basename } from '@/core/vfs/path';
 import { adoptBibFile, adoptTexFile } from '@/core/publish/adopt';
+import { isEngineeringExtension } from '@/core/engineering';
+import { useEngineeringStore } from '@/stores/engineeringStore';
 import {
   classifyFile,
   isPublishSourceFile,
@@ -80,6 +82,26 @@ export async function openProjectPreview(
   if (!project) return;
   const repoPath = getProjectRepoPath(project);
   const name = basename(rel);
+  // Engineering CAD/CAE files open the industrial suite, not a text preview:
+  // the parser turns bytes into the neutral study and the mesh viewer shows
+  // it immediately (acceptance: Gmsh/Abaqus/VTK import + display).
+  if (isEngineeringExtension(name)) {
+    try {
+      const text = await getVfs().readFile(repoPath, rel);
+      const study = useEngineeringStore.getState().importText(text, name, rel);
+      if (study) {
+        useAppStore.getState().setMode('standard');
+        useAppStore.getState().setEmbeddedTool(
+          name.toLowerCase().endsWith('.dxf') || name.toLowerCase().endsWith('.step') || name.toLowerCase().endsWith('.stp')
+            ? 'geometry-import'
+            : 'mesh-viewer',
+        );
+      }
+      return;
+    } catch {
+      /* fall through to the generic placeholder below */
+    }
+  }
   const { kind, mime } = classifyFile(name);
 
   if (kind === 'text' || kind === 'markdown') {

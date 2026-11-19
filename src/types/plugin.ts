@@ -69,6 +69,8 @@ export interface PluginResearchMeta {
   notesI18n?: Record<string, string>;
 }
 
+import type { Domain } from '@/core/domains';
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -77,6 +79,11 @@ export interface PluginManifest {
   description: string;
   license?: string;
   icon?: string;
+  /**
+   * Capability lists this plugin belongs to. Omitted = research-only, which
+   * keeps every pre-industrial plugin in the research workbench.
+   */
+  domains?: Domain[];
   /** Research-readiness declaration (tier badge + units + benchmarks). */
   research?: PluginResearchMeta;
   /** Package signature (FR-05). Absent = unsigned. */
@@ -677,5 +684,7 @@ export interface PluginRegistryEntry {
   loaded: boolean;
   active: boolean;
   formats: SupportedFormat[];
+  /** Capability lists declared by the manifest (default research). */
+  domains?: Domain[];
   plugin: Plugin | null;
 }

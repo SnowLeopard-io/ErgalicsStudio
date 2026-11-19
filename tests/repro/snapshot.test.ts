@@ -66,7 +66,7 @@ describe('FR-09 buildReproSnapshot', () => {
     expect(match).not.toBeNull();
     const embedded = JSON.parse(match![1]!);
     expect(embedded.projectId).toBe(lock.projectId);
-    expect(embedded.lockVersion).toBe(2);
+    expect(embedded.lockVersion).toBe(3);
     expect(embedded.data[0].hash).toBe(lock.data[0]!.hash);
   });
 
@@ -93,7 +93,7 @@ describe('FR-09 buildReproSnapshot', () => {
     expect(html).toContain('2026-09-18T08:00:00.000Z');
     expect(html).toContain('Snapshot Study');
     expect(html).toContain(project.id);
-    expect(html).toContain('Lock format: v2');
+    expect(html).toContain('Lock format: v3');
   });
 
   it('renders the data fingerprint table and the locked-run summary', () => {

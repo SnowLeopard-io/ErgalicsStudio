@@ -408,7 +408,7 @@ function applyOpenedProject(
   // bring their own authoritative tree, so they skip this.
   if (seedWorkspace) {
     const repoPath = getProjectRepoPath(project);
-    void seedStandardSkeleton(getVfs(), repoPath, { overwrite: false })
+    void seedStandardSkeleton(getVfs(), repoPath, { overwrite: false, domain: project.domain })
       .then(() => {
         if (session !== projectSession) return;
         void syncProjectSnapshot(project);
@@ -582,7 +582,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // Seed the §3.1 workspace skeleton (git-free): the file explorer and the
     // supplement packager work on the plain tree; version control is opt-in
     // via the Git panel.
-    void seedStandardSkeleton(getVfs(), getProjectRepoPath(project))
+    void seedStandardSkeleton(getVfs(), getProjectRepoPath(project), { domain: project.domain })
       .then(() => {
         void syncProjectSnapshot(project);
         if (seq === openSeq) useAppStore.getState().bumpFileOps();

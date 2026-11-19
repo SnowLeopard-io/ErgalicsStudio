@@ -762,6 +762,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.example.pipelines': '流程管线',
   'workbench.example.blocks': '积木示例',
   'workbench.example.code_samples': '代码示例',
+  'workbench.example.industrial': '工业',
   'workbench.example.pipeline_loaded': '已加载「{name}」',
   'workbench.example.files': '项目文件',
   'workbench.example.files_import': '导入数据文件',

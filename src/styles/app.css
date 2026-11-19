@@ -113,7 +113,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  /* Two-line topbar labels ("普/通") read broken — keep each on one line. */
+  /* Two-line topbar labels ("�?�?) read broken �?keep each on one line. */
   white-space: nowrap;
   transition: background var(--transition-fast), color var(--transition-fast),
     transform var(--transition-fast);
@@ -325,7 +325,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  /* 左侧留白略大：品牌/项目名不再顶住屏幕左缘。 */
+  /* 左侧留白略大：品�?项目名不再顶住屏幕左缘�?*/
   padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
@@ -378,7 +378,7 @@
   display: flex;
   min-height: 0;
   /* 为收起态贴边的浮层按钮 (.panel-edge-*) 提供定位上下文，使其不占横向
-     布局槽位，从而让中央画布填满整行。 */
+     布局槽位，从而让中央画布填满整行�?*/
   position: relative;
 }
 
@@ -393,8 +393,8 @@
   padding: var(--space-3);
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  overflow-y: auto;  /* 横向内容一律省略号收尾，不出横向滚动条（拖拽手柄挂在
-     .panel-wrap 包裹层上，不受此裁剪影响）。 */
+  overflow-y: auto;  /* 横向内容一律省略号收尾，不出横向滚动条（拖拽手柄挂�?
+     .panel-wrap 包裹层上，不受此裁剪影响）�?*/
   overflow-x: hidden;
 }
 
@@ -595,7 +595,7 @@
   color: var(--color-text-secondary);
 }
 .explorer-guide-list li::before {
-  content: '▸ ';
+  content: '�?';
   color: var(--color-text-tertiary);
 }
 .plugin-list {
@@ -725,7 +725,7 @@
 /* ---- central area: the scope ---- */
 
 /* Column wrapper: viewfinder canvas on top, science readout strip below in
-   normal flow (the strip must NOT live inside .central — the plugin host is
+   normal flow (the strip must NOT live inside .central �?the plugin host is
    position:absolute there, which made the strip float over the canvas). */
 .central-wrap {
   position: relative;
@@ -737,7 +737,7 @@
 }
 
 /* Immersive fullscreen (canvas toolbar entry): the canvas wrap IS the
-   fullscreen element — topbar/statusbar/left sidebar stay behind. The right
+   fullscreen element �?topbar/statusbar/left sidebar stay behind. The right
    panel is portaled into the wrap while immersed, floated over the canvas. */
 .central-wrap:fullscreen {
   width: 100vw;
@@ -775,11 +775,11 @@
   position: absolute;
   inset: 0;
   /* Clip the 2D canvas pan/zoom transform (and the 3D canvas) to the
-     viewfinder — without this, scaling a 2D view bleeds into the panels. */
+     viewfinder �?without this, scaling a 2D view bleeds into the panels. */
   overflow: hidden;
 }
 
-/* viewfinder corner brackets — the signature element */
+/* viewfinder corner brackets �?the signature element */
 .central::before {
   content: '';
   position: absolute;
@@ -821,7 +821,7 @@
   overflow: hidden;
   /* The 2D pan drag starts here (empty canvas area). Without this the
      browser's native scroll/gesture recognizer holds pointermove and then
-     fires pointercancel on touch devices, making the drag stutter — the 3D
+     fires pointercancel on touch devices, making the drag stutter �?the 3D
      path is unaffected because OrbitControls sets touch-action: none on its
      own canvas. */
   touch-action: none;
@@ -833,7 +833,7 @@
   width: 100%;
   height: 100%;
   display: block;
-  /* The 2D canvas is a pure display surface — plugins draw to its context,
+  /* The 2D canvas is a pure display surface �?plugins draw to its context,
      they never attach pointer handlers. Keeping it out of hit-testing lets
      pointer events fall through to the 3D canvas (OrbitControls) or to the
      host wrapper (2D pan/zoom). */
@@ -935,7 +935,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Welcome cover — VS Code-style start page. The welcome content is a
+   Welcome cover �?VS Code-style start page. The welcome content is a
    scrolling, left-aligned cover with a two-column start/recent layout,
    instead of a single vertically-centered hero. `.central-empty` keeps the
    absolute positioning; these rules only replace its flex centering.
@@ -1243,7 +1243,7 @@
   padding: 6px 14px;
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
-  /* The strip itself never scrolls — only the metrics row does (below), so
+  /* The strip itself never scrolls �?only the metrics row does (below), so
      the pinned deep-link actions on the right can never be clipped. */
   overflow: hidden;
   flex-shrink: 0;
@@ -1262,7 +1262,7 @@
   align-items: center;
   gap: var(--space-4);
   white-space: nowrap;
-  /* Only this row scrolls horizontally (mouse wheel maps to scrollLeft —
+  /* Only this row scrolls horizontally (mouse wheel maps to scrollLeft �?
      see ScienceOutputStrip). Scrollbar hidden; the wheel + edge fade do the
      affordance work instead. */
   min-width: 0;
@@ -1368,7 +1368,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* No-repo placeholder: give the hint + init button real breathing room —
+/* No-repo placeholder: give the hint + init button real breathing room �?
    previously they hung directly off the panel's 8px group gap and read as
    one cramped blob under the GIT header. */
 .git-panel-no-repo {
@@ -1379,7 +1379,7 @@
   padding: var(--space-2) 0 var(--space-1);
 }
 
-/* The init button is the panel's primary action — give it the full column
+/* The init button is the panel's primary action �?give it the full column
    width instead of hugging its label (the hint stays left-aligned). */
 .git-panel-no-repo .btn {
   align-self: stretch;
@@ -1472,7 +1472,7 @@
 /* ---- VSCode-style source-control layout -----------------------------------
    Message box + full-width primary commit button on top, then the change
    tree: a collapsible "更改 N" header and file rows with status letters,
-   dim directories and a hover-to-stage action (VSCode's ＋). */
+   dim directories and a hover-to-stage action (VSCode's �?. */
 
 .git-commit-input {
   width: 100%;
@@ -1606,7 +1606,7 @@
 }
 
 /* Hover-revealed per-file stage action; tiny on purpose so it does not
-   widen the row (desktop precision pointers only — see the coarse block). */
+   widen the row (desktop precision pointers only �?see the coarse block). */
 .git-change-stage {
   visibility: hidden;
   flex: none;
@@ -1652,7 +1652,7 @@
 }
 
 /* Restrained instrument-console pulse: the dashed frame breathes, the icon
-   stays still — signaling "drop here" without a bouncing payload. */
+   stays still �?signaling "drop here" without a bouncing payload. */
 @keyframes drop-hint-pulse {
   0%, 100% { box-shadow: inset 0 0 0 0 var(--color-glow); }
   50% { box-shadow: inset 0 0 0 4px var(--color-glow); }
@@ -1743,7 +1743,7 @@
   color: var(--color-text-secondary);
 }
 
-/* 套件信息表：数据要求 / 运行方式等事实性条目。 */
+/* 套件信息表：数据要求 / 运行方式等事实性条目�?*/
 .suite-intro-facts {
   margin: 0;
   padding: var(--space-2) 0;
@@ -1774,9 +1774,9 @@
   gap: var(--space-2);
 }
 
-/* ---- 右侧栏 · 无插件欢迎面板 -------------------------------------------
-   替代原先孤零零的"请先激活一个插件"占位：快速引导 + 版本更新要点 +
-   仓库卡片。视觉沿用 suite-intro 的克制风格（细分隔线 + 弱化文案）。 */
+/* ---- 右侧�?· 无插件欢迎面�?-------------------------------------------
+   替代原先孤零零的"请先激活一个插�?占位：快速引�?+ 版本更新要点 +
+   仓库卡片。视觉沿�?suite-intro 的克制风格（细分隔线 + 弱化文案）�?*/
 .rp-welcome {
   display: flex;
   flex-direction: column;
@@ -1888,7 +1888,7 @@
   width: auto;
   min-width: 5.5em;
 }
-/* Number params are pure text-entry boxes — hide the native spin buttons. */
+/* Number params are pure text-entry boxes �?hide the native spin buttons. */
 .param-panel input[type='number'] {
   appearance: textfield;
   -moz-appearance: textfield;
@@ -1989,7 +1989,7 @@
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-3);
   /* The resize grips live just OUTSIDE the frame, so the window itself must
-   * not clip them — the rounded corners are handled by its two columns. */
+   * not clip them �?the rounded corners are handled by its two columns. */
   overflow: visible;
   /* Below the status bar chrome (1401) and its popover; above the canvas. */
   z-index: 1390;
@@ -2296,7 +2296,7 @@
 }
 
 /* A real terminal has no focus chrome: suppress the global focus-visible
-   ring (global.css) — the caret alone marks the input position. */
+   ring (global.css) �?the caret alone marks the input position. */
 .terminal-drawer-input input:focus,
 .terminal-drawer-input input:focus-visible,
 .terminal-input-area:focus,
@@ -2628,7 +2628,7 @@
   vertical-align: middle;
 }
 
-/* Research-readiness tier badges (docs/technical/11-插件科研化整改方案.md). */
+/* Research-readiness tier badges (docs/technical/11-插件科研化整改方�?md). */
 .tier-research {
   background: var(--color-accent-soft, rgba(46, 158, 91, 0.15));
   color: var(--color-accent-text);
@@ -2861,6 +2861,34 @@
   white-space: nowrap;
 }
 
+.data-file-picker-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.data-file-picker-desc {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.data-file-picker-item.has-description {
+  align-items: flex-start;
+}
+
+.data-file-picker-item.is-readonly {
+  cursor: default;
+}
+
+.data-file-picker-item.is-readonly:hover {
+  background: transparent;
+}
+
 /* Manage mode reuses the picker list; only the row payload differs:
    imported files get size + inline actions, workspace files just load. */
 .data-file-manager .data-file-picker-item {
@@ -3057,8 +3085,8 @@
     var(--color-bg-primary);
 }
 
-/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签条
-   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度。 */
+/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签�?
+   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度�?*/
 .settings-embedded {
   height: 100%;
   min-height: 0;
@@ -3167,8 +3195,8 @@
   gap: var(--space-4);
 }
 
-/* ---- 设置页 · 主题市场卡片网格 ----------------------------------------
-   行式布局在大屏上留白过多；主题条目改为自适应两列卡片，信息密度更高。 */
+/* ---- 设置�?· 主题市场卡片网格 ----------------------------------------
+   行式布局在大屏上留白过多；主题条目改为自适应两列卡片，信息密度更高�?*/
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -3319,7 +3347,7 @@
   font-family: var(--font-mono);
 }
 
-/* Python package panel (Settings → Python environment): one action button
+/* Python package panel (Settings �?Python environment): one action button
    width everywhere so 安装 / 卸载 / 启动 line up instead of each sizing to its
    own label; block headings keep the label left and the action right. */
 .python-packages .btn {
@@ -3379,7 +3407,7 @@
 }
 
 /* ==========================================================================
-   Settings "About" — repositories, project status & development team
+   Settings "About" �?repositories, project status & development team
    ========================================================================== */
 
 .about-links {
@@ -3672,7 +3700,7 @@
 }
 
 /* ==========================================================================
-   FR-08 — model inference tool page
+   FR-08 �?model inference tool page
    ========================================================================== */
 
 .infer-device-badge {
@@ -3761,7 +3789,7 @@
    ========================================================================== */
 
 /* The whole layer ignores pointer events so the real UI under the spotlight
-   stays clickable — only the tooltip card captures clicks. Sits above the
+   stays clickable �?only the tooltip card captures clicks. Sits above the
    modal (2000) so it can spotlight elements inside open dialogs. */
 .tour-layer {
   position: fixed;
@@ -3780,7 +3808,7 @@
   transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
 }
 
-/* Pulsing ring that draws the eye to the highlighted element. It fades only —
+/* Pulsing ring that draws the eye to the highlighted element. It fades only �?
    never scales: a transform scale(1.1) on a viewport-sized box (sidebar,
    top bar) throws the ring far outside the window. */
 .tour-spot::after {
@@ -3824,7 +3852,7 @@
 }
 
 /* Centered variant for steps without a target (welcome / done). Uses the
-   standalone `translate` property — the tour-tip-in animation animates
+   standalone `translate` property �?the tour-tip-in animation animates
    `transform`, which would otherwise override the centering transform and
    flash the card off-center for its 0.2s duration. */
 .tour-tip-center {
@@ -3917,7 +3945,7 @@
 }
 
 /* Menu step (track chooser): the hero card widens further to fit the
-   onboarding parts — two primary cards, then a 3-up row of extra features. */
+   onboarding parts �?two primary cards, then a 3-up row of extra features. */
 .tour-tip-hero:has(.tour-menu-grid) {
   width: min(860px, calc(100vw - 48px));
   max-height: calc(100vh - 32px);
@@ -4153,7 +4181,7 @@
   color: var(--color-error);
 }
 
-/* Route-level lazy-load fallback (App.tsx) — full-viewport, centred. The
+/* Route-level lazy-load fallback (App.tsx) �?full-viewport, centred. The
    App shell has no flex parent, so it must size itself against the viewport. */
 .route-loading {
   min-height: 100vh;
@@ -4182,7 +4210,7 @@
   animation: shimmer 1.4s linear infinite;
 }
 
-/* Mode-level lazy-load fallback (WorkbenchPage.tsx) — fills the workbench
+/* Mode-level lazy-load fallback (WorkbenchPage.tsx) �?fills the workbench
    body, centred. The workbench body IS a flex container, so flex:1 works. */
 .workbench-loading {
   flex: 1;
@@ -4344,7 +4372,7 @@
 }
 
 /* ==========================================================================
-   Research modules — run history dialog (design tokens only)
+   Research modules �?run history dialog (design tokens only)
    ========================================================================== */
 
 .runs-dialog {
@@ -4423,7 +4451,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
-/* ---- Research modules — data lineage dialog (design tokens only) --------- */
+/* ---- Research modules �?data lineage dialog (design tokens only) --------- */
 
 .lineage-dialog {
   display: flex;
@@ -4718,7 +4746,7 @@
   width: 100%;
 }
 
-/* ---- Research modules — chunked preview panel (design tokens only) ------- */
+/* ---- Research modules �?chunked preview panel (design tokens only) ------- */
 
 .chunk-panel {
   display: flex;
@@ -4976,7 +5004,7 @@
   }
 }
 
-/* ---- Research modules — FR-03 submission assistant ----------------------- */
+/* ---- Research modules �?FR-03 submission assistant ----------------------- */
 
 .submit-panel {
   display: flex;
@@ -5077,7 +5105,7 @@
   gap: var(--space-3);
 }
 
-/* ---- Research modules — supplement packaging dialog ---------------------- */
+/* ---- Research modules �?supplement packaging dialog ---------------------- */
 
 .supplement-form {
   display: flex;
@@ -6103,7 +6131,7 @@
   background: var(--color-bg-hover);
 }
 /* One-line environment status strip: the four checks side by side, each a
-   dot + label (+ GPU name). Permanent — never collapsible. */
+   dot + label (+ GPU name). Permanent �?never collapsible. */
 .welcome-envbar {
   display: flex;
   align-items: center;
@@ -6163,7 +6191,7 @@
 }
 
 /* ==========================================================================
-   P3/P4 UI restructure — tool shell, launcher, welcome grid, topbar zones
+   P3/P4 UI restructure �?tool shell, launcher, welcome grid, topbar zones
    ========================================================================== */
 
 /* ---- ToolShell (/studio/<tool>) ------------------------------------------ */
@@ -6245,7 +6273,7 @@
 }
 
 /* Embedded variant: the suite is rendered inside the workbench CentralArea
-   (overlay over the canvas), which already owns the top bar and status bar —
+   (overlay over the canvas), which already owns the top bar and status bar �?
    fill the host instead of the viewport. */
 .tool-shell.embedded {
   height: 100%;
@@ -6253,7 +6281,7 @@
 }
 
 /* Slim action bar that preserves a suite's headerExtra (sheet switcher,
-   caption generator, submission check, add-cell …) when the full tool
+   caption generator, submission check, add-cell �? when the full tool
    topbar is dropped in embedded mode. */
 .tool-embedded-bar {
   flex-shrink: 0;
@@ -6288,8 +6316,8 @@
    instead of the centred reading column, so the editor/preview split has no
    dead space on either side. A 15px gutter keeps content off the pane edges
    (inherited from the base `.tool-content` rule above). The content box is
-   also a size container so the split can collapse when the *pane* — not the
-   viewport — gets narrow (e.g. inside a resized workbench panel). */
+   also a size container so the split can collapse when the *pane* �?not the
+   viewport �?gets narrow (e.g. inside a resized workbench panel). */
 .tool-content:has(.publish-page) {
   max-width: none;
   padding-left: 15px;
@@ -6614,7 +6642,7 @@
   position: relative;
 }
 
-/* Active (on) state for the sidebar / params-panel toggle handles — the same
+/* Active (on) state for the sidebar / params-panel toggle handles �?the same
    accent chip used by the mode buttons so a pressed rail is visually clear. */
 .topbar-cluster .icon-btn.is-active,
 .topbar-cluster .cluster-btn.icon-only.is-active {
@@ -6643,7 +6671,7 @@
   animation: blink 1s ease-in-out infinite;
 }
 
-/* ⋯ overflow trigger — hidden until the narrow breakpoint needs it. */
+/* �?overflow trigger �?hidden until the narrow breakpoint needs it. */
 .topbar-overflow {
   display: none;
   width: 34px;
@@ -6687,7 +6715,7 @@
 }
 
 /* Low-weight secondary entries (open folder / browse examples) under the
-   CTA row — clickable but visually quiet. */
+   CTA row �?clickable but visually quiet. */
 .welcome-quiet-row {
   display: flex;
   align-items: center;
@@ -7016,7 +7044,7 @@
 }
 
 /* ==========================================================================
-   FR-13 — course mode tool page
+   FR-13 �?course mode tool page
    ========================================================================== */
 
 .course-list {
@@ -7355,7 +7383,7 @@
 }
 
 /* ==========================================================================
-   FR-14 — data cleaning wizard tool page
+   FR-14 �?data cleaning wizard tool page
    ========================================================================== */
 
 .clean-stepper {
@@ -7481,7 +7509,7 @@
 }
 
 /* ==========================================================================
-   FR-19 — Work gallery (ToolShell page)
+   FR-19 �?Work gallery (ToolShell page)
    ========================================================================== */
 
 .gallery-body {
@@ -7678,11 +7706,11 @@
 }
 
 /* ==========================================================================
-   Lab / tool surfaces — professional polish
+   Lab / tool surfaces �?professional polish
    Conservative additive refinements shared by every research tool that renders
-   inside the ToolShell (.tool-content) — i.e. every /studio/<tool> page.
+   inside the ToolShell (.tool-content) �?i.e. every /studio/<tool> page.
    Aim: a clearer section hierarchy, a calmer less edge-to-edge look, uniform
-   interactive sizing for easy operation, and full keyboard operability —
+   interactive sizing for easy operation, and full keyboard operability �?
    without restyling any single page's bespoke card language, and without
    touching modal dialogs (which share some class names but not .tool-content).
    ========================================================================== */
@@ -7692,7 +7720,7 @@
   gap: var(--space-5);
 }
 
-/* Tool pages scroll in the shell — clear the dialog-era inner height cap so
+/* Tool pages scroll in the shell �?clear the dialog-era inner height cap so
    a lab never renders a nested scrollbar inside the page scroll. The rules
    below also zero the rows' modal-era bottom margins, so give the flex
    container itself a column gap or buttons / result blocks stack with no
@@ -7829,10 +7857,10 @@
 }
 
 /* ==========================================================================
-   UX 改进层 — 命令面板 / 模式同步点 / 面板拖拽 / 状态栏弹层与进度 /
-   AI 悬浮球 / 图表读出 / 紧凑空状态
+   UX 改进�?�?命令面板 / 模式同步�?/ 面板拖拽 / 状态栏弹层与进�?/
+   AI 悬浮�?/ 图表读出 / 紧凑空状�?
    全部为新增选择器，不触碰既有规则；发光分层遵循 --glow-hover（hover
-   克制）与 --color-glow（状态指示）两档 token。
+   克制）与 --color-glow（状态指示）两档 token�?
    ========================================================================== */
 
 /* ---- 全局命令面板 (Ctrl+K) ---- */
@@ -8034,7 +8062,7 @@
   bottom: 0;
   width: 5px;
   /* 高于收起按钮（z-21）：按钮贴边后会盖住感应条的 5px，提层级保证
-     整条边缘全高可拖拽。 */
+     整条边缘全高可拖拽�?*/
   z-index: 22;
   cursor: col-resize;
   touch-action: none;
@@ -8042,12 +8070,12 @@
 }
 
 .panel-resize-right {
-  /* 整体挂在侧栏右缘外侧（叠在中央区最左侧 5px 上），完整可命中。 */
+  /* 整体挂在侧栏右缘外侧（叠在中央区最左侧 5px 上），完整可命中�?*/
   right: -5px;
 }
 
 .panel-resize-left {
-  /* 整体挂在右栏左缘外侧（叠在中央区最右侧 5px 上），完整可命中。 */
+  /* 整体挂在右栏左缘外侧（叠在中央区最右侧 5px 上），完整可命中�?*/
   left: -5px;
 }
 
@@ -8056,8 +8084,8 @@
   background: var(--color-accent-soft);
 }
 
-/* 面板包裹层：手柄的定位容器。面板本身 overflow 会裁剪超出边界的
-   手柄，因此手柄必须挂在包裹层上，位于面板外侧。 */
+/* 面板包裹层：手柄的定位容器。面板本�?overflow 会裁剪超出边界的
+   手柄，因此手柄必须挂在包裹层上，位于面板外侧�?*/
 .panel-wrap {
   position: relative;
   flex-shrink: 0;
@@ -8065,10 +8093,10 @@
   min-height: 0;
 }
 
-/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称的
-   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻结
+/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称�?
+   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻�?
    内容宽度——内容像推拉门一样被裁剪，而不是被挤压回绕；pointer-events
-   吞掉指针，防止动画中途误点内部控件。 */
+   吞掉指针，防止动画中途误点内部控件�?*/
 .panel-wrap-closing {
   overflow: hidden;
   pointer-events: none;
@@ -8083,9 +8111,9 @@
 }
 
 /* 展开入场：收拢的镜像。wrap 挂载时从 0 宽度展开到内联目标宽度（keyframe
-   只写 from，to 取计算样式），内容同样冻结自身宽度被裁剪展开，与收拢的
+   只写 from，to 取计算样式），内容同样冻结自身宽度被裁剪展开，与收拢�?
    “推拉门”观感对称。仅 Sidebar 使用；页面首挂载也会播放一次，作为侧栏
-   入场。 */
+   入场�?*/
 .panel-wrap-opening {
   overflow: hidden;
   animation: panel-expand 0.22s var(--ease-out);
@@ -8098,7 +8126,7 @@
   }
 }
 
-/* 展开期间与收拢共用同一冻结规则：内容保持自身宽度，只被裁剪不回绕。 */
+/* 展开期间与收拢共用同一冻结规则：内容保持自身宽度，只被裁剪不回绕�?*/
 .panel-wrap-opening > .sidebar,
 .panel-wrap-opening > .right-panel {
   flex: 0 0 auto;
@@ -8113,15 +8141,15 @@
   position: static;
 }
 
-/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度。 */
+/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度�?*/
 .panel-wrap-closing > .sidebar,
 .panel-wrap-closing > .right-panel {
   flex: 0 0 auto;
   width: var(--panel-closing-width, var(--sidebar-width));
 }
 
-/* ---- 栏目边缘收起/展开小按钮 ---- */
-/* 展开态：贴在栏目外缘（拖拽手柄外侧），窄长竖条。 */
+/* ---- 栏目边缘收起/展开小按�?---- */
+/* 展开态：贴在栏目外缘（拖拽手柄外侧），窄长竖条�?*/
 .panel-collapse-btn {
   position: absolute;
   top: 50%;
@@ -8144,7 +8172,7 @@
 }
 
 .panel-collapse-right {
-  /* 紧贴侧栏边框外侧（压住 5px 感应条，感应条层级更高不受影响）。 */
+  /* 紧贴侧栏边框外侧（压�?5px 感应条，感应条层级更高不受影响）�?*/
   right: -16px;
   border-left: none;
   border-radius: 0 8px 8px 0;
@@ -8162,7 +8190,7 @@
   border-color: var(--color-accent);
 }
 
-/* 收起态：栏目原位置只剩一个贴边窄按钮。 */
+/* 收起态：栏目原位置只剩一个贴边窄按钮�?*/
 .panel-edge-btn {
   flex-shrink: 0;
   align-self: center;
@@ -8172,7 +8200,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住。 */
+  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住�?*/
   z-index: 45;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -8189,9 +8217,9 @@
   border-radius: 0 8px 8px 0;
 }
 
-/* 收起态：左栏展开按钮与右侧对称地改为浮层，不占 flex 槽位，中央画布
+/* 收起态：左栏展开按钮与右侧对称地改为浮层，不�?flex 槽位，中央画�?
    即可贴住活动栏填满整行宽（按钮靠 z-index 浮在画布之上）。锚在活动栏
-   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下。 */
+   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下�?*/
 .panel-edge-left.panel-edge-btn {
   position: absolute;
   top: 50%;
@@ -8204,7 +8232,7 @@
   border-radius: 8px 0 0 8px;
 }
 
-/* 收起态：右栏展开按钮改为浮层，不占 flex 槽位，中央画布即可填满整行宽。 */
+/* 收起态：右栏展开按钮改为浮层，不�?flex 槽位，中央画布即可填满整行宽�?*/
 .panel-edge-right.panel-edge-btn {
   position: absolute;
   top: 50%;
@@ -8423,7 +8451,7 @@
   color: var(--color-error);
 }
 
-/* ---- AI 助手悬浮球（贴边水洼 → 汇聚成水珠） ---- */
+/* ---- AI 助手悬浮球（贴边水洼 �?汇聚成水珠） ---- */
 
 /* Closed: [melt] back toward the droplet instead of vanishing abruptly.
    `visibility` is delayed so the fade/scale can finish first, and hiding it
@@ -8563,7 +8591,7 @@
   transform: none;
 }
 
-/* ---- 图表读出：十字线 + mono 读数卡 ---- */
+/* ---- 图表读出：十字线 + mono 读数�?---- */
 
 .plot-readout {
   position: relative;
@@ -8638,7 +8666,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* ---- 活动栏（标准模式，侧栏最左侧） ---- */
+/* ---- 活动栏（标准模式，侧栏最左侧�?---- */
 
 .activity-bar {
   width: var(--activitybar-width);
@@ -8649,7 +8677,7 @@
   border-right: 1px solid var(--color-border);
 }
 
-/* 视图入口靠上；底部留给全局设置（margin-top:auto 下推）。 */
+/* 视图入口靠上；底部留给全局设置（margin-top:auto 下推）�?*/
 .activity-bar-views {
   display: flex;
   flex-direction: column;
@@ -8700,7 +8728,7 @@
   color: var(--color-accent-text);
 }
 
-/* 激活态左侧指示条（贴活动栏左缘，不与图标抢空间）。 */
+/* 激活态左侧指示条（贴活动栏左缘，不与图标抢空间）�?*/
 .activity-item.is-active::before {
   content: '';
   position: absolute;
@@ -8712,7 +8740,7 @@
   background: var(--color-accent);
 }
 
-/* ---- 工作区搜索（活动栏 · 搜索视图） ---- */
+/* ---- 工作区搜索（活动�?· 搜索视图�?---- */
 
 .search-panel {
   display: flex;
@@ -8976,7 +9004,7 @@
   color: var(--color-error-text, var(--color-danger, #d9534f));
 }
 
-/* ---- 文件资源管理器（活动栏 · 文件视图） ---- */
+/* ---- 文件资源管理器（活动�?· 文件视图�?---- */
 
 .file-explorer {
   display: flex;
@@ -9047,7 +9075,7 @@
   color: var(--color-text-primary);
 }
 
-/* 预览中的文件行：弱高亮（与选中态区分——取消选中后仍能看出"正在预览"）。 */
+/* 预览中的文件行：弱高亮（与选中态区分——取消选中后仍能看�?正在预览"）�?*/
 .explorer-row.active {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
@@ -9073,7 +9101,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* Git 变更角标（与 Git 面板共用状态；A/M/D/U 四色） */
+/* Git 变更角标（与 Git 面板共用状态；A/M/D/U 四色�?*/
 .explorer-git-badge {
   flex-shrink: 0;
   width: 14px;
@@ -9108,7 +9136,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* ---- 文件资源管理器 · 常规文件管理（A 需求） ---- */
+/* ---- 文件资源管理�?· 常规文件管理（A 需求） ---- */
 
 .explorer-actions {
   display: flex;
@@ -9138,8 +9166,8 @@
   user-select: none;
 }
 
-/* 选中参考 Windows 资源管理器：只换底色，不加描边。accent 青绿描边在
-   列表里过于抢眼；背景 tint 不受滚动容器裁剪影响，无需 inset 阴影代替。 */
+/* 选中参�?Windows 资源管理器：只换底色，不加描边。accent 青绿描边�?
+   列表里过于抢眼；背景 tint 不受滚动容器裁剪影响，无需 inset 阴影代替�?*/
 .explorer-row.selected,
 .explorer-row.selected:hover {
   background: var(--color-accent-soft);
@@ -9165,7 +9193,7 @@
   font-size: var(--font-size-xs);
 }
 
-/* 右键上下文菜单 */
+/* 右键上下文菜�?*/
 .explorer-context-menu {
   position: fixed;
   z-index: 120;
@@ -9206,7 +9234,7 @@
   background: var(--color-border);
 }
 
-/* 工具行/分段小按钮（MD 视图切换等） */
+/* 工具�?分段小按钮（MD 视图切换等） */
 .explorer-pill {
   padding: 3px 10px;
   border: 1px solid var(--color-border);
@@ -9232,12 +9260,12 @@
   color: #fff;
 }
 
-/* 原始数据预览：项目树文件的只读预览。 */
+/* 原始数据预览：项目树文件的只读预览�?*/
 
 /* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
 
-/* 覆盖层堆栈：套件标签条 + 预览/套件浮层共用一个定位容器，标签条
-   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间。 */
+/* 覆盖层堆栈：套件标签�?+ 预览/套件浮层共用一个定位容器，标签�?
+   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间�?*/
 .central-overlay-stack {
   position: absolute;
   inset: 0;
@@ -9246,8 +9274,8 @@
   flex-direction: column;
   border-radius: inherit;
   overflow: hidden;
-  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明，
-     否则 2D 插件的拖动/平移会被这层空壳拦住。交互子元素再单独开启。 */
+  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明�?
+     否则 2D 插件的拖�?平移会被这层空壳拦住。交互子元素再单独开启�?*/
   pointer-events: none;
 }
 
@@ -9256,8 +9284,8 @@
   pointer-events: auto;
 }
 
-/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格仅
-   display:none —— 切换标签不卸载内容，状态得以保留。 */
+/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格�?
+   display:none —�?切换标签不卸载内容，状态得以保留�?*/
 .central-tab-pane {
   position: relative;
   flex: 1;
@@ -9270,7 +9298,7 @@
   display: none;
 }
 
-/* 窗格内的浮层从"绝对铺满"改为"常规流占满剩余高度"。 */
+/* 窗格内的浮层�?绝对铺满"改为"常规流占满剩余高�?�?*/
 .central-tab-pane > .central-file-preview,
 .central-tab-pane > .central-tool-view {
   position: relative;
@@ -9281,7 +9309,7 @@
   border-radius: 0;
 }
 
-/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）。 */
+/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）�?*/
 .central-tool-tabs {
   flex-shrink: 0;
   display: flex;
@@ -9300,10 +9328,10 @@
   touch-action: pan-x;
 }
 
-/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
-   下方开始（标签行高 + 1px 分隔线，均取自 --central-tabs-height 以便紧凑
+/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签�?
+   下方开始（标签行高 + 1px 分隔线，均取�?--central-tabs-height 以便紧凑
    档同步缩放）——VS Code 编辑区同款布局，标签条独占一行，画布/窗格占满
-   其余空间，互不重叠。 */
+   其余空间，互不重叠�?*/
 .central:has(> .central-overlay-stack > .central-tool-tabs) > .central-plugin-host {
   inset: calc(var(--central-tabs-height) + 1px) 0 0 0;
 }
@@ -9365,7 +9393,7 @@
   align-items: center;
   justify-content: center;
   /* 20px box around a 10px glyph: a 16px target was routinely missed on
-     the first click (Fitts's law — small edge-aligned targets). */
+     the first click (Fitts's law �?small edge-aligned targets). */
   width: 20px;
   height: 20px;
   margin-right: -3px;
@@ -9473,18 +9501,18 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary);
-  /* 覆盖 .central 的圆角/边框内侧即可，不额外加边框。 */
+  /* 覆盖 .central 的圆�?边框内侧即可，不额外加边框�?*/
   border-radius: inherit;
   overflow: hidden;
 }
 
 /* ---- Embedded research suite (central canvas overlay) --------------------- */
 
-/* Opaque overlay over the plugin canvas — same contract as the file preview:
+/* Opaque overlay over the plugin canvas �?same contract as the file preview:
    the canvas stays mounted underneath, closing never re-initializes scenes.
    z-index 20 stays BELOW the panel collapse buttons (21) and resize handles
    (22) so panels stay collapsible/resizable while a suite is open; the small
-   edge buttons may overlap the suite — accepted trade-off. */
+   edge buttons may overlap the suite �?accepted trade-off. */
 .central-tool-view {
   position: absolute;
   inset: 0;
@@ -9723,7 +9751,7 @@
 }
 
 /* ---- Markdown v2 shared styles (marked renderer): tables, task lists,
-       mermaid diagrams, KaTeX math — applied to both the file preview and
+       mermaid diagrams, KaTeX math �?applied to both the file preview and
        notebook markdown cells. ---- */
 
 .central-md-preview table,
@@ -9810,7 +9838,7 @@
 }
 
 /* 图片 / PDF / 视频 / 音频 */
-/* 二进制文件读取中的占位（tab 已开、字节未到）。 */
+/* 二进制文件读取中的占位（tab 已开、字节未到）�?*/
 .central-file-loading {
   display: flex;
   flex-direction: column;
@@ -9864,7 +9892,7 @@
   border: none;
 }
 
-/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）。 */
+/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）�?*/
 .central-file-media object {
   width: 100%;
   height: 100%;
@@ -9962,8 +9990,8 @@
   color: var(--color-text-secondary);
 }
 
-/* “用插件打开”：一行一个插件，替代原先挤在预览底部的横排按钮。
-   插件可能多达几十个，纵向列表随右栏滚动，不会撑高或挤压画布。 */
+/* “用插件打开”：一行一个插件，替代原先挤在预览底部的横排按钮�?
+   插件可能多达几十个，纵向列表随右栏滚动，不会撑高或挤压画布�?*/
 .rp-openwith {
   margin-top: var(--space-4);
 }
@@ -10018,7 +10046,7 @@
 }
 
 /* ==========================================================================
-   Boot gate — recovery UI (failure / timeout path of the boot sequence).
+   Boot gate �?recovery UI (failure / timeout path of the boot sequence).
    The normal-path splash lives inline in index.html; only the React-rendered
    fallback is styled here. Mirrors the splash's restrained instrument look.
    ========================================================================== */
@@ -10081,7 +10109,7 @@
 
 /* ==========================================================================
    Utility toolkit pages (unit-convert / calc / format-convert / sigfig /
-   molar-mass / quick-stats) — shared instrument-panel styling.
+   molar-mass / quick-stats) �?shared instrument-panel styling.
    ========================================================================== */
 
 /* Utility pages follow the research-suite layout: plain full-width sections
@@ -10454,7 +10482,7 @@
   height: 150px;
   max-width: 100%;
   margin: var(--space-1) 0;
-  /* A resize grip inside a flex column drags the whole pane along with it —
+  /* A resize grip inside a flex column drags the whole pane along with it �?
      keep a fixed box and scroll instead. */
   resize: none;
   overflow: auto;
@@ -10506,7 +10534,7 @@
   height: auto;
 }
 
-/* ---- Sidebar tools view (activity bar → toolkit) ---- */
+/* ---- Sidebar tools view (activity bar �?toolkit) ---- */
 
 .util-item {
   align-items: flex-start;
@@ -11300,11 +11328,11 @@
 }
 
 /* ==========================================================================
-   Mobile adaptation — forced landscape, compact tier, touch targets
+   Mobile adaptation �?forced landscape, compact tier, touch targets
    ==========================================================================
    The workbench is portrait-incompatible by design. See
-   src/core/orientation.ts for the three lock layers (manifest →
-   screen.orientation.lock → the guard below). The compact media query must
+   src/core/orientation.ts for the three lock layers (manifest �?
+   screen.orientation.lock �?the guard below). The compact media query must
    stay identical to COMPACT_VIEWPORT_QUERY in that file;
    tests/orientation.test.ts asserts the two strings match.
    ========================================================================== */
@@ -11379,14 +11407,14 @@
 
 /* ---- compact tier: landscape phones ------------------------------------
    Covers every mainstream landscape phone viewport (844×390, 851×393,
-   915×412, 780×360, 640×360 …): width ≤1024 and height ≤560. Portrait is
+   915×412, 780×360, 640×360 �?: width �?024 and height �?60. Portrait is
    refused outright by the guard above, so portrait-only viewports never
    reach a half-adapted layout. */
 
 @media (max-width: 1024px) and (max-height: 560px) {
   /* Proportional scaling: structural tokens derive from their desktop values
      through --ui-scale, so the chrome shrinks as one system instead of
-     per-rule nudges. Type keeps a legibility floor (max()) — a phone CSS px
+     per-rule nudges. Type keeps a legibility floor (max()) �?a phone CSS px
      is physically larger than a monitor's, so text must not scale blindly. */
   :root {
     --ui-scale: 0.9;
@@ -11462,7 +11490,7 @@
   }
 
   /* Status readouts yield in order: the left label truncates, the GPU chip
-     caps its width, the plugin name gives up its slot entirely — a phone
+     caps its width, the plugin name gives up its slot entirely �?a phone
      status line has no room for all of them. */
   .statusbar-left {
     min-width: 0;
@@ -11614,7 +11642,7 @@
   }
 
   /* Panel rails: the 16px desktop strips are below the comfortable touch
-     minimum, so they widen — and the resize感应条 they overlap widens with
+     minimum, so they widen �?and the resize感应�?they overlap widens with
      them (it keeps z-index priority over the button's inner edge). */
   .panel-edge-btn,
   .panel-collapse-btn {
@@ -11647,7 +11675,7 @@
   }
 }
 
-/* Touch: no hover in the change tree — keep the per-file stage action
+/* Touch: no hover in the change tree �?keep the per-file stage action
    permanently visible and at the shared 36px rail width. */
 @media (pointer: coarse) {
   .git-change-stage {
@@ -11709,4 +11737,280 @@
 
 .git-changes-static:hover {
   background: none;
+}
+
+/* ---- industrial workbench ------------------------------------------------ */
+
+.ind-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.tool-content:has(.ind-page) {
+  width: 100%;
+  max-width: none;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.ind-page > * {
+  min-width: 0;
+}
+
+/* Compact controls used across the industrial forms. `.input` and `.btn`
+   come from global.css; the small variants only adjust density so a row of
+   fields fits on one line inside the right half of the workbench. */
+.ind-page .input-sm,
+.rp-engineering .input-sm {
+  padding: 4px 8px;
+  font-size: var(--font-size-sm);
+  min-height: 28px;
+  height: 28px;
+}
+
+.ind-page .btn-sm {
+  min-height: 28px;
+}
+
+.ind-page .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ind-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ind-page-head h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.ind-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.ind-importbar,
+.ind-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ind-importbar {
+  padding: 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-secondary);
+}
+
+.ind-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.ind-error {
+  color: var(--color-danger, #e5484d);
+  font-size: var(--font-size-sm);
+}
+
+.ind-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.ind-field .input {
+  min-width: 96px;
+}
+
+.ind-empty {
+  padding: 24px 0;
+}
+
+.ind-mesh-canvas {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background:
+    linear-gradient(var(--color-bg-secondary) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--color-bg-secondary) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--color-bg-primary);
+}
+
+.ind-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.ind-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-bg-elevated);
+}
+
+.ind-card.is-active {
+  border-color: var(--color-accent, #3b82f6);
+  box-shadow: 0 0 0 1px var(--color-accent, #3b82f6) inset;
+}
+
+.ind-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ind-prop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.ind-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ind-table-wrap {
+  overflow: auto;
+  max-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+}
+
+.ind-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.ind-table th,
+.ind-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ind-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-elevated);
+  z-index: 1;
+}
+
+.ind-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.ind-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.ind-metrics span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.ind-metrics strong {
+  font-size: var(--font-size-sm);
+}
+
+.ind-pre {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  max-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ind-geometry-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+}
+
+.ind-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.rp-engineering {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-engineering-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.rp-engineering-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.rp-engineering-metrics strong {
+  color: var(--text);
+  font-size: var(--font-size-sm);
 }

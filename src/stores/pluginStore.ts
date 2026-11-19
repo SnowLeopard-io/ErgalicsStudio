@@ -610,6 +610,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         loaded: true,
         active: false,
         formats,
+        domains: plugin.manifest.domains,
         plugin,
       };
       set((s) => ({ registry: [...s.registry.filter((e) => e.id !== id), entry] }));

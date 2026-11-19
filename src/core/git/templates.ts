@@ -165,3 +165,17 @@ export const STANDARD_TEMPLATE_FILES: ReadonlyArray<{ path: string; content: str
   { path: '.ergalics/cache/.gitkeep', content: '' },
   { path: '.github/workflows/ergalics.yml', content: CI_WORKFLOW_YML },
 ];
+
+/**
+ * Industrial workspace skeleton (design doc §P1): geometry / mesh / materials
+ * / cases / results. Seeded only for `domain: 'industrial'` projects, so a
+ * research workspace keeps its original tree.
+ */
+export const INDUSTRIAL_TEMPLATE_FILES: ReadonlyArray<{ path: string; content: string }> = [
+  { path: 'geometry/.gitkeep', content: '' },
+  { path: 'mesh/.gitkeep', content: '' },
+  { path: 'materials/.gitkeep', content: '' },
+  { path: 'cases/.gitkeep', content: '' },
+  { path: 'results/.gitkeep', content: '' },
+  { path: 'study/.gitkeep', content: '' },
+];

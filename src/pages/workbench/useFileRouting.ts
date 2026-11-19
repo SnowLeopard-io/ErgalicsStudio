@@ -21,6 +21,8 @@ import {
 } from '@/core/io/scientific';
 import { datasetToTable } from '@/types/datatable';
 import { logger } from '@/core/logger';
+import { isEngineeringExtension } from '@/core/engineering';
+import { useEngineeringStore } from '@/stores/engineeringStore';
 
 interface ChooserState {
   open: boolean;
@@ -121,6 +123,23 @@ export function useFileRouting() {
   };
 
   const routeFile = async (file: File): Promise<void> => {
+    // Industrial CAD/CAE files bypass the plugin router: they belong to the
+    // engineering suite, whose neutral model drives every industrial tool.
+    if (isEngineeringExtension(file.name)) {
+      try {
+        const study = await useEngineeringStore.getState().importFile(file);
+        if (study) {
+          const geometry = /\.(dxf|step|stp)$/i.test(file.name);
+          useAppStore.getState().setMode('standard');
+          useAppStore.getState().setEmbeddedTool(geometry ? 'geometry-import' : 'mesh-viewer');
+          notify('success', t('industrial.import'));
+        }
+      } catch (err) {
+        logger.error('engineering', 'import failed', err);
+        notify('error', t('industrial.no_study_desc'));
+      }
+      return;
+    }
     // Scientific binary formats (HDF5/Parquet/FITS/NetCDF/Zarr) cannot flow
     // through the text-based plugin router. Parse them into variables, inject
     // each as a CSV project data file, and let the first one take the normal

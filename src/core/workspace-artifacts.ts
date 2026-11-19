@@ -18,6 +18,8 @@ export type ArtifactDir =
   | 'figures'
   | 'data'
   | 'runs'
+  | 'results'
+  | 'study'
   | 'manuscript'
   | 'code'
   | '';

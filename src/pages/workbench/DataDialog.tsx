@@ -20,6 +20,7 @@ import { findBuiltin } from '@/plugins/builtin';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { flowToIR } from '@/editor/flow/convert';
 import { SAMPLE_PIPELINES, sampleDescription, sampleName } from '@/blocks/sample';
@@ -36,6 +37,8 @@ import {
 } from '@/editor/code/samples';
 import { parseCodeToIR } from '@/editor/code/parse';
 import { logger } from '@/core/logger';
+import { INDUSTRIAL_EXAMPLES } from '@/core/engineering/examples';
+import { useEngineeringStore } from '@/stores/engineeringStore';
 
 interface DataDialogProps {
   open: boolean;
@@ -54,7 +57,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const t = useT();
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
-  const [tab, setTab] = useState<'datasets' | 'pipeline' | 'blocks' | 'code'>('datasets');
+  const [tab, setTab] = useState<'datasets' | 'industrial' | 'pipeline' | 'blocks' | 'code'>('datasets');
   // A plain object literal here would be recreated on every render, making the
   // re-entrancy guard below useless (double-click would launch two loads).
   const loadingRef = useRef(false);
@@ -95,6 +98,30 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     } finally {
       loadingRef.current = false;
     }
+  };
+
+  /**
+   * Industrial samples build a complete EngineeringStudy (mesh + material +
+   * step + BCs) and hand it to the industrial store, then open the mesh
+   * viewer so the imported model is immediately visible.
+   */
+  const loadIndustrialExample = async (id: string) => {
+    const example = INDUSTRIAL_EXAMPLES.find((item) => item.id === id);
+    if (!example) return;
+    // Industrial tools are project-bound: give the sample a project when the
+    // workbench is still empty, so it opens instead of an EmptyProject gate.
+    if (!useProjectStore.getState().project) {
+      await useProjectStore.getState().createProject('');
+    }
+    useEngineeringStore.getState().setStudy(example.build());
+    const app = useAppStore.getState();
+    app.setMode('standard');
+    app.setSidebarView('industrial');
+    app.setEmbeddedTool('mesh-viewer');
+    notify('success', t('industrial.example_loaded', {
+      name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
+    }));
+    onClose();
   };
 
   /**
@@ -227,6 +254,13 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
           </button>
           <button
             type="button"
+            className={`data-dialog-tab${tab === 'industrial' ? ' is-active' : ''}`}
+            onClick={() => setTab('industrial')}
+          >
+            {t('workbench.example.industrial')}
+          </button>
+          <button
+            type="button"
             className={`data-dialog-tab${tab === 'pipeline' ? ' is-active' : ''}`}
             onClick={() => setTab('pipeline')}
           >
@@ -272,6 +306,36 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
                 <div className="empty-hint">{t('workbench.plugin.none')}</div>
               )}
             </div>
+          </div>
+        ) : tab === 'industrial' ? (
+          <div className="plugin-list-pane stagger">
+            {INDUSTRIAL_EXAMPLES.map((example) => (
+              <div key={example.id} className="plugin-card" data-example-id={example.id}>
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">▦</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">
+                      {example.nameI18n[locale] ?? example.nameI18n['en-US']}
+                    </div>
+                    <div className="plugin-card-meta">
+                      {example.descriptionI18n[locale] ?? example.descriptionI18n['en-US']}
+                    </div>
+                    <div className="example-data-tags">
+                      <span className="tag tag-primary">{example.format}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => void loadIndustrialExample(example.id)}
+                  >
+                    {t('common.load')}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         ) : tab === 'pipeline' ? (
           <div className="plugin-list-pane stagger">

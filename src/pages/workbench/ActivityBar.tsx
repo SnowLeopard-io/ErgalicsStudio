@@ -9,7 +9,12 @@
 
 import { useT } from '@/i18n';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
-import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon } from '@/components/icons';
+import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon, ToolIcon } from '@/components/icons';
+
+/** Industrial workbench entry glyph (factories are the domain's shorthand). */
+function IndustrialIcon({ size = 20 }: { size?: number }) {
+  return <ToolIcon kind="industrial" size={size} />;
+}
 
 interface ActivityItem {
   view: SidebarView;
@@ -32,6 +37,7 @@ export function ActivityBar() {
     { view: 'plugins', label: t('workbench.activity.plugins'), Icon: LayersIcon },
     { view: 'git', label: t('workbench.activity.git'), Icon: GitBranchIcon },
     { view: 'research', label: t('workbench.activity.research'), Icon: FlaskIcon },
+    { view: 'industrial', label: t('workbench.activity.industrial'), Icon: IndustrialIcon },
     { view: 'tools', label: t('workbench.activity.tools'), Icon: ToolboxIcon },
   ];
 

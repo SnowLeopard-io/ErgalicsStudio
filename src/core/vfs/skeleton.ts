@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import type { Vfs } from './types';
-import { STANDARD_TEMPLATE_FILES } from '@/core/git/templates';
+import { INDUSTRIAL_TEMPLATE_FILES, STANDARD_TEMPLATE_FILES } from '@/core/git/templates';
 
 /** Working-tree files of the standard skeleton, minus git-only artifacts. */
 const SKELETON_FILES = STANDARD_TEMPLATE_FILES.filter(
@@ -22,6 +22,8 @@ export interface SeedSkeletonOptions {
    * missing directories (e.g. manuscript/) without touching user files.
    */
   overwrite?: boolean;
+  /** Capability list: industrial projects additionally get engineering dirs. */
+  domain?: 'research' | 'industrial';
 }
 
 /**
@@ -33,9 +35,12 @@ export async function seedStandardSkeleton(
   root: string,
   options: SeedSkeletonOptions = {},
 ): Promise<string[]> {
-  const { overwrite = true } = options;
+  const { overwrite = true, domain = 'research' } = options;
   const written: string[] = [];
-  for (const f of SKELETON_FILES) {
+  const files = domain === 'industrial'
+    ? [...SKELETON_FILES, ...INDUSTRIAL_TEMPLATE_FILES]
+    : SKELETON_FILES;
+  for (const f of files) {
     if (!overwrite && (await vfs.exists(root, f.path))) continue;
     await vfs.writeFile(root, f.path, f.content);
     written.push(f.path);
