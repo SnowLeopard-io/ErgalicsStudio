@@ -76,6 +76,7 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
   const importFile = useEngineeringStore((s) => s.importFile);
   const importText = useEngineeringStore((s) => s.importText);
   const setStudy = useEngineeringStore((s) => s.setStudy);
+  const studyName = useEngineeringStore((s) => s.study?.name ?? '');
 
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<ProjectEngineeringFile[]>([]);
@@ -240,12 +241,20 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
 
   return (
     <>
-      <div className="project-files-toolbar">
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setOpen(true)}>
-          {t('industrial.import')}
+      {/* Same inline field shape as the research suite's DataFilePickField so
+          the import entry lives in one consistent place across both domains. */}
+      <span className="data-file-field ind-import-field">
+        <span className="analysis-label">{t('industrial.data_file')}</span>
+        <button
+          type="button"
+          className="data-file-field-btn"
+          title={studyName || (hint ?? t('industrial.import_exts'))}
+          onClick={() => setOpen(true)}
+        >
+          <span className="data-file-picker-icon">{studyName ? '▣' : '▾'}</span>
+          <span className="data-file-field-name">{studyName || t('industrial.select_file')}</span>
         </button>
-        <span className="project-files-hint">{hint ?? t('industrial.import_exts')}</span>
-      </div>
+      </span>
 
       <Modal
         open={open}

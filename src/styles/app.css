@@ -11851,6 +11851,24 @@
   padding: 24px 0;
 }
 
+/* Import field label inside the shared data-file-field shell. The generic
+   `flex: 1 1 18ch` on .data-file-field stretches to a huge block when the
+   parent stacks vertically (industrial pages) — pin it to a single row. */
+.data-file-field > .analysis-label {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ind-import-field {
+  flex: 0 0 auto !important;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 34px;
+  align-items: center;
+}
+
 /* CAD 3D viewport (independent Three.js canvas inside a ToolShell page). */
 .ind-cad-viewport {
   position: relative;

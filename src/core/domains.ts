@@ -62,7 +62,15 @@ export function getVisibleTools<T extends DomainTagged>(
   return getVisibleByDomain(tools, domain);
 }
 
-/** Plugin manifests / registry entries: same rule as tools. */
+/**
+ * Plugin manifests / registry entries: same rule as tools.
+ *
+ * NOTE: the workbench's plugin PANEL must NOT use this — industrial and
+ * research tools already live in separate sidebar views, so filtering the
+ * global plugin registry by the active project domain hides every research
+ * plugin in an industrial project. This helper is for capability-scoped
+ * surfaces (e.g. a future domain-specific marketplace) only.
+ */
 export function getVisiblePlugins<T extends DomainTagged>(
   entries: readonly T[],
   domain: ActiveDomain,

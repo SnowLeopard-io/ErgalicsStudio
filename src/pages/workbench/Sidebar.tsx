@@ -21,7 +21,7 @@ import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useAppStore } from '@/stores/appStore';
 import { GRID_GROUPS, INDUSTRIAL_GROUPS, INDUSTRIAL_TOOLS, RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
-import { getVisiblePlugins, getVisibleTools, projectDomain } from '@/core/domains';
+import { getVisibleTools } from '@/core/domains';
 
 /** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
 const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
@@ -66,7 +66,6 @@ export function Sidebar() {
   const navigate = useNavigate();
 
   const registry = usePluginStore((s) => s.registry);
-  const project = useProjectStore((s) => s.project);
   const activeId = usePluginStore((s) => s.activeId);
   const loadingIds = usePluginStore((s) => s.loadingIds);
   const activate = usePluginStore((s) => s.activate);
@@ -164,10 +163,10 @@ export function Sidebar() {
   // Group the loaded registry by discipline, keeping the registry's own
   // order inside each group; empty groups are omitted.
   const { locale } = useLocale();
-  const visibleRegistry = useMemo(
-    () => getVisiblePlugins(registry, projectDomain(project)),
-    [registry, project],
-  );
+  // The plugin panel is domain-agnostic: industrial and research tools live in
+  // their OWN sidebar views, so filtering the plugin list by the project's
+  // domain here would hide every research plugin in industrial projects.
+  const visibleRegistry = registry;
   const groups = useMemo(() => {
     const byDiscipline = new Map<string, PluginRegistryEntry[]>();
     for (const entry of visibleRegistry) {

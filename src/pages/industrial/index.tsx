@@ -299,9 +299,7 @@ export function GeometryPage() {
         </header>
         <EngineeringImportButton hint="DXF / STEP" />
         {!geometry ? (
-          <NoStudy>
-            <p className="ind-hint">{t('industrial.geometry_hint')}</p>
-          </NoStudy>
+          <NoStudy />
         ) : (
           <>
             <div className="ind-toolbar">
