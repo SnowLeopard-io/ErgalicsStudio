@@ -292,7 +292,7 @@ export function GeometryPage() {
   };
   return (
     <Page toolId="geometry-import">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head">
           <h2>{t('industrial.geometry')}</h2>
           <StudyMeta />
@@ -302,7 +302,7 @@ export function GeometryPage() {
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <label className="ind-field">
                 <span>{t('industrial.layer')}</span>
                 <select className="input input-sm" value={selected} onChange={(e) => setSelected(e.target.value)}>
@@ -332,7 +332,7 @@ export function GeometryPage() {
             </div>
             {view3d && (
               <>
-                <div className="ind-toolbar">
+                <div className="ind-toolbar analysis-row">
                   {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
                     <button
                       key={p}
@@ -419,7 +419,7 @@ export function MeshViewerPage() {
   };
   return (
     <Page toolId="mesh-viewer">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head">
           <h2>{t('industrial.mesh')}</h2>
           <StudyMeta />
@@ -429,7 +429,7 @@ export function MeshViewerPage() {
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
               <span className="ind-hint">
                 {t('industrial.nodes', { n: study.mesh.nodes.length })} ·{' '}
@@ -455,7 +455,7 @@ export function MeshViewerPage() {
             </div>
             {view3d ? (
               <>
-                <div className="ind-toolbar">
+                <div className="ind-toolbar analysis-row">
                   {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
                     <button key={p} type="button" className={`btn btn-sm${preset === p ? ' is-active' : ''}`} onClick={() => setPreset(p)}>
                       {t(`industrial.cad_view_${p}`)}
@@ -487,7 +487,7 @@ export function MeshViewerPage() {
               </div>
             )}
             <div className="ind-table-wrap">
-              <table className="ind-table">
+              <table className="sweep-table">
                 <thead><tr><th>{t('industrial.dim')}</th><th>{t('industrial.tag')}</th><th>{t('industrial.name')}</th><th>{t('industrial.members')}</th></tr></thead>
                 <tbody>
                   {study.mesh.groups.slice(0, 40).map((group) => (
@@ -529,7 +529,7 @@ export function MaterialsPage() {
   }, [study]);
   return (
     <Page toolId="material-library">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head">
           <h2>{t('industrial.materials')}</h2>
           <StudyMeta />
@@ -538,7 +538,7 @@ export function MaterialsPage() {
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
                 {MATERIAL_LIBRARY.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -627,13 +627,13 @@ export function CasesPage() {
 
   return (
     <Page toolId="load-cases">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.cases')}</h2><StudyMeta /></header>
         {!study || !studyCase ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as EngineeringStepKind)}>
                 {STEP_KINDS.map((item) => <option key={item} value={item}>{stepKindLabel(t, item)}</option>)}
               </select>
@@ -711,7 +711,7 @@ function BoundaryEditor() {
   return (
     <section className="ind-card">
       <header className="ind-card-head"><strong>{t('industrial.boundary')}</strong></header>
-      <div className="ind-toolbar">
+      <div className="ind-toolbar analysis-row">
         <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as BoundaryKind)}>
           {kinds.map((item) => <option key={item} value={item}>{boundaryKindLabel(t, item)}</option>)}
         </select>
@@ -734,7 +734,7 @@ function BoundaryEditor() {
         })}>{t('industrial.add')}</button>
       </div>
       <div className="ind-table-wrap">
-        <table className="ind-table">
+        <table className="sweep-table">
           <thead><tr><th>{t('industrial.name')}</th><th>{t('industrial.kind')}</th><th>{t('industrial.target')}</th><th>{t('industrial.components')}</th><th /></tr></thead>
           <tbody>
             {study.boundaryConditions.map((bc, index) => (
@@ -773,7 +773,7 @@ function DesignSpaceEditor({
   return (
     <section className="ind-card">
       <header className="ind-card-head"><strong>{t('industrial.design_space')}</strong></header>
-      <div className="ind-toolbar">
+      <div className="ind-toolbar analysis-row">
         <input className="input input-sm" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('industrial.parameter_path')} />
         <input className="input input-sm" type="number" step="any" value={min} onChange={(e) => setMin(Number(e.target.value))} />
         <input className="input input-sm" type="number" step="any" value={max} onChange={(e) => setMax(Number(e.target.value))} />
@@ -787,7 +787,7 @@ function DesignSpaceEditor({
         <div className="ind-hint">{t('industrial.no_parameters')}</div>
       ) : (
         <div className="ind-table-wrap">
-          <table className="ind-table">
+          <table className="sweep-table">
             <thead><tr><th>{t('industrial.parameter')}</th><th>{t('industrial.min')}</th><th>{t('industrial.max')}</th><th>{t('industrial.levels')}</th><th /></tr></thead>
             <tbody>
               {design.parameters.map((parameter, index) => (
@@ -842,13 +842,13 @@ export function SolvePage() {
   };
   return (
     <Page toolId="fea-solver">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.solver')}</h2><StudyMeta /></header>
         {!study ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
                 {steps.map((step) => <option key={step.id} value={step.id}>{step.name} ({stepKindLabel(t, step.kind)})</option>)}
               </select>
@@ -963,13 +963,13 @@ export function PostPage() {
   };
   return (
     <Page toolId="post-processing">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.post')}</h2><StudyMeta /></header>
         {!study ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
               {field && <span className="ind-hint">{locationLabel(t, field.location)} · {t('industrial.component_count', { n: field.components })} {field.unit ? `· ${field.unit}` : ''}</span>}
               <span className="ind-toolbar-spacer" />
@@ -977,7 +977,7 @@ export function PostPage() {
               <button type="button" className="btn btn-sm" onClick={exportMeshCsv}>{t('industrial.export_mesh_csv')}</button>
               <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>{t('industrial.export_metrics_csv')}</button>
             </div>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <span className="ind-hint">{t('industrial.export_figure')}</span>
               <button type="button" className="btn btn-sm" onClick={exportFigure}>{t('industrial.export_svg')}</button>
               <button type="button" className="btn btn-sm" onClick={exportFigurePng}>{t('industrial.export_png')}</button>
@@ -993,13 +993,25 @@ export function PostPage() {
                   <button type="button" className="btn btn-sm" onClick={() => exportSVG(renderSVG(histogram), `${stem}-histogram.svg`)}>
                     {t('industrial.export_svg')}
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    title={t('industrial.send_figure_hint')}
+                    onClick={() => sendSpecToFigure(
+                      `${study?.name ?? 'Study'} · ${t('industrial.field_distribution')}`,
+                      histogram,
+                      field ? fieldLabel(t, field.name) : undefined,
+                    )}
+                  >
+                    {t('industrial.send_figure')}
+                  </button>
                 </header>
                 <SvgPlot spec={histogram} />
               </div>
             )}
             {result && (
               <div className="ind-table-wrap">
-                <table className="ind-table">
+                <table className="sweep-table">
                   <thead><tr><th>{t('industrial.metric')}</th><th>{t('industrial.value')}</th></tr></thead>
                   <tbody>
                     {Object.entries(result.metrics).map(([key, value]) => (
@@ -1048,13 +1060,13 @@ export function DesignScanPage() {
   };
   return (
     <Page toolId="design-scan">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.design_scan')}</h2><StudyMeta /></header>
         {!study || !design ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <button type="button" className="btn btn-sm btn-primary" disabled={busy || design.parameters.length === 0}
                 onClick={() => { setBusy(true); try { runScan(); } finally { setBusy(false); } }}>
                 {busy ? <span className="spinner" /> : t('industrial.run_scan')}
@@ -1099,7 +1111,7 @@ export function DesignScanPage() {
             )}
             {scan.length > 0 && (
               <div className="ind-table-wrap">
-                <table className="ind-table">
+                <table className="sweep-table">
                   <thead>
                     <tr><th>{t('industrial.point')}</th>{keys.map((key) => <th key={key}>{metricLabel(t, key)}</th>)}</tr>
                   </thead>
@@ -1141,9 +1153,9 @@ export function FluidPage() {
   };
   return (
     <Page toolId="quick-fluid">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.fluid')}</h2><StudyMeta /></header>
-        <div className="ind-toolbar">
+        <div className="ind-toolbar analysis-row">
           <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
           <button type="button" className="btn btn-sm btn-primary" onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
           <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
@@ -1192,13 +1204,13 @@ export function FingerprintPage() {
   };
   return (
     <Page toolId="repro-fingerprint">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.fingerprint')}</h2><StudyMeta /></header>
         {!study || !fingerprint ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <button type="button" className="btn btn-sm" onClick={() => void copy()}>{t('industrial.copy')}</button>
               <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveStudyJson()}>
                 {t('industrial.save_study')}
@@ -1251,13 +1263,13 @@ export function IndustrialReportPage() {
   };
   return (
     <Page toolId="industrial-report">
-      <div className="ind-page">
+      <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.report')}</h2><StudyMeta /></header>
         {!study || !report ? (
           <NoStudy />
         ) : (
           <>
-            <div className="ind-toolbar">
+            <div className="ind-toolbar analysis-row">
               <button type="button" className="btn btn-sm btn-primary" onClick={download}>{t('industrial.download_report')}</button>
               <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>{t('industrial.download_markdown')}</button>
               <button type="button" className="btn btn-sm" onClick={() => void saveReport()}>{t('industrial.save_workspace')}</button>
