@@ -19,7 +19,7 @@ import { sampleTetField } from '@/core/engineering/volume';
 import { artifactBaseName, safeName, useIndustrialArtifacts, useIndustrialOutput } from './artifacts';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore, primaryMaterial } from '@/stores/engineeringStore';
-import { useAppStore } from '@/stores/appStore';
+import { toolTabKey, useAppStore } from '@/stores/appStore';
 import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { useLocale } from '@/i18n';
 import { mdToHtml } from '@/core/notebook/notebook';
@@ -92,10 +92,15 @@ function Page({ toolId, children }: { toolId: string; children: ReactNode }) {
  * shows the viewport, charts and tables. Standalone /studio pages have no
  * sidebar and keep the bars inline; a collapsed sidebar simply hides them.
  */
-function IndustrialActions({ children }: { children: ReactNode }) {
+function IndustrialActions({ toolId, children }: { toolId: string; children: ReactNode }) {
   const { pathname } = useLocation();
+  const activeTab = useAppStore((s) => s.activeTab);
   const host = useIndustrialChrome((s) => s.host);
   if (pathname.startsWith('/studio')) return <>{children}</>;
+  // Hidden canvas tabs stay mounted, so without this guard every open
+  // industrial page would portal its bars into the same sidebar host and the
+  // panel would mix several tools' actions together.
+  if (activeTab !== toolTabKey(toolId)) return null;
   return host ? createPortal(children, host) : null;
 }
 
@@ -334,7 +339,7 @@ export function GeometryPage() {
           <h2>{t('industrial.geometry')}</h2>
           <StudyMeta />
         </header>
-        <IndustrialActions>
+        <IndustrialActions toolId="geometry-import">
           <EngineeringImportButton hint="DXF / STEP" />
           {geometry && (
             <>
@@ -468,7 +473,7 @@ export function MeshViewerPage() {
           <h2>{t('industrial.mesh')}</h2>
           <StudyMeta />
         </header>
-        <IndustrialActions>
+        <IndustrialActions toolId="mesh-viewer">
           <EngineeringImportButton hint="Gmsh .msh · Abaqus .inp · VTK .vtk/.vtu" />
           {study && (
             <>
@@ -584,7 +589,7 @@ export function MaterialsPage() {
           <h2>{t('industrial.materials')}</h2>
           <StudyMeta />
         </header>
-        <IndustrialActions>
+        <IndustrialActions toolId="material-library">
           <div className="ind-toolbar analysis-row">
             <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
               {MATERIAL_LIBRARY.map((item) => (
@@ -681,7 +686,7 @@ export function CasesPage() {
     <Page toolId="load-cases">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.cases')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="load-cases">
           <div className="ind-toolbar analysis-row">
             <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as EngineeringStepKind)}>
               {STEP_KINDS.map((item) => <option key={item} value={item}>{stepKindLabel(t, item)}</option>)}
@@ -899,7 +904,7 @@ export function SolvePage() {
     <Page toolId="fea-solver">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.solver')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="fea-solver">
           <div className="ind-toolbar analysis-row">
             <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
               {steps.map((step) => <option key={step.id} value={step.id}>{step.name} ({stepKindLabel(t, step.kind)})</option>)}
@@ -1038,7 +1043,7 @@ export function PostPage() {
     <Page toolId="post-processing">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.post')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="post-processing">
           <div className="ind-toolbar analysis-row">
             <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
             {field && <span className="ind-hint">{locationLabel(t, field.location)} · {t('industrial.component_count', { n: field.components })} {field.unit ? `· ${field.unit}` : ''}</span>}
@@ -1168,7 +1173,7 @@ export function DesignScanPage() {
     <Page toolId="design-scan">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.design_scan')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="design-scan">
           {design && (
             <div className="ind-toolbar analysis-row">
               <button type="button" className="btn btn-sm btn-primary" disabled={busy || design.parameters.length === 0}
@@ -1271,7 +1276,7 @@ export function FluidPage() {
     <Page toolId="quick-fluid">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.fluid')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="quick-fluid">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
             <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
@@ -1324,7 +1329,7 @@ export function FingerprintPage() {
     <Page toolId="repro-fingerprint">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.fingerprint')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="repro-fingerprint">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm" onClick={() => void copy()}>{t('industrial.copy')}</button>
             <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveStudyJson()}>
@@ -1386,7 +1391,7 @@ export function IndustrialReportPage() {
     <Page toolId="industrial-report">
       <div className="ind-page analysis-body">
         <header className="ind-page-head"><h2>{t('industrial.report')}</h2><StudyMeta /></header>
-        <IndustrialActions>
+        <IndustrialActions toolId="industrial-report">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm btn-primary" onClick={download}>{t('industrial.download_report')}</button>
             <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>{t('industrial.download_markdown')}</button>

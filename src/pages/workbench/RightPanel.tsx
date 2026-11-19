@@ -87,7 +87,6 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
   const study = useEngineeringStore((s) => s.study);
   const result = useEngineeringStore((s) => s.result);
   const solving = useEngineeringStore((s) => s.solving);
-  const solve = useEngineeringStore((s) => s.solve);
   const toolDef = getTool(toolId);
   const fingerprint = study ? engineeringFingerprint(study) : null;
   const steps = study ? ensureCase(study.cases)[0]!.steps : [];
@@ -109,20 +108,25 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
           <span className="tag">{t('industrial.group.' + (toolDef?.group ?? 'mesh'))}</span>
         </div>
       </div>
-      <label className="research-check rp-engineering-output">
-        <input
-          type="checkbox"
-          checked={outputToWorkspace}
-          onChange={(e) => setOutputToWorkspace(e.target.checked)}
-        />
-        {t('industrial.output_to_workspace')}
-      </label>
-      <div className="rp-engineering-actions" ref={setActionsHost} />
+      <section className="rp-engineering-section">
+        <div className="rp-engineering-section-title">{t('workbench.right.actions')}</div>
+        <label className="rp-engineering-output">
+          <input
+            type="checkbox"
+            checked={outputToWorkspace}
+            onChange={(e) => setOutputToWorkspace(e.target.checked)}
+          />
+          {t('industrial.output_to_workspace')}
+        </label>
+        <div className="rp-engineering-actions" ref={setActionsHost} />
+      </section>
       {!study ? (
         <p className="suite-intro-desc">{t('industrial.no_study_desc')}</p>
       ) : (
         <>
-          <dl className="suite-intro-facts">
+          <section className="rp-engineering-section">
+            <div className="rp-engineering-section-title">{t('industrial.right.overview')}</div>
+            <dl className="suite-intro-facts">
             <div className="suite-intro-fact">
               <dt>{t('industrial.right.mesh')}</dt>
               <dd>{localizedMeshSummary(t, study.mesh)}</dd>
@@ -165,10 +169,8 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
                 ))}
             </div>
           )}
-          <div className="suite-intro-actions">
-            <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
-              {t('industrial.solve')}
-            </button>
+          </section>
+          <div className="rp-engineering-footer">
             <button type="button" className="btn btn-sm" onClick={() => navigate('/studio/industrial-report')}>
               {t('tool.industrial-report.title')}
             </button>

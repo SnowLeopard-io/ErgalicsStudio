@@ -137,6 +137,7 @@ export const industrialZh: LocaleDictionary = {
   'industrial.field': '场变量',
   'industrial.all_layers': '全部图层',
   // Right panel summary
+  'industrial.right.overview': '概况',
   'industrial.right.mesh': '网格',
   'industrial.right.materials': '材料',
   'industrial.right.steps': '求解步',
@@ -374,6 +375,7 @@ export const industrialEn: LocaleDictionary = {
   'industrial.field': 'Field',
   'industrial.all_layers': 'all',
   // Right panel summary
+  'industrial.right.overview': 'Overview',
   'industrial.right.mesh': 'Mesh',
   'industrial.right.materials': 'Materials',
   'industrial.right.steps': 'Steps',

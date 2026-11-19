@@ -12051,27 +12051,80 @@
   gap: 12px;
 }
 
+/* Section heading: small caps label followed by a hairline that pushes to
+   the panel edge, giving the sidebar a clear rhythm. */
+.rp-engineering-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rp-engineering-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.rp-engineering-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
 /* Action-bar host: industrial pages portal their toolbars here (see
    IndustrialActions) so the canvas keeps only the viewport, charts and
-   tables. Stack the rows into the narrow sidebar column. */
+   tables. Each page row is separated by a hairline inside one card. */
 .rp-engineering-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.rp-engineering-actions > * + * {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
 }
 
 .rp-engineering-actions:empty {
   display: none;
 }
 
+/* The section heading already draws the divider above the facts. */
+.rp-engineering-section .suite-intro-facts {
+  padding-top: 0;
+  border-top: none;
+}
+
 .rp-engineering-output {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.rp-engineering-output:hover {
+  background: var(--color-bg-hover);
+}
+
+.rp-engineering-output input {
+  accent-color: var(--color-accent);
+  margin: 0;
 }
 
 .rp-engineering-actions .ind-toolbar {
@@ -12124,6 +12177,20 @@
 
 .rp-engineering-actions .ind-hint {
   font-size: var(--font-size-xs);
+}
+
+/* Actions that belong to the tool as a whole (report / close). */
+.rp-engineering-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.rp-engineering-footer .btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .rp-engineering-metrics {
