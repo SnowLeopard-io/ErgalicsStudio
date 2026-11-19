@@ -121,7 +121,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
       const app = useAppStore.getState();
       app.setMode('standard');
       app.setSidebarView('industrial');
-      app.setEmbeddedTool('mesh-viewer');
+      app.setEmbeddedTool(example.toolId ?? 'mesh-viewer');
       notify('success', t('industrial.example_loaded', {
         name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
       }));

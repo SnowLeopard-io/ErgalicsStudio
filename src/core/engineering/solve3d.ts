@@ -162,6 +162,22 @@ export function solve3DSteadyHeat(
   if (!mesh.elements.some((e) => e.type === 'tet4')) {
     throw new Solve3DError('3-D solve requires tet4 elements in the mesh');
   }
+  // A zero/NaN-volume tet contributes nothing to K but still leaves a free
+  // DOF behind, so the reduced system can report a converged zero field.
+  // Reject the mesh instead of silently producing a meaningless result.
+  for (let e = 0; e < mesh.elements.length; e += 1) {
+    const element = mesh.elements[e]!;
+    if (element.type !== 'tet4') continue;
+    const volume = tetVolume(mesh, e);
+    if (!Number.isFinite(volume) || volume <= 0) {
+      throw new Solve3DError(
+        `degenerate tet4 element ${e}: zero or non-finite volume — check node coordinates/connectivity`,
+      );
+    }
+  }
+  if (options.source !== undefined && !Number.isFinite(options.source)) {
+    throw new Solve3DError(`3-D steady heat source must be finite (got ${String(options.source)})`);
+  }
   // Neumann (heat-flux) boundary conditions are not assembled on the volume
   // boundary, so refuse them instead of silently dropping the load.
   const heatFlux = study.boundaryConditions.find((condition) => condition.kind === 'heat-flux');
@@ -176,6 +192,11 @@ export function solve3DSteadyHeat(
     study.materials, study.materialAssignment, 'k', 1,
     tags.length > 0 ? tags : [0],
   );
+  for (const value of typeof conductivity === 'number' ? [conductivity] : Object.values(conductivity)) {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Solve3DError('3-D thermal conductivity must be positive and finite for every material');
+    }
+  }
   const { K, f } = assembleTetHeat(mesh, conductivity, options.source ?? 0);
 
   // Dirichlet temperatures from temperature BCs.

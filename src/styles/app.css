@@ -11801,6 +11801,19 @@
   font-size: var(--font-size-lg);
 }
 
+/* Page titles reuse the shared tool icon so the embedded industrial pages
+   match their research-suite counterparts. */
+.ind-page-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ind-page-head-icon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
 .ind-meta {
   display: flex;
   flex-wrap: wrap;
@@ -11849,6 +11862,59 @@
 
 .ind-empty {
   padding: 24px 0;
+}
+
+/* Touch-first targets: 44px hit areas, thumb-sized inputs and native
+   scrolling only where a gesture is not owned by the viewport. */
+@media (pointer: coarse) {
+  .ind-page .btn-sm,
+  .rp-engineering-actions .btn,
+  .ind-toolbar .btn {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+
+  .ind-page .input-sm,
+  .ind-page .ind-field .input,
+  .rp-engineering-actions .input,
+  .rp-engineering-actions .ind-field .input {
+    min-height: 40px;
+    font-size: var(--font-size-md, 14px);
+  }
+
+  .ind-toolbar {
+    gap: 10px;
+  }
+
+  .ind-field {
+    gap: 6px;
+  }
+
+  .ind-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .research-check {
+    min-height: 44px;
+  }
+
+  .research-check input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ind-page .btn-sm:active,
+  .rp-engineering-actions .btn:active,
+  .ind-toolbar .btn:active {
+    transform: scale(0.97);
+  }
+
+  /* OrbitControls owns one- and two-finger gestures on the CAD surface. */
+  .ind-cad-viewport {
+    touch-action: none;
+  }
 }
 
 /* Import field label inside the shared data-file-field shell. The generic
@@ -11915,6 +11981,42 @@
     linear-gradient(var(--color-bg-secondary) 1px, transparent 1px) 0 0 / 32px 32px,
     linear-gradient(90deg, var(--color-bg-secondary) 1px, transparent 1px) 0 0 / 32px 32px,
     var(--color-bg-primary);
+}
+
+/* Empty-canvas guidance: the mesh stays visible underneath while a centered
+   note explains the next action (or the localized reason the solve failed). */
+.ind-canvas-wrap {
+  position: relative;
+}
+
+.ind-canvas-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+  pointer-events: none;
+  color: var(--color-text-secondary);
+}
+
+.ind-canvas-hint strong {
+  font-size: var(--font-size-md, 14px);
+  color: var(--color-text-primary);
+}
+
+.ind-canvas-hint span {
+  max-width: 360px;
+  font-size: var(--font-size-sm, 12px);
+  line-height: 1.6;
+}
+
+.ind-canvas-hint.is-error strong,
+.ind-canvas-hint.is-error span {
+  color: var(--color-error);
 }
 
 .ind-cards {

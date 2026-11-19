@@ -82,15 +82,6 @@ export function useIndustrialArtifacts() {
   return { saveText, saveBinary, notify };
 }
 
-/** Download a text artifact with the standard industrial filename. */
-export function downloadIndustrialText(
-  content: string,
-  filename: string,
-  mime: string,
-): void {
-  downloadText(content, filename, mime);
-}
-
 /** MIME type derived from the export filename (text artifacts only). */
 function mimeFor(filename: string): string {
   const dot = filename.lastIndexOf('.');
@@ -109,8 +100,9 @@ function mimeFor(filename: string): string {
  * Export routing shared by the industrial pages. The right panel exposes an
  * "output to workspace directory" toggle: when it is on, exports are written
  * into the project workspace (results/ · figures/ · study/) and the file
- * explorer is notified, exactly like the explicit save buttons; when it is
- * off the exporter falls back to the browser download.
+ * explorer is notified; when it is off the exporter falls back to the browser
+ * download. This is the single output-destination control — pages no longer
+ * carry their own duplicate "save to workspace" buttons.
  */
 export function useIndustrialOutput() {
   const t = useT();

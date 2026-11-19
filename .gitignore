@@ -104,3 +104,6 @@ deploy/windows/release/
 deploy/windows/build-dist.log
 # Portable CPython bundled into the installer (downloaded on demand).
 deploy/windows/resources/python/
+
+
+industrial-capability-benchmark/

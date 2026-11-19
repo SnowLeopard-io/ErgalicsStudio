@@ -75,6 +75,40 @@ import { useAppStore } from './appStore';
 import { getVfs } from '@/core/vfs';
 import { t, getLocale } from '@/i18n';
 
+/**
+ * Localize solve failures at the UI boundary. The FEM / engineering kernel
+ * reports English, language-neutral diagnostics; surfacing them verbatim in
+ * a Chinese UI is unhelpful. Unmapped messages keep their detail behind a
+ * localized "solve failed" prefix.
+ */
+const SOLVE_ERROR_RULES: Array<{ pattern: RegExp; key: string }> = [
+  { pattern: /no displacement constraint/i, key: 'industrial.err_no_displacement' },
+  { pattern: /no temperature boundary condition/i, key: 'industrial.err_no_temperature' },
+  { pattern: /not planarly solvable|requires tet4 elements/i, key: 'industrial.err_not_planar' },
+  { pattern: /degenerate element|zero or non-finite area/i, key: 'industrial.err_degenerate' },
+  { pattern: /non-finite values/i, key: 'industrial.err_non_finite' },
+  { pattern: /boundary condition "(.+)" matches no boundary edges/i, key: 'industrial.err_bc_no_edges' },
+  { pattern: /potential flow needs/i, key: 'industrial.err_potential_bc' },
+  { pattern: /unsupported step kind/i, key: 'industrial.err_unsupported_step' },
+  { pattern: /thickness/i, key: 'industrial.err_thickness' },
+  { pattern: /Young's modulus|modulus of elasticity/i, key: 'industrial.err_modulus' },
+  { pattern: /Poisson ratio/i, key: 'industrial.err_poisson' },
+  { pattern: /conductivity/i, key: 'industrial.err_conductivity' },
+  { pattern: /heat capacity/i, key: 'industrial.err_heat_capacity' },
+  { pattern: /initial temperature/i, key: 'industrial.err_initial_temperature' },
+  { pattern: /θ-scheme|theta|time step/i, key: 'industrial.err_time_step' },
+  { pattern: /source must be finite/i, key: 'industrial.err_source' },
+  { pattern: /did not converge|not converge/i, key: 'industrial.err_not_converged' },
+];
+
+function localizedSolveError(message: string): string {
+  for (const rule of SOLVE_ERROR_RULES) {
+    const match = rule.pattern.exec(message);
+    if (match) return t(rule.key, { name: match[1] ?? '' });
+  }
+  return t('industrial.err_detail', { detail: message });
+}
+
 interface EngineeringStore {
   study: EngineeringStudy | null;
   result: EngineeringSolveResult | null;
@@ -721,7 +755,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       );
       return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = localizedSolveError(err instanceof Error ? err.message : String(err));
       logger.warn('engineering', 'solve failed', err);
       // Same staleness guard as the success path: after a project switch the
       // flag/error surface belongs to the new project's state.

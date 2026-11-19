@@ -7,20 +7,17 @@
 // solver. These are UI shells over the pure engineering core.
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
-import { ToolShell } from '@/components/ToolShell';
 import { EmptyState } from '@/components/EmptyState';
+import { ToolIcon } from '@/components/icons';
 import { EngineeringImportButton } from './ImportButton';
 import { CadViewport, type CadViewPreset } from './CadViewport';
 import { sampleTetField } from '@/core/engineering/volume';
-import { artifactBaseName, safeName, useIndustrialArtifacts, useIndustrialOutput } from './artifacts';
+import { artifactBaseName, safeName, useIndustrialOutput } from './artifacts';
 import { useProjectStore } from '@/stores/projectStore';
-import { useEngineeringStore, primaryMaterial } from '@/stores/engineeringStore';
-import { toolTabKey, useAppStore } from '@/stores/appStore';
-import { useIndustrialChrome } from '@/stores/industrialChromeStore';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+import { useAppStore } from '@/stores/appStore';
 import { useLocale } from '@/i18n';
 import { mdToHtml } from '@/core/notebook/notebook';
 import { renderSVG } from '@/core/plot';
@@ -37,15 +34,12 @@ import {
   scanToCSV,
   studyDocument,
 } from '@/core/engineering/export';
-import type { PlotSpec } from '@/core/plot/types';
-import { sendSpecToFigure } from '@/pages/research/researchUi';
 import {
   algorithmLabel,
   benchmarkLabel,
   boundaryKindLabel,
   fieldLabel,
   locationLabel,
-  localizedMeshSummary,
   metricLabel,
   stepKindLabel,
 } from './labels';
@@ -53,260 +47,30 @@ import { industrialExampleById } from '@/core/engineering/examples';
 import { MATERIAL_LIBRARY, MATERIAL_PROPERTY_META, materialSummary, formatEngineering } from '@/core/engineering/materials';
 import { defaultCase, ensureCase } from '@/core/engineering/cases';
 import { engineeringFingerprint } from '@/core/engineering/study';
-import { runUniaxialBenchmark } from '@/core/engineering/solve';
 import type {
   BoundaryKind,
-  EngineeringField,
-  EngineeringMesh,
   EngineeringStepKind,
 } from '@/core/engineering/types';
-
-// --------------------------------------------------------------------------
-// Shared helpers
-// --------------------------------------------------------------------------
-
-function useStudyLoaded(): void {
-  const project = useProjectStore((s) => s.project);
-  const projectId = project?.id ?? null;
-  const loadedId = useRef<string | null>(null);
-  useEffect(() => {
-    if (projectId === loadedId.current) return;
-    loadedId.current = projectId;
-    // A different project must not inherit the previous study/result.
-    // `loadFromProject` already resets the store when the snapshot is empty;
-    // calling `clear()` first would persist `null` into the newly opened
-    // project's state (it writes through to `project.state.engineering`) and
-    // the next autosave would wipe the stored study.
-    useEngineeringStore.getState().loadFromProject(project);
-  }, [projectId, project]);
-}
-
-function Page({ toolId, children }: { toolId: string; children: ReactNode }) {
-  useStudyLoaded();
-  return <ToolShell toolId={toolId}>{children}</ToolShell>;
-}
-
-/**
- * Operation bars for industrial pages. Embedded in the workbench they portal
- * into the right sidebar (RightPanel registers the host), so the canvas only
- * shows the viewport, charts and tables. Standalone /studio pages have no
- * sidebar and keep the bars inline; a collapsed sidebar simply hides them.
- */
-function IndustrialActions({ toolId, children }: { toolId: string; children: ReactNode }) {
-  const { pathname } = useLocation();
-  const activeTab = useAppStore((s) => s.activeTab);
-  const host = useIndustrialChrome((s) => s.host);
-  if (pathname.startsWith('/studio')) return <>{children}</>;
-  // Hidden canvas tabs stay mounted, so without this guard every open
-  // industrial page would portal its bars into the same sidebar host and the
-  // panel would mix several tools' actions together.
-  if (activeTab !== toolTabKey(toolId)) return null;
-  return host ? createPortal(children, host) : null;
-}
-
-/** Lightweight SVG mesh viewer with field colouring. */
-function MeshCanvas({
-  mesh,
-  field,
-  height = 420,
-}: {
-  mesh: EngineeringMesh;
-  field?: EngineeringField | null;
-  height?: number;
-}) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    /** Flat [x0, y0, x1, y1, …] projected node buffer, reused across redraws
-     *  (resize ticks). Mapping nodes to an array of tuples allocated one small
-     *  array per node, i.e. ~1M allocations per redraw on large meshes. */
-    let positions = new Float64Array(mesh.nodes.length * 2);
-
-    const draw = (): void => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const width = canvas.clientWidth || 800;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-      const [minX, minY, , maxX, maxY] = mesh.bounds;
-      const spanX = maxX - minX || 1;
-      const spanY = maxY - minY || 1;
-      const pad = 18;
-      const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
-      const offX = (width - spanX * scale) / 2;
-      const offY = (height - spanY * scale) / 2;
-      const px = (x: number) => offX + (x - minX) * scale;
-      const py = (y: number) => height - offY - (y - minY) * scale;
-      if (positions.length !== mesh.nodes.length * 2) {
-        positions = new Float64Array(mesh.nodes.length * 2);
-      }
-      for (let i = 0; i < mesh.nodes.length; i += 1) {
-        const node = mesh.nodes[i]!;
-        positions[i * 2] = px(node.x);
-        positions[i * 2 + 1] = py(node.y);
-      }
-
-      let min = Infinity;
-      let max = -Infinity;
-      if (field) {
-        for (const value of field.values) {
-          if (Number.isFinite(value)) {
-            if (value < min) min = value;
-            if (value > max) max = value;
-          }
-        }
-      }
-      const span = field ? max - min || 1 : 1;
-
-      const fillFor = (elementIndex: number): string => {
-        if (!field) return 'rgba(96,165,250,0.10)';
-        const value =
-          field.location === 'element'
-            ? field.values[elementIndex * field.components] ?? min
-            : averageElement(field, mesh, elementIndex);
-        const t = Math.max(0, Math.min(1, (value - min) / span));
-        // Blue → cyan → yellow → red.
-        const hue = 220 - 220 * t;
-        return `hsla(${hue}, 82%, 55%, 0.55)`;
-      };
-
-      const maxElements = 12000;
-      const stride = Math.max(1, Math.ceil(mesh.elements.length / maxElements));
-      ctx.lineWidth = mesh.elements.length > 4000 ? 0.35 : 0.8;
-      for (let index = 0; index < mesh.elements.length; index += stride) {
-        const element = mesh.elements[index]!;
-        if (element.nodes.length < 2) continue;
-        ctx.beginPath();
-        element.nodes.forEach((nodeIndex, i) => {
-          const ox = positions[nodeIndex * 2];
-          const oy = positions[nodeIndex * 2 + 1];
-          if (ox === undefined || oy === undefined) return;
-          if (i === 0) ctx.moveTo(ox, oy);
-          else ctx.lineTo(ox, oy);
-        });
-        if (element.nodes.length >= 3) {
-          ctx.closePath();
-          ctx.fillStyle = fillFor(index);
-          ctx.fill();
-        }
-        ctx.strokeStyle = element.nodes.length >= 3 ? 'rgba(30,41,59,0.35)' : 'rgba(59,130,246,0.7)';
-        ctx.stroke();
-      }
-      if (mesh.elements.length === 0) {
-        ctx.fillStyle = 'rgba(59,130,246,0.9)';
-        for (let i = 0; i < mesh.nodes.length; i += 1) {
-          ctx.beginPath();
-          ctx.arc(positions[i * 2]!, positions[i * 2 + 1]!, 1.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    };
-
-    draw();
-    // Re-draw when the pane (not the viewport) changes size, e.g. the right
-    // panel opens or the workbench is resized.
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => draw());
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [mesh, field, height]);
-  return <canvas ref={ref} className="ind-mesh-canvas" style={{ height }} />;
-}
-
-function averageElement(field: EngineeringField, mesh: EngineeringMesh, elementIndex: number): number {
-  const element = mesh.elements[elementIndex];
-  if (!element) return 0;
-  let total = 0;
-  let count = 0;
-  for (const node of element.nodes) {
-    const value = field.values[node * field.components];
-    if (Number.isFinite(value)) {
-      total += value!;
-      count += 1;
-    }
-  }
-  return count > 0 ? total / count : 0;
-}
-
-function FieldPicker({
-  fields,
-  value,
-  onChange,
-}: {
-  fields: EngineeringField[];
-  value: string;
-  onChange: (name: string) => void;
-}) {
-  const t = useT();
-  if (fields.length === 0) return null;
-  return (
-    <label className="ind-field">
-      <span>{t('industrial.field')}</span>
-      <select className="input input-sm" value={value} onChange={(e) => onChange(e.target.value)}>
-        {fields.map((field) => (
-          <option key={field.name} value={field.name}>
-            {fieldLabel(t, field.name)} {field.unit ? `(${field.unit})` : ''}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function NoStudy({ children }: { children?: ReactNode }) {
-  const t = useT();
-  return (
-    <div className="ind-empty">
-      <EmptyState title={t('industrial.no_study')} description={t('industrial.no_study_desc')} />
-      {children}
-    </div>
-  );
-}
-
-/** Inline SVG chart using the shared publication-grade plot renderer. */
-function SvgPlot({ spec }: { spec: PlotSpec }) {
-  const markup = useMemo(() => renderSVG(spec), [spec]);
-  return (
-    <div
-      className="analysis-svg ind-chart"
-      // The renderer emits trusted, locally generated SVG markup.
-      dangerouslySetInnerHTML={{ __html: markup }}
-    />
-  );
-}
-
-function StudyMeta() {
-  const t = useT();
-  const study = useEngineeringStore((s) => s.study);
-  // Mesh statistics are O(elements): cache the summary per mesh reference so
-  // page re-renders do not rescan the whole mesh every time.
-  const mesh = study?.mesh ?? null;
-  const meshSummary = useMemo(() => (mesh ? localizedMeshSummary(t, mesh) : ''), [t, mesh]);
-  if (!study) return null;
-  const material = primaryMaterial(study);
-  return (
-    <div className="ind-meta">
-      <span className="tag">{study.sourceFormat}</span>
-      <span>{meshSummary}</span>
-      <span>{material?.name ?? '—'}</span>
-    </div>
-  );
-}
+import {
+  FieldPicker,
+  IndustrialActions,
+  NoStudy,
+  Page,
+  PageHead,
+  SvgPlot,
+  useSendFigure,
+} from './shared';
+import { downloadSnapshot, MeshCanvas, ViewPresetBar, ViewToggle } from './viewers';
+import { openFemLab, runFemLabCheck, type SimulationCheck } from './interop';
 
 // --------------------------------------------------------------------------
 // Geometry (P3)
 // --------------------------------------------------------------------------
 
 export function GeometryPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const geometry = study?.geometry;
-  const artifacts = useIndustrialArtifacts();
   const { outputText } = useIndustrialOutput();
   const [selected, setSelected] = useState<string>('all');
   const [view3d, setView3d] = useState(true);
@@ -318,27 +82,14 @@ export function GeometryPage() {
   // the CadViewport content-rebuild effect and reset the camera.
   const layers = useMemo(() => (selected === 'all' ? undefined : [selected]), [selected]);
   const base = artifactBaseName(study);
-  const takeSnapshot = (url: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${base}-cad.png`;
-    link.click();
-  };
   const exportGeometryCsv = () => {
     if (!geometry) return;
     void outputText('results', `${base}-geometry.csv`, geometryToCSV(geometry));
   };
-  const saveGeometry = async () => {
-    if (!geometry) return;
-    await artifacts.saveText('results', `${base}-geometry.csv`, geometryToCSV(geometry));
-  };
   return (
     <Page toolId="geometry-import">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head">
-          <h2>{t('industrial.geometry')}</h2>
-          <StudyMeta />
-        </header>
+        <PageHead toolId="geometry-import" title={t('industrial.geometry')} />
         <IndustrialActions toolId="geometry-import">
           <EngineeringImportButton hint="DXF / STEP" />
           {geometry && (
@@ -358,37 +109,22 @@ export function GeometryPage() {
                   {t('industrial.layers', { n: geometry.layers.length })} · {geometry.sourceFormat.toUpperCase()}
                 </span>
                 <span className="ind-toolbar-spacer" />
-                <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
-                  {view3d ? t('industrial.cad_view') : '2D'}
-                </button>
-                <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
-                  {t('industrial.cad_snapshot')}
-                </button>
+                <ViewToggle
+                  view3d={view3d}
+                  onToggle={() => setView3d((v) => !v)}
+                  onSnapshot={() => setSnapshotTick((n) => n + 1)}
+                />
                 <button type="button" className="btn btn-sm" onClick={exportGeometryCsv}>
                   {t('industrial.export_geometry_csv')}
                 </button>
-                <button type="button" className="btn btn-sm" onClick={() => void saveGeometry()}>
-                  {t('industrial.save_workspace')}
-                </button>
               </div>
               {view3d && (
-                <div className="ind-toolbar analysis-row">
-                  {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      className={`btn btn-sm${preset === p ? ' is-active' : ''}`}
-                      onClick={() => setPreset(p)}
-                    >
-                      {t(`industrial.cad_view_${p}`)}
-                    </button>
-                  ))}
-                  <label className="research-check">
-                    <input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} />
-                    {t('industrial.cad_wireframe')}
-                  </label>
-                  <span className="ind-hint">{t('industrial.cad_hint')}</span>
-                </div>
+                <ViewPresetBar
+                  preset={preset}
+                  onPreset={setPreset}
+                  wireframe={wireframe}
+                  onWireframe={setWireframe}
+                />
               )}
             </>
           )}
@@ -404,7 +140,7 @@ export function GeometryPage() {
                 wireframe={wireframe}
                 preset={preset}
                 snapshotRequest={snapshotTick}
-                onSnapshotReady={takeSnapshot}
+                onSnapshotReady={(url) => downloadSnapshot(url, `${base}-cad.png`)}
                 height={400}
               />
             )}
@@ -431,7 +167,6 @@ export function GeometryPage() {
 // --------------------------------------------------------------------------
 
 export function MeshViewerPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const result = useEngineeringStore((s) => s.result);
@@ -440,7 +175,6 @@ export function MeshViewerPage() {
   const [preset, setPreset] = useState<CadViewPreset>('fit');
   const [wireframe, setWireframe] = useState(false);
   const [snapshotTick, setSnapshotTick] = useState(0);
-  const artifacts = useIndustrialArtifacts();
   const { outputText, outputFigure } = useIndustrialOutput();
   const fields = study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
@@ -454,25 +188,10 @@ export function MeshViewerPage() {
     if (!study) return;
     void outputFigure(`${base}-mesh.svg`, meshToSVG(study, field, { title: study.name }));
   };
-  const saveAll = async () => {
-    if (!study) return;
-    await artifacts.saveText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh));
-    await artifacts.saveText('results', `${base}-elements.csv`, elementsToCSV(study.mesh));
-    await artifacts.saveText('figures', `${base}-mesh.svg`, meshToSVG(study, field, { title: study.name }));
-  };
-  const takeSnapshot = (url: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${base}-mesh.png`;
-    link.click();
-  };
   return (
     <Page toolId="mesh-viewer">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head">
-          <h2>{t('industrial.mesh')}</h2>
-          <StudyMeta />
-        </header>
+        <PageHead toolId="mesh-viewer" title={t('industrial.mesh')} />
         <IndustrialActions toolId="mesh-viewer">
           <EngineeringImportButton hint="Gmsh .msh · Abaqus .inp · VTK .vtk/.vtu" />
           {study && (
@@ -485,35 +204,25 @@ export function MeshViewerPage() {
                   {t('industrial.groups', { n: study.mesh.groups.length })}
                 </span>
                 <span className="ind-toolbar-spacer" />
-                <button type="button" className="btn btn-sm" onClick={() => setView3d((v) => !v)}>
-                  {view3d ? t('industrial.cad_view') : '2D'}
-                </button>
-                <button type="button" className="btn btn-sm" onClick={() => setSnapshotTick((n) => n + 1)}>
-                  {t('industrial.cad_snapshot')}
-                </button>
+                <ViewToggle
+                  view3d={view3d}
+                  onToggle={() => setView3d((v) => !v)}
+                  onSnapshot={() => setSnapshotTick((n) => n + 1)}
+                />
                 <button type="button" className="btn btn-sm" onClick={exportMesh}>
                   {t('industrial.export_mesh_csv')}
                 </button>
                 <button type="button" className="btn btn-sm" onClick={exportFigure}>
                   {t('industrial.export_mesh_svg')}
                 </button>
-                <button type="button" className="btn btn-sm" onClick={() => void saveAll()}>
-                  {t('industrial.save_workspace')}
-                </button>
               </div>
               {view3d && (
-                <div className="ind-toolbar analysis-row">
-                  {(['fit', 'front', 'top', 'side'] as CadViewPreset[]).map((p) => (
-                    <button key={p} type="button" className={`btn btn-sm${preset === p ? ' is-active' : ''}`} onClick={() => setPreset(p)}>
-                      {t(`industrial.cad_view_${p}`)}
-                    </button>
-                  ))}
-                  <label className="research-check">
-                    <input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} />
-                    {t('industrial.cad_wireframe')}
-                  </label>
-                  <span className="ind-hint">{t('industrial.cad_hint')}</span>
-                </div>
+                <ViewPresetBar
+                  preset={preset}
+                  onPreset={setPreset}
+                  wireframe={wireframe}
+                  onWireframe={setWireframe}
+                />
               )}
             </>
           )}
@@ -529,7 +238,7 @@ export function MeshViewerPage() {
                 wireframe={wireframe}
                 preset={preset}
                 snapshotRequest={snapshotTick}
-                onSnapshotReady={takeSnapshot}
+                onSnapshotReady={(url) => downloadSnapshot(url, `${base}-mesh.png`)}
               />
             ) : (
               <MeshCanvas mesh={study.mesh} field={field} />
@@ -565,7 +274,6 @@ export function MeshViewerPage() {
 // --------------------------------------------------------------------------
 
 export function MaterialsPage() {
-  useStudyLoaded();
   const t = useT();
   const { locale } = useLocale();
   const study = useEngineeringStore((s) => s.study);
@@ -585,10 +293,7 @@ export function MaterialsPage() {
   return (
     <Page toolId="material-library">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head">
-          <h2>{t('industrial.materials')}</h2>
-          <StudyMeta />
-        </header>
+        <PageHead toolId="material-library" title={t('industrial.materials')} />
         <IndustrialActions toolId="material-library">
           <div className="ind-toolbar analysis-row">
             <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
@@ -670,7 +375,6 @@ const STEP_KINDS: EngineeringStepKind[] = [
 ];
 
 export function CasesPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const activeStepId = useEngineeringStore((s) => s.activeStepId);
@@ -685,7 +389,7 @@ export function CasesPage() {
   return (
     <Page toolId="load-cases">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.cases')}</h2><StudyMeta /></header>
+        <PageHead toolId="load-cases" title={t('industrial.cases')} />
         <IndustrialActions toolId="load-cases">
           <div className="ind-toolbar analysis-row">
             <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as EngineeringStepKind)}>
@@ -871,11 +575,11 @@ function DesignSpaceEditor({
 // --------------------------------------------------------------------------
 
 export function SolvePage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const result = useEngineeringStore((s) => s.result);
   const solving = useEngineeringStore((s) => s.solving);
+  const solveError = useEngineeringStore((s) => s.error);
   const benchmark = useEngineeringStore((s) => s.benchmark);
   const buildStats = useEngineeringStore((s) => s.buildStats);
   const buildCached = useEngineeringStore((s) => s.buildCached);
@@ -884,8 +588,9 @@ export function SolvePage() {
   const runBenchmark = useEngineeringStore((s) => s.runBenchmark);
   const activeStepId = useEngineeringStore((s) => s.activeStepId);
   const selectStep = useEngineeringStore((s) => s.selectStep);
-  const artifacts = useIndustrialArtifacts();
   const { outputText } = useIndustrialOutput();
+  const [simBusy, setSimBusy] = useState(false);
+  const [simCheck, setSimCheck] = useState<SimulationCheck | null>(null);
   const steps = study ? ensureCase(study.cases)[0]!.steps : [];
   const base = artifactBaseName(study);
   const exportMetrics = () => {
@@ -894,16 +599,18 @@ export function SolvePage() {
   const exportStudy = () => {
     if (study) void outputText('study', `${base}-study.json`, studyDocument(study));
   };
-  const saveOutputs = async () => {
-    if (!study) return;
-    await artifacts.saveText('study', 'engineering.json', studyDocument(study));
-    if (result) await artifacts.saveText('results', `${base}-metrics.csv`, resultToCSV(result));
-    if (study.fields[0]) await artifacts.saveText('figures', `${base}-field.svg`, meshToSVG(study, study.fields[0], { title: study.name }));
+  const checkWithSimulation = async () => {
+    setSimBusy(true);
+    try {
+      setSimCheck(await runFemLabCheck(study));
+    } finally {
+      setSimBusy(false);
+    }
   };
   return (
     <Page toolId="fea-solver">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.solver')}</h2><StudyMeta /></header>
+        <PageHead toolId="fea-solver" title={t('industrial.solver')} />
         <IndustrialActions toolId="fea-solver">
           <div className="ind-toolbar analysis-row">
             <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
@@ -914,6 +621,9 @@ export function SolvePage() {
             </button>
             <button type="button" className="btn btn-sm" onClick={() => runBenchmark()}>
               {t('industrial.benchmark')}
+            </button>
+            <button type="button" className="btn btn-sm" disabled={simBusy || !study} onClick={() => void checkWithSimulation()}>
+              {simBusy ? <span className="spinner" /> : t('industrial.sim_plugin_run')}
             </button>
             <button type="button" className="btn btn-sm" onClick={clearBuildCache}>
               {t('industrial.clear_build_cache')}
@@ -932,9 +642,6 @@ export function SolvePage() {
             <button type="button" className="btn btn-sm" onClick={exportStudy}>
               {t('industrial.export_study_json')}
             </button>
-            <button type="button" className="btn btn-sm" onClick={() => void saveOutputs()}>
-              {t('industrial.save_workspace')}
-            </button>
           </div>
         </IndustrialActions>
         {!study ? (
@@ -951,6 +658,32 @@ export function SolvePage() {
                 </div>
               </div>
             )}
+            {simCheck && (
+              <div className="ind-card">
+                <header className="ind-card-head">
+                  <strong>{t('industrial.sim_plugin_title')}</strong>
+                  <button type="button" className="btn btn-sm" onClick={() => void openFemLab()}>
+                    <ToolIcon kind="solver" size={13} /> {t('industrial.sim_plugin_open')}
+                  </button>
+                </header>
+                {simCheck.ok ? (
+                  <div className="ind-metrics">
+                    <div>
+                      <span>{t('industrial.sim_plugin_status')}</span>
+                      <strong>{t('industrial.sim_plugin_converged')}</strong>
+                    </div>
+                    {simCheck.iterations !== undefined && (
+                      <div><span>{t('industrial.iterations_label')}</span><strong>{simCheck.iterations}</strong></div>
+                    )}
+                    {simCheck.residual !== undefined && (
+                      <div><span>{t('industrial.residual_label')}</span><strong>{simCheck.residual.toExponential(3)}</strong></div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="ind-error">{simCheck.error ?? t('industrial.sim_plugin_failed')}</div>
+                )}
+              </div>
+            )}
             {result && (
               <div className="ind-card">
                 <header className="ind-card-head"><strong>{result.stepName}</strong><span className="tag">{stepKindLabel(t, result.kind)}</span></header>
@@ -965,7 +698,17 @@ export function SolvePage() {
                 </div>
               </div>
             )}
-            {study.fields.length > 0 && <MeshCanvas mesh={study.mesh} field={study.fields[0]} height={340} />}
+            <div className="ind-canvas-wrap">
+              <MeshCanvas mesh={study.mesh} field={study.fields[0]} height={340} />
+              {/* Empty canvas → explain what to do next; a failed solve keeps
+                  its (localized) reason on the canvas instead of only a toast. */}
+              {!result && (
+                <div className={`ind-canvas-hint${solveError ? ' is-error' : ''}`} role="status">
+                  <strong>{solveError ? t('industrial.solve_failed') : t('industrial.solver_empty_title')}</strong>
+                  <span>{solveError ?? t('industrial.solver_empty_desc')}</span>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -978,12 +721,11 @@ export function SolvePage() {
 // --------------------------------------------------------------------------
 
 export function PostPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const result = useEngineeringStore((s) => s.result);
   const [fieldName, setFieldName] = useState('');
-  const artifacts = useIndustrialArtifacts();
+  const sendFigure = useSendFigure();
   const { outputText, outputFigure, outputPng, outputPdf } = useIndustrialOutput();
   const fields = result?.fields ?? study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
@@ -1033,16 +775,10 @@ export function PostPage() {
     if (!study) return;
     void outputPdf(`${stem}.pdf`, figureSvg());
   };
-  const saveAll = async () => {
-    if (!study) return;
-    await artifacts.saveText('figures', `${stem}.svg`, meshToSVG(study, field, { title: `${study.name} · ${field?.name ?? ''}` }));
-    if (field) await artifacts.saveText('results', `${stem}.csv`, fieldToCSV(study, field));
-    if (result) await artifacts.saveText('results', `${base}-metrics.csv`, resultToCSV(result));
-  };
   return (
     <Page toolId="post-processing">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.post')}</h2><StudyMeta /></header>
+        <PageHead toolId="post-processing" title={t('industrial.post')} />
         <IndustrialActions toolId="post-processing">
           <div className="ind-toolbar analysis-row">
             <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
@@ -1057,8 +793,6 @@ export function PostPage() {
             <button type="button" className="btn btn-sm" onClick={exportFigure}>{t('industrial.export_svg')}</button>
             <button type="button" className="btn btn-sm" onClick={exportFigurePng}>{t('industrial.export_png')}</button>
             <button type="button" className="btn btn-sm" onClick={exportFigurePdf}>{t('industrial.export_pdf')}</button>
-            <span className="ind-toolbar-spacer" />
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveAll()}>{t('industrial.save_workspace')}</button>
           </div>
           {is3d && (
             <div className="ind-toolbar analysis-row">
@@ -1079,13 +813,13 @@ export function PostPage() {
             <div className="ind-toolbar analysis-row">
               <span className="ind-hint">{t('industrial.field_distribution')}</span>
               <button type="button" className="btn btn-sm" onClick={() => void outputFigure(`${stem}-histogram.svg`, renderSVG(histogram))}>
-                {t('industrial.export_svg')}
+                {t('industrial.export_histogram_svg')}
               </button>
               <button
                 type="button"
                 className="btn btn-sm"
                 title={t('industrial.send_figure_hint')}
-                onClick={() => sendSpecToFigure(
+                onClick={() => sendFigure(
                   `${study?.name ?? 'Study'} · ${t('industrial.field_distribution')}`,
                   histogram,
                   field ? fieldLabel(t, field.name) : undefined,
@@ -1143,14 +877,13 @@ export function PostPage() {
 // --------------------------------------------------------------------------
 
 export function DesignScanPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const scan = useEngineeringStore((s) => s.scan);
   const runScan = useEngineeringStore((s) => s.runScan);
-  const artifacts = useIndustrialArtifacts();
   const [busy, setBusy] = useState(false);
   const [metric, setMetric] = useState('');
+  const sendFigure = useSendFigure();
   const design = study ? ensureCase(study.cases)[0]!.design : null;
   const keys = useMemo(() => scanMetricKeys(scan).slice(0, 8), [scan]);
   const activeMetric = keys.includes(metric) ? metric : keys[0] ?? '';
@@ -1164,15 +897,10 @@ export function DesignScanPage() {
     if (scan.length === 0) return;
     void outputText('results', `${base}-design-scan.csv`, scanToCSV(scan));
   };
-  const saveScan = async () => {
-    if (scan.length === 0) return;
-    await artifacts.saveText('results', `${base}-design-scan.csv`, scanToCSV(scan));
-    if (spec) await artifacts.saveText('figures', `${base}-design-scan-${safeName(activeMetric)}.svg`, renderSVG(spec));
-  };
   return (
     <Page toolId="design-scan">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.design_scan')}</h2><StudyMeta /></header>
+        <PageHead toolId="design-scan" title={t('industrial.design_scan')} />
         <IndustrialActions toolId="design-scan">
           {design && (
             <div className="ind-toolbar analysis-row">
@@ -1184,9 +912,6 @@ export function DesignScanPage() {
               <span className="ind-toolbar-spacer" />
               <button type="button" className="btn btn-sm" onClick={exportCsv} disabled={scan.length === 0}>
                 {t('industrial.export_scan_csv')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => void saveScan()} disabled={scan.length === 0}>
-                {t('industrial.save_workspace')}
               </button>
             </div>
           )}
@@ -1208,7 +933,7 @@ export function DesignScanPage() {
                 title={t('industrial.send_figure_hint')}
                 onClick={() => {
                   if (!spec) return;
-                  sendSpecToFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'));
+                  sendFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'));
                 }}
               >
                 {t('industrial.send_figure')}
@@ -1218,9 +943,12 @@ export function DesignScanPage() {
         </IndustrialActions>
         {!study || !design ? (
           <NoStudy />
+        ) : design.parameters.length === 0 ? (
+          <div className="ind-empty">
+            <EmptyState title={t('industrial.no_parameters')} />
+          </div>
         ) : (
           <>
-            {design.parameters.length === 0 && <NoStudy />}
             {scan.length > 0 && keys.length > 0 && (
               <div className="ind-card">
                 <header className="ind-card-head">
@@ -1258,7 +986,6 @@ export function DesignScanPage() {
 // --------------------------------------------------------------------------
 
 export function FluidPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const setStudy = useEngineeringStore((s) => s.setStudy);
@@ -1275,7 +1002,7 @@ export function FluidPage() {
   return (
     <Page toolId="quick-fluid">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.fluid')}</h2><StudyMeta /></header>
+        <PageHead toolId="quick-fluid" title={t('industrial.fluid')} />
         <IndustrialActions toolId="quick-fluid">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
@@ -1309,7 +1036,6 @@ export function FluidPage() {
 // --------------------------------------------------------------------------
 
 export function FingerprintPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const saveStudyJson = useEngineeringStore((s) => s.saveStudyJson);
@@ -1328,7 +1054,7 @@ export function FingerprintPage() {
   return (
     <Page toolId="repro-fingerprint">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.fingerprint')}</h2><StudyMeta /></header>
+        <PageHead toolId="repro-fingerprint" title={t('industrial.fingerprint')} />
         <IndustrialActions toolId="repro-fingerprint">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm" onClick={() => void copy()}>{t('industrial.copy')}</button>
@@ -1363,11 +1089,9 @@ export function FingerprintPage() {
 // --------------------------------------------------------------------------
 
 export function IndustrialReportPage() {
-  useStudyLoaded();
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const buildReport = useEngineeringStore((s) => s.buildReport);
-  const artifacts = useIndustrialArtifacts();
   const base = artifactBaseName(study);
   // buildReport reads study/result/benchmark/locale from the store; it is a
   // cheap pure string build, so recompute on every render instead of faking
@@ -1382,20 +1106,14 @@ export function IndustrialReportPage() {
     if (!report) return;
     void outputText('results', `${base}-report.md`, report.markdown);
   };
-  const saveReport = async () => {
-    if (!report) return;
-    await artifacts.saveText('results', `${base}-report.html`, report.html);
-    await artifacts.saveText('results', `${base}-report.md`, report.markdown);
-  };
   return (
     <Page toolId="industrial-report">
       <div className="ind-page analysis-body">
-        <header className="ind-page-head"><h2>{t('industrial.report')}</h2><StudyMeta /></header>
+        <PageHead toolId="industrial-report" title={t('industrial.report')} />
         <IndustrialActions toolId="industrial-report">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm btn-primary" onClick={download}>{t('industrial.download_report')}</button>
             <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>{t('industrial.download_markdown')}</button>
-            <button type="button" className="btn btn-sm" onClick={() => void saveReport()}>{t('industrial.save_workspace')}</button>
             {report && (
               <span className="ind-hint">{t('industrial.report_fingerprint', { hash: report.fingerprint.meshHash.slice(0, 12) })}</span>
             )}
@@ -1415,6 +1133,3 @@ export function IndustrialReportPage() {
     </Page>
   );
 }
-
-// A couple of helpers are exported for tests / future tool pages.
-export { runUniaxialBenchmark };

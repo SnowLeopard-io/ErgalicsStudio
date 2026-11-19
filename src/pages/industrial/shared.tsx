@@ -1,0 +1,185 @@
+// ==========================================================================
+// Ergalics Studio — shared industrial page chrome
+//
+// The geometry / mesh / material / case / solve / post pages all share one
+// shell: project-aware study loading, the portal action bar, a page header
+// with the registry icon (same icon resource as the research suite), the
+// study summary strip, and the publication-grade plot renderer.
+// ==========================================================================
+
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
+import { useT } from '@/i18n';
+import { ToolShell } from '@/components/ToolShell';
+import { EmptyState } from '@/components/EmptyState';
+import { ToolIcon } from '@/components/icons';
+import { getTool } from '@/pages/research/toolRegistry';
+import { sendSpecToFigure } from '@/pages/research/researchUi';
+import { useProjectStore } from '@/stores/projectStore';
+import { primaryMaterial, useEngineeringStore } from '@/stores/engineeringStore';
+import { toolTabKey, useAppStore } from '@/stores/appStore';
+import { useIndustrialChrome } from '@/stores/industrialChromeStore';
+import { renderSVG } from '@/core/plot';
+import type { PlotSpec } from '@/core/plot/types';
+import type { EngineeringField } from '@/core/engineering/types';
+import { fieldLabel, localizedMeshSummary } from './labels';
+
+/** Load the active project's engineering study exactly once per project. */
+export function useStudyLoaded(): void {
+  const project = useProjectStore((s) => s.project);
+  const projectId = project?.id ?? null;
+  const loadedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (projectId === loadedId.current) return;
+    loadedId.current = projectId;
+    // A different project must not inherit the previous study/result.
+    // `loadFromProject` already resets the store when the snapshot is empty;
+    // calling `clear()` first would persist `null` into the newly opened
+    // project's state (it writes through to `project.state.engineering`) and
+    // the next autosave would wipe the stored study.
+    useEngineeringStore.getState().loadFromProject(project);
+  }, [projectId, project]);
+}
+
+export function Page({ toolId, children }: { toolId: string; children: ReactNode }) {
+  useStudyLoaded();
+  return <ToolShell toolId={toolId}>{children}</ToolShell>;
+}
+
+/**
+ * Operation bars for industrial pages. Embedded in the workbench they portal
+ * into the right sidebar (RightPanel registers the host), so the canvas only
+ * shows the viewport, charts and tables. Standalone /studio pages have no
+ * sidebar and keep the bars inline; a collapsed sidebar simply hides them.
+ */
+export function IndustrialActions({ toolId, children }: { toolId: string; children: ReactNode }) {
+  const t = useT();
+  const { pathname } = useLocation();
+  const activeTab = useAppStore((s) => s.activeTab);
+  const host = useIndustrialChrome((s) => s.host);
+  const outputToWorkspace = useIndustrialChrome((s) => s.outputToWorkspace);
+  const setOutputToWorkspace = useIndustrialChrome((s) => s.setOutputToWorkspace);
+  if (pathname.startsWith('/studio')) {
+    // Standalone pages have no right sidebar; keep the single output
+    // destination control here so exports can still reach the workspace.
+    return (
+      <>
+        <div className="ind-toolbar analysis-row">
+          <label className="research-check">
+            <input
+              type="checkbox"
+              checked={outputToWorkspace}
+              onChange={(e) => setOutputToWorkspace(e.target.checked)}
+            />
+            {t('industrial.output_to_workspace')}
+          </label>
+        </div>
+        {children}
+      </>
+    );
+  }
+  // Hidden canvas tabs stay mounted, so without this guard every open
+  // industrial page would portal its bars into the same sidebar host and the
+  // panel would mix several tools' actions together.
+  if (activeTab !== toolTabKey(toolId)) return null;
+  return host ? createPortal(children, host) : null;
+}
+
+/** Page title row: shared registry icon + title + live study summary. */
+export function PageHead({ toolId, title }: { toolId: string; title?: string }) {
+  const t = useT();
+  const tool = getTool(toolId);
+  return (
+    <header className="ind-page-head">
+      <h2 className="ind-page-head-title">
+        {tool && (
+          <span className="ind-page-head-icon" aria-hidden="true">
+            <ToolIcon kind={tool.icon} size={16} />
+          </span>
+        )}
+        {title ?? (tool ? t(tool.titleKey) : toolId)}
+      </h2>
+      <StudyMeta />
+    </header>
+  );
+}
+
+export function StudyMeta() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  // Mesh statistics are O(elements): cache the summary per mesh reference so
+  // page re-renders do not rescan the whole mesh every time.
+  const mesh = study?.mesh ?? null;
+  const meshSummary = useMemo(() => (mesh ? localizedMeshSummary(t, mesh) : ''), [t, mesh]);
+  if (!study) return null;
+  const material = primaryMaterial(study);
+  return (
+    <div className="ind-meta">
+      <span className="tag">{study.sourceFormat}</span>
+      <span>{meshSummary}</span>
+      <span>{material?.name ?? '—'}</span>
+    </div>
+  );
+}
+
+export function NoStudy({ children }: { children?: ReactNode }) {
+  const t = useT();
+  return (
+    <div className="ind-empty">
+      <EmptyState title={t('industrial.no_study')} description={t('industrial.no_study_desc')} />
+      {children}
+    </div>
+  );
+}
+
+/** Inline SVG chart using the shared publication-grade plot renderer. */
+export function SvgPlot({ spec }: { spec: PlotSpec }) {
+  const markup = useMemo(() => renderSVG(spec), [spec]);
+  return (
+    <div
+      className="analysis-svg ind-chart"
+      // The renderer emits trusted, locally generated SVG markup.
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
+  );
+}
+
+export function FieldPicker({
+  fields,
+  value,
+  onChange,
+}: {
+  fields: EngineeringField[];
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const t = useT();
+  if (fields.length === 0) return null;
+  return (
+    <label className="ind-field">
+      <span>{t('industrial.field')}</span>
+      <select className="input input-sm" value={value} onChange={(e) => onChange(e.target.value)}>
+        {fields.map((field) => (
+          <option key={field.name} value={field.name}>
+            {fieldLabel(t, field.name)} {field.unit ? `(${field.unit})` : ''}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Send a PlotSpec into the shared figure pipeline. Unlike a bare
+ * `sendSpecToFigure` call this surfaces whether the panel actually landed, so
+ * a stale project with no sheet never fails silently.
+ */
+export function useSendFigure(): (name: string, spec: PlotSpec, caption?: string) => void {
+  const t = useT();
+  const notify = useAppStore((s) => s.notify);
+  return (name, spec, caption) => {
+    const ok = sendSpecToFigure(name, spec, caption);
+    notify(ok ? 'success' : 'error', t(ok ? 'industrial.figure_sent' : 'industrial.figure_send_failed'));
+  };
+}

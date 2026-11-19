@@ -262,13 +262,20 @@ describe('industrial examples + report', () => {
     for (const example of INDUSTRIAL_EXAMPLES) {
       const built = example.build();
       expect(built.mesh.nodes.length).toBeGreaterThan(0);
-      expect(built.cases?.[0]?.steps.length).toBe(1);
+      // DXF / STEP and OpenFOAM samples are imported payloads (geometry or
+      // solver fields), not neutral studies with a case: they carry no solver
+      // step, so assert on the payload instead of solving.
+      if (!built.cases || built.cases.length === 0) {
+        expect((built.geometry?.entities.length ?? 0) + built.fields.length).toBeGreaterThan(0);
+        continue;
+      }
+      expect(built.cases[0]!.steps.length).toBe(1);
       const result = solveEngineeringStudy(built);
       expect(result.fields.length).toBeGreaterThan(0);
       expect(result.metrics.elementCount).toBe(built.mesh.elements.length);
       // A traction/pressure load must actually produce deformation — a zero
       // displacement would mean the load BC was silently dropped.
-      const step = built.cases?.[0]?.steps[0];
+      const step = built.cases[0]!.steps[0];
       if (step?.kind === 'static-structural') {
         expect(result.metrics.maxDisplacement).toBeGreaterThan(0);
       }

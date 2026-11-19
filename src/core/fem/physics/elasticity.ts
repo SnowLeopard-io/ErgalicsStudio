@@ -11,8 +11,8 @@
 
 import { CsrBuilder, CsrMatrix, Coefficient, coefficientAt } from '../assemble/stiffness';
 import { assembleEdgeLoad, assemblePressureLoad, EdgeSelector, selectBoundaryEdges } from '../assemble/load';
-import { DofValue, applyDirichlet } from '../bc/dirichlet';
-import { PlanarMesh, nodeCount, nodeX, nodeY } from '../mesh/types';
+import { DofValue, applyDirichlet, enforceDirichletValues } from '../bc/dirichlet';
+import { PlanarMesh, elementArea, nodeCount, nodeX, nodeY } from '../mesh/types';
 import { CgOptions } from '../solve/cg';
 import { solveStationarySystem } from '../solve/stationary';
 import { FemElasticityResult } from './types';
@@ -87,6 +87,39 @@ export interface ElasticityProblem {
 }
 
 /**
+ * Reject physically invalid elastic constants before assembly. A negative E
+ * or ν outside (−1, ½) makes D indefinite, so CG can still "converge" to a
+ * sign-flipped field; a zero/negative thickness silently zeroes the stiffness.
+ */
+function validateElasticInputs(
+  mesh: PlanarMesh,
+  E: Coefficient,
+  nu: Coefficient,
+  thickness: number,
+  state: PlaneState,
+): void {
+  if (!Number.isFinite(thickness) || thickness <= 0) {
+    throw new Error('fem: thickness must be a positive finite number');
+  }
+  if (state !== 'plane-stress' && state !== 'plane-strain') {
+    throw new Error(`fem: unknown plane state "${String(state)}"`);
+  }
+  const checked = new Set<number>();
+  for (const el of mesh.elements) {
+    if (checked.has(el.tag)) continue;
+    checked.add(el.tag);
+    const e = coefficientAt(E, el.tag);
+    if (!Number.isFinite(e) || e <= 0) {
+      throw new Error(`fem: Young's modulus must be positive and finite (element tag ${el.tag})`);
+    }
+    const v = coefficientAt(nu, el.tag);
+    if (!Number.isFinite(v) || v <= -1 || v >= 0.5) {
+      throw new Error(`fem: Poisson ratio must lie in (-1, 0.5) (element tag ${el.tag})`);
+    }
+  }
+}
+
+/**
  * Solve the 2-D plane elasticity problem. Returns nodal displacements plus
  * per-element strain/stress and nodal von Mises (via the post module).
  */
@@ -98,6 +131,16 @@ export function solveElasticity(problem: ElasticityProblem): FemElasticityResult
   const thickness = problem.thickness ?? 1;
   const E = problem.E ?? 1;
   const nu = problem.nu ?? 0.3;
+  validateElasticInputs(mesh, E, nu, thickness, state);
+  // A zero/NaN-area triangle assembles a NaN stiffness row. With an all-zero
+  // load vector CG would otherwise declare "converged" without ever touching
+  // the matrix, returning a plausible zero field for a broken mesh.
+  for (let e = 0; e < mesh.elements.length; e += 1) {
+    const area = elementArea(mesh, mesh.elements[e]!);
+    if (!Number.isFinite(area) || area <= 0) {
+      throw new Error(`fem: degenerate element ${e}: zero or non-finite area`);
+    }
+  }
 
   const builder = new CsrBuilder(ndof, ndof);
   addElasticityStiffness(mesh, E, nu, state, thickness, builder);
@@ -158,6 +201,7 @@ export function solveElasticity(problem: ElasticityProblem): FemElasticityResult
   const K = builder.toCsr();
   applyDirichlet(K, load, dofs);
   const solved = solveStationarySystem(K, load, problem.cg);
+  enforceDirichletValues(solved.solution, dofs);
 
   const displacement = solved.solution;
   const elementStrain = recoverElementStrain(mesh, displacement);

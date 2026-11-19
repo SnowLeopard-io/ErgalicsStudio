@@ -10,7 +10,6 @@
 // ==========================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
 import {
   FilePickerPanel,
@@ -18,10 +17,11 @@ import {
   type FilePickerColumn,
   type FilePickerItem,
 } from '@/components/FilePicker';
-import { DownloadIcon, TrashIcon } from '@/components/icons';
+import { DownloadIcon, FileIcon, FolderOpenIcon } from '@/components/icons';
 import { useLocale, useT } from '@/i18n';
 import { ENGINEERING_EXTENSIONS, isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
 import { INDUSTRIAL_EXAMPLES } from '@/core/engineering/examples';
+import { openProjectFile } from '@/core/workspace/open-file';
 import { formatBytes } from '@/core/storage';
 import { getVfs } from '@/core/vfs';
 import { logger } from '@/core/logger';
@@ -31,6 +31,19 @@ import { getProjectRepoPath, useProjectStore } from '@/stores/projectStore';
 
 /** Workspace folders that hold engineering source files. */
 const ENGINEERING_FOLDERS = ['geometry', 'mesh'] as const;
+
+/** File extension shown next to each industrial example. */
+const FORMAT_EXTENSION: Record<string, string> = {
+  gmsh: '.msh',
+  abaqus: '.inp',
+  vtk: '.vtk',
+  vtu: '.vtu',
+  dxf: '.dxf',
+  step: '.step',
+  nastran: '.bdf',
+  ansys: '.cdb',
+  openfoam: '.foam',
+};
 
 interface ProjectEngineeringFile {
   /** Workspace-relative path ('mesh/plate.msh'). */
@@ -74,7 +87,6 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
   const project = useProjectStore((s) => s.project);
   const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
   const importFile = useEngineeringStore((s) => s.importFile);
-  const importText = useEngineeringStore((s) => s.importText);
   const setStudy = useEngineeringStore((s) => s.setStudy);
   const studyName = useEngineeringStore((s) => s.study?.name ?? '');
 
@@ -83,7 +95,6 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
   const [busy, setBusy] = useState(false);
   const [replaced, setReplaced] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [deleteFile, setDeleteFile] = useState<ProjectEngineeringFile | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -145,49 +156,45 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
     }
   };
 
+  /**
+   * Delegate project-file opening to the workspace kernel, so a click here
+   * behaves exactly like double-clicking the file in the explorer: the same
+   * parser, the same tool routing and the same reveal/selection in the tree.
+   */
   const loadProjectFile = async (item: FilePickerItem) => {
     const entry = files.find((file) => file.path === item.id);
-    const current = useProjectStore.getState().project;
-    if (!entry || !current) return;
+    if (!entry || !useProjectStore.getState().project) return;
+    close();
+    const before = useEngineeringStore.getState().study;
     try {
-      const text = await getVfs().readFile(getProjectRepoPath(current), entry.path);
-      const study = importText(text, entry.name, entry.path);
-      if (!study) {
-        const reason = useEngineeringStore.getState().error ?? entry.name;
-        setError(reason);
-        notify('error', t('workbench.files.load_failed', { reason }));
-        return;
+      await openProjectFile(entry.path);
+      const after = useEngineeringStore.getState().study;
+      if (after && after !== before) {
+        notify('success', t('industrial.imported', { name: entry.name }));
       }
-      notify('success', t('industrial.imported', { name: entry.name }));
-      close();
     } catch (err) {
-      logger.warn('engineering', 'project file load failed', err);
       notify('error', t('workbench.files.load_failed', { reason: String(err) }));
     }
+  };
+
+  /** Hand file management back to the explorer instead of duplicating delete
+   *  (and its confirmation) inside the import window. */
+  const revealProjectFile = (entry: ProjectEngineeringFile) => {
+    useAppStore.getState().setRevealFilePath(entry.path);
+    close();
   };
 
   const loadExample = (item: FilePickerItem) => {
     const example = INDUSTRIAL_EXAMPLES.find((candidate) => candidate.id === item.id);
     if (!example) return;
     setStudy(example.build());
+    // Geometry samples carry a canvas hint (DXF / STEP open the geometry tool);
+    // everything else falls back to the mesh viewer.
+    useAppStore.getState().setEmbeddedTool(example.toolId ?? 'mesh-viewer');
     notify('success', t('industrial.example_loaded', {
       name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
     }));
     close();
-  };
-
-  const removeProjectFile = async (entry: ProjectEngineeringFile) => {
-    const current = useProjectStore.getState().project;
-    if (!current) return;
-    try {
-      await getVfs().deleteEntry(getProjectRepoPath(current), entry.path, false);
-      useAppStore.getState().bumpFileOps();
-      await refresh();
-      notify('success', t('industrial.file_deleted', { name: entry.name }));
-    } catch (err) {
-      logger.warn('engineering', 'project file delete failed', err);
-      notify('error', t('industrial.delete_failed', { name: entry.name }));
-    }
   };
 
   const columns: FilePickerColumn[] = [
@@ -215,11 +222,11 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
             <button
               type="button"
               className="icon-btn"
-              title={t('common.delete')}
-              aria-label={t('common.delete')}
-              onClick={() => setDeleteFile(file)}
+              title={t('industrial.reveal_in_explorer')}
+              aria-label={t('industrial.reveal_in_explorer')}
+              onClick={() => revealProjectFile(file)}
             >
-              <TrashIcon size={13} />
+              <FolderOpenIcon size={13} />
             </button>
           </>
         ),
@@ -233,7 +240,7 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
         id: example.id,
         name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
         description: example.descriptionI18n[locale] ?? example.descriptionI18n['en-US'],
-        icon: fileIcon(example.format === 'gmsh' ? '.msh' : '.dxf'),
+        icon: fileIcon(FORMAT_EXTENSION[example.format] ?? '.msh'),
         meta: example.format.toUpperCase(),
       })),
     },
@@ -251,7 +258,9 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
           title={studyName || (hint ?? t('industrial.import_exts'))}
           onClick={() => setOpen(true)}
         >
-          <span className="data-file-picker-icon">{studyName ? '▣' : '▾'}</span>
+          <span className="data-file-picker-icon">
+            {studyName ? <FileIcon size={13} /> : '▾'}
+          </span>
           <span className="data-file-field-name">{studyName || t('industrial.select_file')}</span>
         </button>
       </span>
@@ -309,18 +318,6 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
           }}
         />
       </Modal>
-
-      <ConfirmDialog
-        open={deleteFile !== null}
-        title={t('common.delete')}
-        message={t('workbench.files.delete_confirm')}
-        name={deleteFile?.name}
-        confirmLabel={t('common.delete')}
-        onConfirm={() => {
-          if (deleteFile) void removeProjectFile(deleteFile);
-        }}
-        onClose={() => setDeleteFile(null)}
-      />
     </>
   );
 }

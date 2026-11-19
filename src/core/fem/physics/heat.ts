@@ -59,10 +59,28 @@ export function totalHeatEnergy(mesh: PlanarMesh, values: ArrayLike<number>): nu
 /** Solve the transient heat equation; returns the final field + history. */
 export function solveHeat(problem: HeatProblem): FemHeatResult {
   const { mesh, dt, steps } = problem;
-  if (!(dt > 0)) throw new Error('fem: heat dt must be positive');
-  if (steps < 1) throw new Error('fem: heat steps must be ≥ 1');
+  if (!Number.isFinite(dt) || dt <= 0) throw new Error('fem: heat dt must be a positive finite number');
+  if (!Number.isInteger(steps) || steps < 1) throw new Error('fem: heat steps must be an integer ≥ 1');
   const theta = problem.theta ?? 1;
+  if (!Number.isFinite(theta) || theta < 0 || theta > 1) {
+    throw new Error('fem: heat theta must lie in [0, 1]');
+  }
   const n = nodeCount(mesh);
+  // Positive finite conductivity / heat capacity per element tag. Zero or
+  // non-finite values silently remove M or K from the scheme.
+  const tags = new Set<number>();
+  for (const el of mesh.elements) tags.add(el.tag);
+  if (tags.size === 0) tags.add(0);
+  for (const tag of tags) {
+    const k = coefficientAt(problem.k ?? 1, tag);
+    if (!Number.isFinite(k) || k <= 0) {
+      throw new Error(`fem: heat conductivity must be positive and finite (element tag ${tag})`);
+    }
+    const capacity = coefficientAt(problem.heatCapacity ?? 1, tag);
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      throw new Error(`fem: heat capacity ρc must be positive and finite (element tag ${tag})`);
+    }
+  }
 
   // Assemble M and K on a shared sparsity pattern.
   const massBuilder = new CsrBuilder(n, n);
@@ -110,6 +128,9 @@ export function solveHeat(problem: HeatProblem): FemHeatResult {
   const nodes = mesh.nodes;
   for (let i = 0; i < n; i += 1) {
     u0[i] = problem.initial(nodes[i * 2]!, nodes[i * 2 + 1]!);
+    if (!Number.isFinite(u0[i]!)) {
+      throw new Error(`fem: initial temperature is not finite at node ${i}`);
+    }
   }
 
   const history: Float64Array[] = [Float64Array.from(u0)];

@@ -166,7 +166,9 @@ function parseVtu(text: string, name: string): EngineeringStudy {
     throw new VtkParseError('binary .vtu files are not supported — re-export with format="ascii"');
   }
   const pointsXml = /<Points>([\s\S]*?)<\/Points>/i.exec(text)?.[1] ?? '';
-  const nodes = decodeNodes(numbers(pointsXml));
+  // Drop the DataArray tag: its attributes (Float64, NumberOfComponents…) would
+  // otherwise be parsed as NaN coordinate tokens.
+  const nodes = decodeNodes(numbers(pointsXml.replace(/<[^>]+>/g, ' ')));
 
   const cellsXml = /<Cells>([\s\S]*?)<\/Cells>/i.exec(text)?.[1] ?? '';
   const connectivity = numbers(arrayByAttribute(cellsXml, 'Name', 'connectivity'));
