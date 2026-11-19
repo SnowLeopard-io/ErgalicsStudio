@@ -9,9 +9,9 @@
 // ==========================================================================
 
 import { CsrBuilder, Coefficient, coefficientAt } from '../assemble/stiffness';
-import { assembleSourceVector } from '../assemble/load';
+import { assembleEdgeLoad, assembleSourceVector, selectBoundaryEdges } from '../assemble/load';
 import { DofValue } from '../bc/dirichlet';
-import { addPoissonStiffness, dirichletDofs, DirichletSpec } from './poisson';
+import { addPoissonStiffness, dirichletDofs, DirichletSpec, NeumannSpec } from './poisson';
 import { PlanarMesh, nodeCount } from '../mesh/types';
 import { CgOptions } from '../solve/cg';
 import { thetaOperators, thetaTimeStep } from '../solve/transient';
@@ -29,6 +29,8 @@ export interface HeatProblem {
   initial: (x: number, y: number) => number;
   /** Dirichlet (fixed temperature) boundaries. */
   dirichlet?: DirichletSpec;
+  /** Prescribed boundary heat flux (Neumann) groups. */
+  neumann?: NeumannSpec | NeumannSpec[];
   /** Time step, number of steps, θ (1 = implicit, 0.5 = CN). */
   dt: number;
   steps: number;
@@ -71,10 +73,33 @@ export function solveHeat(problem: HeatProblem): FemHeatResult {
   const K = kBuilder.toCsr();
   const { lhs, rhsOp } = thetaOperators(M, K, dt, theta);
 
-  // Source vector at time t.
-  const sourceAt = problem.source
-    ? (t: number): Float64Array => assembleSourceVector(mesh, (x, y, tag) => problem.source!(x, y, t, tag))
-    : (): Float64Array | null => null;
+  // Time-independent boundary flux load ∫ g·N ds (Neumann), added to the
+  // source vector at every step.
+  const neumann = problem.neumann
+    ? (Array.isArray(problem.neumann) ? problem.neumann : [problem.neumann])
+    : [];
+  let fluxLoad: Float64Array | null = null;
+  if (neumann.length > 0) {
+    fluxLoad = new Float64Array(n);
+    for (const spec of neumann) {
+      const selected = selectBoundaryEdges(mesh, spec.edges);
+      const contribution = assembleEdgeLoad(mesh, selected, spec.flux);
+      for (let i = 0; i < n; i += 1) fluxLoad[i] = fluxLoad[i]! + contribution[i]!;
+    }
+  }
+
+  // Source vector at time t (volume source plus any boundary flux).
+  const sourceAt = (problem.source || fluxLoad)
+    ? (t: number): Float64Array => {
+        const vector = problem.source
+          ? assembleSourceVector(mesh, (x, y, tag) => problem.source!(x, y, t, tag))
+          : new Float64Array(n);
+        if (fluxLoad) {
+          for (let i = 0; i < n; i += 1) vector[i] = vector[i]! + fluxLoad[i]!;
+        }
+        return vector;
+      }
+    : undefined;
 
   // Dirichlet DOFs (values may be prescribed per time via the value fn —
   // evaluated at t = 0 here; time-varying support uses the constant map).

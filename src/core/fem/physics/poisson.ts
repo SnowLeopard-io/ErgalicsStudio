@@ -44,7 +44,8 @@ export interface PoissonProblem {
   /** Source term f(x, y, tag). Default 0. */
   source?: SourceFn;
   dirichlet?: DirichletSpec;
-  neumann?: NeumannSpec;
+  /** One or several prescribed outward-flux edge groups. */
+  neumann?: NeumannSpec | NeumannSpec[];
   cg?: CgOptions;
 }
 
@@ -89,9 +90,12 @@ export function solvePoisson(problem: PoissonProblem): FemScalarResult {
   const builder = new CsrBuilder(n, n);
   addPoissonStiffness(mesh, k, builder);
   const load = assembleSourceVector(mesh, problem.source ?? (() => 0));
-  if (problem.neumann) {
-    const selected = selectBoundaryEdges(mesh, problem.neumann.edges);
-    const flux = assembleEdgeLoad(mesh, selected, problem.neumann.flux);
+  const neumann = problem.neumann
+    ? (Array.isArray(problem.neumann) ? problem.neumann : [problem.neumann])
+    : [];
+  for (const spec of neumann) {
+    const selected = selectBoundaryEdges(mesh, spec.edges);
+    const flux = assembleEdgeLoad(mesh, selected, spec.flux);
     for (let i = 0; i < n; i += 1) load[i] = load[i]! + flux[i]!;
   }
   const K = builder.toCsr();

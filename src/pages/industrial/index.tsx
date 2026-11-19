@@ -70,10 +70,11 @@ function useStudyLoaded(): void {
     if (projectId === loadedId.current) return;
     loadedId.current = projectId;
     // A different project must not inherit the previous study/result.
-    useEngineeringStore.getState().clear();
-    if (project?.state.engineering) {
-      useEngineeringStore.getState().loadFromProject(project);
-    }
+    // `loadFromProject` already resets the store when the snapshot is empty;
+    // calling `clear()` first would persist `null` into the newly opened
+    // project's state (it writes through to `project.state.engineering`) and
+    // the next autosave would wipe the stored study.
+    useEngineeringStore.getState().loadFromProject(project);
   }, [projectId, project]);
 }
 
@@ -96,6 +97,10 @@ function MeshCanvas({
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
+    /** Flat [x0, y0, x1, y1, …] projected node buffer, reused across redraws
+     *  (resize ticks). Mapping nodes to an array of tuples allocated one small
+     *  array per node, i.e. ~1M allocations per redraw on large meshes. */
+    let positions = new Float64Array(mesh.nodes.length * 2);
 
     const draw = (): void => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -115,7 +120,14 @@ function MeshCanvas({
       const offY = (height - spanY * scale) / 2;
       const px = (x: number) => offX + (x - minX) * scale;
       const py = (y: number) => height - offY - (y - minY) * scale;
-      const positions = mesh.nodes.map((node) => [px(node.x), py(node.y)] as const);
+      if (positions.length !== mesh.nodes.length * 2) {
+        positions = new Float64Array(mesh.nodes.length * 2);
+      }
+      for (let i = 0; i < mesh.nodes.length; i += 1) {
+        const node = mesh.nodes[i]!;
+        positions[i * 2] = px(node.x);
+        positions[i * 2 + 1] = py(node.y);
+      }
 
       let min = Infinity;
       let max = -Infinity;
@@ -149,10 +161,11 @@ function MeshCanvas({
         if (element.nodes.length < 2) continue;
         ctx.beginPath();
         element.nodes.forEach((nodeIndex, i) => {
-          const point = positions[nodeIndex];
-          if (!point) return;
-          if (i === 0) ctx.moveTo(point[0], point[1]);
-          else ctx.lineTo(point[0], point[1]);
+          const ox = positions[nodeIndex * 2];
+          const oy = positions[nodeIndex * 2 + 1];
+          if (ox === undefined || oy === undefined) return;
+          if (i === 0) ctx.moveTo(ox, oy);
+          else ctx.lineTo(ox, oy);
         });
         if (element.nodes.length >= 3) {
           ctx.closePath();
@@ -164,9 +177,9 @@ function MeshCanvas({
       }
       if (mesh.elements.length === 0) {
         ctx.fillStyle = 'rgba(59,130,246,0.9)';
-        for (const point of positions) {
+        for (let i = 0; i < mesh.nodes.length; i += 1) {
           ctx.beginPath();
-          ctx.arc(point[0], point[1], 1.4, 0, Math.PI * 2);
+          ctx.arc(positions[i * 2]!, positions[i * 2 + 1]!, 1.4, 0, Math.PI * 2);
           ctx.fill();
         }
       }

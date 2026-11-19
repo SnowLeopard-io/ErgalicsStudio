@@ -52,6 +52,16 @@ describe('VTK adapter', () => {
     expect(Array.from(study.fields[0]!.values)).toEqual([1, 2, 3]);
   });
 
+  it('treats regex metacharacters in DataArray names literally', () => {
+    const xml = VTU.replace(
+      'Name="u" NumberOfComponents="1"',
+      'Name="S(MPa).x" NumberOfComponents="1"',
+    );
+    const study = parseVtk(xml, 'meta.vtu');
+    expect(study.fields[0]?.name).toBe('S(MPa).x');
+    expect(Array.from(study.fields[0]!.values)).toEqual([1, 2, 3]);
+  });
+
   it('rejects binary content clearly', () => {
     expect(() => parseVtk(LEGACY.replace('ASCII', 'BINARY'))).toThrow(/binary/);
   });

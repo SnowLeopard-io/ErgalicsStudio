@@ -15,6 +15,7 @@ export * from './cases';
 export * from './geometry';
 export * from './study';
 export * from './solve';
+export * from './solve3d';
 export * from './report';
 export * from './examples';
 export * from './export';

@@ -18,10 +18,12 @@ import {
 import { solvePoisson } from '@/core/fem/physics/poisson';
 import { solveHeat } from '@/core/fem/physics/heat';
 import { rectStructuredMesh } from '@/core/fem/mesh/domain';
-import { nodeCount, triangleSignedArea } from '@/core/fem/mesh/types';
+import { nodeCount, triangleSignedArea, type EdgeElement, type PlanarMesh } from '@/core/fem/mesh/types';
+import { vonMises } from '@/core/fem/post/stress';
 import { toPlanarMesh } from './mesh';
 import { coefficientByTag, materialProperty, resolveMaterial } from './materials';
 import { ensureCase, normalizeStep } from './cases';
+import { solve3DSteadyHeat } from './solve3d';
 import type {
   BoundaryCondition,
   EngineeringCase,
@@ -70,6 +72,21 @@ export function targetNodeIndices(
     for (const node of element.nodes) nodes.add(node);
   }
   return [...nodes].sort((a, b) => a - b);
+}
+
+/** Boundary edges selected by a BC target: by edge tag when the planar mesh
+ *  carries one, otherwise (element-group targets) the boundary edges whose
+ *  endpoints all belong to the target elements. */
+function boundaryEdgesForTarget(
+  planar: PlanarMesh,
+  mesh: EngineeringMesh,
+  target: { dimension: number; tag: number },
+): EdgeElement[] {
+  const tagged = planar.boundaryEdges.filter((edge) => edge.tag === target.tag);
+  if (tagged.length > 0) return tagged;
+  if (target.dimension < 1) return [];
+  const members = new Set(targetNodeIndices(mesh, target));
+  return planar.boundaryEdges.filter((edge) => members.has(edge.a) && members.has(edge.b));
 }
 
 function coordinateKey(x: number, y: number): string {
@@ -147,10 +164,35 @@ export function solveEngineeringStudy(
   const step = normalizeStep(
     options.step ?? ensureCase(study.cases)[0]!.steps[0]!,
   );
+  // 3-D tetrahedral steady heat: dispatch to the dedicated volume solver
+  // (reuses the sparse CG kernel) before the 2-D planar conversion.
+  const hasTet4 = study.mesh.elements.some((e) => e.type === 'tet4');
+  if (hasTet4 && step.kind === 'steady-heat') {
+    const result3d = solve3DSteadyHeat(study, { source: options.source ?? 0 });
+    return {
+      schema: 'ergalics.engineering-result/v1',
+      stepId: step.id,
+      stepName: step.name,
+      kind: step.kind,
+      solvedAt: Date.now(),
+      fields: [result3d.field],
+      metrics: {
+        elementCount: study.mesh.elements.length,
+        nodeCount: study.mesh.nodes.length,
+        iterations: result3d.iterations,
+        residual: result3d.residual,
+        minTemperature: Math.min(...result3d.field.values),
+        maxTemperature: Math.max(...result3d.field.values),
+      },
+      iterations: result3d.iterations,
+      residual: result3d.residual,
+      solver: { name: SOLVER_NAME, version: SOLVER_VERSION, algorithm: 'tet4-p1-cg', tolerance: step.solver.tolerance },
+    } as EngineeringSolveResult;
+  }
   const planar = toPlanarMesh(study.mesh);
   if (!planar) {
     throw new EngineeringSolveError(
-      'mesh is not planarly solvable: only 2-D tri3/quad4 meshes with z ≈ 0 are supported',
+      'mesh is not planarly solvable: only 2-D tri3/quad4 or 3-D tet4/steady-heat meshes are supported',
     );
   }
   // Degenerate elements (zero area / non-finite coordinates) silently produce
@@ -182,6 +224,7 @@ export function solveEngineeringStudy(
     const nu = coefficientByTag(study.materials, study.materialAssignment, 'nu', 0.3, tags);
     const constraints = new Map<number, { ux?: number; uy?: number }>();
     const tractions: Array<{ tags: number[]; tx: number; ty: number }> = [];
+    const pressures: Array<{ edges: EdgeElement[]; p: number }> = [];
     const pointLoads: Array<{ node: number; fx: number; fy: number }> = [];
 
     for (const condition of study.boundaryConditions) {
@@ -194,17 +237,26 @@ export function solveEngineeringStudy(
           if (condition.components[1] !== undefined) current.uy = condition.components[1];
           constraints.set(node, current);
         }
-      } else if (
-        condition.kind === 'force' ||
-        condition.kind === 'pressure' ||
-        condition.kind === 'traction'
-      ) {
+      } else if (condition.kind === 'force' || condition.kind === 'traction') {
         const fx = condition.components[0] ?? 0;
         const fy = condition.components[1] ?? 0;
         if (condition.target.dimension >= 1) {
           tractions.push({ tags: [condition.target.tag], tx: fx, ty: fy });
         } else {
           // Point force: the component values are total nodal loads.
+          for (const node of nodes) pointLoads.push({ node, fx, fy });
+        }
+      } else if (condition.kind === 'pressure') {
+        if (condition.target.dimension >= 1) {
+          // A pressure is a scalar acting along the boundary normal, not a
+          // constant (tx, ty) vector.
+          pressures.push({
+            edges: boundaryEdgesForTarget(planar, study.mesh, condition.target),
+            p: condition.components[0] ?? 0,
+          });
+        } else {
+          const fx = condition.components[0] ?? 0;
+          const fy = condition.components[1] ?? 0;
           for (const node of nodes) pointLoads.push({ node, fx, fy });
         }
       }
@@ -232,6 +284,7 @@ export function solveEngineeringStudy(
         tx: traction.tx,
         ty: traction.ty,
       })),
+      pressures: pressures.map((pressure) => ({ edges: pressure.edges, p: pressure.p })),
       pointLoads,
       cg: {
         tol: step.solver.tolerance,
@@ -254,7 +307,20 @@ export function solveEngineeringStudy(
     fields.push({ name: 'strain', location: 'element', components: 3, values: result.elementStrain, unit: '-' });
     metrics.maxDisplacement = result.maxDisplacement;
     addRangeMetrics(metrics, 'vonMises', fields[1]!);
-    addRangeMetrics(metrics, 'stress', fields[2]!);
+    // min_stress / max_stress are the element von Mises invariant; the raw
+    // stress field is a 3-vector, so a component-vector norm would not be a
+    // standard stress measure.
+    const elementVonMises = new Float64Array(planar.elements.length);
+    for (let e = 0; e < elementVonMises.length; e += 1) {
+      elementVonMises[e] = vonMises(
+        result.elementStress[e * 3]!,
+        result.elementStress[e * 3 + 1]!,
+        result.elementStress[e * 3 + 2]!,
+      );
+    }
+    const stressRange = fieldRange('stress', elementVonMises, 1);
+    metrics.min_stress = stressRange.min;
+    metrics.max_stress = stressRange.max;
   } else if (step.kind === 'steady-heat' || step.kind === 'transient-heat') {
     const k = coefficientByTag(study.materials, study.materialAssignment, 'k', 1, tags);
     const dirichlet = combinedDirichlet(
@@ -269,12 +335,32 @@ export function solveEngineeringStudy(
     }
     const heatDirichlet = dirichlet;
 
+    // Heat-flux (Neumann) BCs: ∫ q N ds added to the RHS. A positive value is
+    // the flux INTO the body, consistent with the Poisson natural condition
+    // k·∂T/∂n = q and with a positive volumetric source heating the body.
+    const heatFluxSpecs: Array<{ edges: EdgeElement[]; flux: number }> = [];
+    for (const condition of study.boundaryConditions) {
+      if (condition.kind !== 'heat-flux') continue;
+      const edges = boundaryEdgesForTarget(planar, study.mesh, condition.target);
+      if (edges.length === 0) {
+        throw new EngineeringSolveError(
+          `heat-flux boundary condition "${condition.name}" matches no boundary edges ` +
+            `(group ${condition.target.dimension}:${condition.target.tag})`,
+        );
+      }
+      heatFluxSpecs.push({ edges, flux: condition.components[0] ?? 0 });
+    }
+    const neumann = heatFluxSpecs.length > 0
+      ? heatFluxSpecs.map((spec) => ({ edges: spec.edges, flux: spec.flux }))
+      : undefined;
+
     if (step.kind === 'steady-heat') {
       const result = solvePoisson({
         mesh: planar,
         k,
         source: () => options.source ?? 0,
         dirichlet: { nodes: heatDirichlet.nodes, value: heatDirichlet.value },
+        neumann,
         cg: { tol: step.solver.tolerance, maxIter: step.solver.maxIterations },
       });
       iterations = result.iterations;
@@ -302,6 +388,7 @@ export function solveEngineeringStudy(
         },
         initial: () => options.initialTemperature ?? 0,
         dirichlet: { nodes: heatDirichlet.nodes, value: heatDirichlet.value },
+        neumann,
         dt: step.solver.dt ?? 0.01,
         steps: step.solver.timeSteps ?? 20,
         theta: step.solver.theta ?? 1,

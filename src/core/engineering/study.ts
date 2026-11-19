@@ -9,6 +9,7 @@
 // ==========================================================================
 
 import { hashString } from '@/core/repro/random';
+import { ContentHasher } from '@/core/build/hash';
 import {
   ENGINEERING_MODEL_SCHEMA,
   meshBounds,
@@ -26,15 +27,22 @@ export interface StudySnapshot {
   mesh: EngineeringMesh;
   materials: EngineeringMaterial[];
   boundaryConditions: EngineeringStudy['boundaryConditions'];
-  fields: Array<Omit<EngineeringField, 'values'> & { values: number[] }>;
+  /** Optional: persisted project state omits it (the last solve result keeps
+   *  the only copy); workspace/export snapshots still include it. */
+  fields?: Array<Omit<EngineeringField, 'values'> & { values: number[] }>;
   metadata: Record<string, string>;
   geometry?: EngineeringStudy['geometry'];
   cases?: EngineeringStudy['cases'];
   materialAssignment?: EngineeringStudy['materialAssignment'];
 }
 
-/** Convert the live model into a JSON-safe snapshot. */
-export function toStudySnapshot(study: EngineeringStudy): StudySnapshot {
+/** Convert the live model into a JSON-safe snapshot. `includeFields: false`
+ *  drops the (large) solved fields so a project write does not store the same
+ *  arrays twice — `result` carries them and the load path restores them. */
+export function toStudySnapshot(
+  study: EngineeringStudy,
+  options: { includeFields?: boolean } = {},
+): StudySnapshot {
   return {
     schema: study.schema,
     name: study.name,
@@ -42,10 +50,14 @@ export function toStudySnapshot(study: EngineeringStudy): StudySnapshot {
     mesh: study.mesh,
     materials: study.materials,
     boundaryConditions: study.boundaryConditions,
-    fields: study.fields.map((field) => ({
-      ...field,
-      values: Array.from(field.values),
-    })),
+    ...(options.includeFields === false
+      ? {}
+      : {
+          fields: study.fields.map((field) => ({
+            ...field,
+            values: Array.from(field.values),
+          })),
+        }),
     metadata: study.metadata,
     ...(study.geometry ? { geometry: study.geometry } : {}),
     ...(study.cases ? { cases: study.cases } : {}),
@@ -126,7 +138,10 @@ export interface EngineeringFingerprint {
   };
 }
 
-/** Canonical mesh text: node coordinates (6 dp) + element topology + groups. */
+/** Canonical mesh text: node coordinates (6 dp) + element topology + groups.
+ *  Human-readable debugging aid only — `meshHash` hashes full-precision
+ *  coordinates (the solver and BC matching use the exact values, so a 6 dp
+ *  text hash would collide inputs that differ below the 6th decimal). */
 export function meshFingerprintText(mesh: EngineeringMesh): string {
   const nodes = mesh.nodes
     .map((node) => `${node.id}:${node.x.toFixed(6)},${node.y.toFixed(6)},${node.z.toFixed(6)}`)
@@ -140,9 +155,28 @@ export function meshFingerprintText(mesh: EngineeringMesh): string {
   return `${nodes}|${elements}|${groups}`;
 }
 
+/** Full-precision content hash of the mesh (exact IEEE-754 coordinates). */
 export function meshHash(mesh: EngineeringMesh): string {
-  const text = meshFingerprintText(mesh);
-  return hashString(`${text.length}:${text}`);
+  const hasher = new ContentHasher().updateString(
+    `mesh:${mesh.nodes.length}:${mesh.elements.length}:${mesh.groups.length}:`,
+  );
+  for (const node of mesh.nodes) {
+    hasher.updateNumber(node.id).updateNumber(node.x).updateNumber(node.y).updateNumber(node.z);
+  }
+  hasher.updateString('|elements:');
+  for (const element of mesh.elements) {
+    hasher.updateNumber(element.id).updateString(element.type);
+    for (const index of element.nodes) hasher.updateNumber(index);
+    hasher.updateNumber(element.group ?? 0);
+    hasher.updateString(';');
+  }
+  hasher.updateString('|groups:');
+  for (const group of mesh.groups) {
+    hasher.updateNumber(group.dimension).updateNumber(group.tag).updateString(group.name);
+    for (const member of group.members) hasher.updateNumber(member);
+    hasher.updateString(';');
+  }
+  return hasher.digest();
 }
 
 export function materialHash(material: EngineeringMaterial): string {

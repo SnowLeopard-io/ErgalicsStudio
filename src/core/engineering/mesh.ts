@@ -109,6 +109,9 @@ export function toPlanarMesh(
   };
 
   for (const element of mesh.elements) {
+    // Malformed connectivity must fail the conversion (null) instead of
+    // throwing a TypeError on an out-of-range node lookup.
+    if (element.nodes.some((index) => index < 0 || index >= mesh.nodes.length)) return null;
     const nodes = element.nodes.map((index) => indexById.get(mesh.nodes[index]!.id) ?? index);
     if (nodes.some((node) => node < 0 || node >= mesh.nodes.length)) return null;
     const tag = element.group ?? 0;

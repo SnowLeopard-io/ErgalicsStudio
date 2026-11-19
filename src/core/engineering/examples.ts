@@ -225,6 +225,41 @@ const channelFlow = (): EngineeringStudy => {
   });
 };
 
+/** A 3-D triangular prism split into three tetrahedra, for the volume solver. */
+const block3dHeat = (): EngineeringStudy => {
+  const mesh: EngineeringMesh = {
+    nodes: [
+      { id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 1, y: 0, z: 0 },
+      { id: 3, x: 0, y: 1, z: 0 }, { id: 4, x: 0, y: 0, z: 1 },
+      { id: 5, x: 1, y: 0, z: 1 }, { id: 6, x: 0, y: 1, z: 1 },
+    ],
+    // Canonical prism → 3 tetrahedra sharing the (2,3,4,5) diagonal.
+    elements: [
+      { id: 1, type: 'tet4', nodes: [0, 1, 2, 4] },
+      { id: 2, type: 'tet4', nodes: [0, 2, 3, 4] },
+      { id: 3, type: 'tet4', nodes: [2, 3, 4, 5] },
+    ],
+    groups: [
+      { dimension: 0, tag: 1, name: 'Bottom (hot)', members: [0, 1, 2] },
+      { dimension: 0, tag: 2, name: 'Top (cold, reference)', members: [3] },
+    ],
+    bounds: [0, 0, 0, 1, 1, 1],
+  };
+  return makeStudy('3-D block conduction', 'gmsh', mesh, {
+    materials: [{ name: 'Steel', properties: { k: 45, rho: 7850, cp: 460 } }],
+    boundaryConditions: [
+      { name: 'Hot face', kind: 'temperature', target: { dimension: 0, tag: 1 }, components: { 0: 373.15 } },
+      { name: 'Cold face', kind: 'temperature', target: { dimension: 0, tag: 2 }, components: { 0: 293.15 } },
+    ],
+    cases: [{
+      name: 'Steady heat 3-D',
+      steps: [makeStep('Steady heat (3-D)', 'steady-heat')],
+      design: { parameters: [], points: [] },
+    }],
+    metadata: { example: 'industrial', analysis: '3d-volume' },
+  });
+};
+
 export const INDUSTRIAL_EXAMPLES: IndustrialExample[] = [
   {
     id: 'industrial-plate-tension',
@@ -265,6 +300,16 @@ export const INDUSTRIAL_EXAMPLES: IndustrialExample[] = [
     },
     format: 'gmsh',
     build: channelFlow,
+  },
+  {
+    id: 'industrial-block-3d-heat',
+    nameI18n: { 'zh-CN': '三维块体稳态导热', 'en-US': '3-D block conduction' },
+    descriptionI18n: {
+      'zh-CN': '三棱柱四面体网格的三维稳态温度场，展示真正的体积单元求解。',
+      'en-US': 'A tetrahedral prism solved with the 3-D volume heat kernel — a real volumetric analysis.',
+    },
+    format: 'gmsh',
+    build: block3dHeat,
   },
 ];
 

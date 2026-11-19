@@ -10,7 +10,7 @@
 // ==========================================================================
 
 import { CsrBuilder, CsrMatrix, Coefficient, coefficientAt } from '../assemble/stiffness';
-import { assembleEdgeLoad, EdgeSelector, selectBoundaryEdges } from '../assemble/load';
+import { assembleEdgeLoad, assemblePressureLoad, EdgeSelector, selectBoundaryEdges } from '../assemble/load';
 import { DofValue, applyDirichlet } from '../bc/dirichlet';
 import { PlanarMesh, nodeCount, nodeX, nodeY } from '../mesh/types';
 import { CgOptions } from '../solve/cg';
@@ -57,6 +57,13 @@ export interface TractionSpec {
   ty?: number | ((x: number, y: number) => number);
 }
 
+export interface PressureSpec {
+  edges: EdgeSelector;
+  /** Scalar pressure (force per unit area); positive acts along the outward
+   *  boundary normal. */
+  p: number;
+}
+
 export interface ElasticityProblem {
   mesh: PlanarMesh;
   /** Young's modulus (constant | per-tag record | tag → E). */
@@ -70,6 +77,8 @@ export interface ElasticityProblem {
   constraints?: DisplacementConstraint[];
   /** Surface tractions on boundary edge tags. */
   tractions?: TractionSpec[];
+  /** Normal pressure on boundary edge tags. */
+  pressures?: PressureSpec[];
   /** Constant body force per unit volume. */
   bodyForce?: { fx?: number; fy?: number };
   /** Point loads applied at nodes. */
@@ -116,9 +125,18 @@ export function solveElasticity(problem: ElasticityProblem): FemElasticityResult
   if (problem.tractions) {
     for (const tr of problem.tractions) {
       const selected = selectBoundaryEdges(mesh, tr.edges);
-      const lx = assembleEdgeLoad(mesh, selected, tr.tx ?? 0, 2, 0);
-      const ly = assembleEdgeLoad(mesh, selected, tr.ty ?? 0, 2, 1);
+      // Edge tractions are force per unit area on the edge surface, so the
+      // integrated load scales with the out-of-plane thickness like K does.
+      const lx = assembleEdgeLoad(mesh, selected, tr.tx ?? 0, 2, 0, thickness);
+      const ly = assembleEdgeLoad(mesh, selected, tr.ty ?? 0, 2, 1, thickness);
       for (let i = 0; i < ndof; i += 1) load[i] = load[i]! + lx[i]! + ly[i]!;
+    }
+  }
+  if (problem.pressures) {
+    for (const pr of problem.pressures) {
+      const selected = selectBoundaryEdges(mesh, pr.edges);
+      const contribution = assemblePressureLoad(mesh, selected, pr.p, thickness);
+      for (let i = 0; i < ndof; i += 1) load[i] = load[i]! + contribution[i]!;
     }
   }
   if (problem.pointLoads) {

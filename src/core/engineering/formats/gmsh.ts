@@ -17,18 +17,24 @@ import {
   type EngineeringStudy,
 } from '../types';
 
+// Gmsh 官方单元类型表（MSH 4.1 §Element types）中，中性模型真正支持的子集。
+// 注意：17 = 20 节点二阶六面体（hex20），13/18 是二阶棱柱而非六面体。
 const GMSH_TYPES: Record<number, ElementType> = {
   1: 'line2', 2: 'tri3', 3: 'quad4', 4: 'tet4', 5: 'hex8',
   6: 'wedge6', 7: 'pyramid5', 8: 'line3', 9: 'tri6', 10: 'quad9',
-  11: 'tet10', 13: 'hex20', 15: 'point', 17: 'polyhedron', 18: 'polygon',
+  11: 'tet10', 15: 'point', 16: 'quad8', 17: 'hex20',
 };
 
-/** Gmsh high-order ids with no faithful entry in the closed element
- *  vocabulary (id → node count). Parsing fails loudly instead of silently
- *  mislabelling the topology and dropping nodes. */
-const UNSUPPORTED_GMSH_TYPES: Record<number, number> = {
-  12: 27, // 27-node second-order hexahedron (hex27)
-  16: 8,  // 8-node second-order quadrangle (quad8)
+/** Gmsh 高阶 id 在中性模型中无对应拓扑：解析时抛出明确错误，
+ *  绝不静默映射成错误类型或丢弃节点。 */
+const UNSUPPORTED_GMSH_TYPES: Record<number, { nodeCount: number; label: string }> = {
+  12: { nodeCount: 27, label: '27 节点二阶六面体单元' },
+  13: { nodeCount: 18, label: '18 节点二阶棱柱单元' },
+  14: { nodeCount: 14, label: '14 节点二阶金字塔单元' },
+  18: { nodeCount: 15, label: '15 节点二阶棱柱单元' },
+  19: { nodeCount: 13, label: '13 节点二阶金字塔单元' },
+  20: { nodeCount: 9, label: '9 节点二阶三角形单元' },
+  21: { nodeCount: 10, label: '10 节点三阶三角形单元' },
 };
 
 const DIMENSION_BY_TYPE: Partial<Record<ElementType, number>> = {
@@ -60,15 +66,18 @@ function tokens(line: string): string[] {
   return line.trim().split(/\s+/).filter((token) => token.length > 0);
 }
 
-function physicalNames(lines: string[]): Map<number, { dimension: number; name: string }> {
-  const map = new Map<number, { dimension: number; name: string }>();
+/** 键为 `${dimension}:${tag}`：Gmsh 允许不同维度复用同一物理 tag。 */
+function physicalNames(lines: string[]): Map<string, { dimension: number; tag: number; name: string }> {
+  const map = new Map<string, { dimension: number; tag: number; name: string }>();
   const count = Number(tokens(lines[0] ?? '')[0] ?? 0);
   for (let i = 1; i <= count && i < lines.length; i += 1) {
     const parts = tokens(lines[i]!);
     const dimension = Number(parts[0]);
     const tag = Number(parts[1]);
     const name = parts.slice(2).join(' ').replace(/^"|"$/g, '');
-    if (Number.isFinite(tag)) map.set(tag, { dimension, name });
+    if (Number.isFinite(tag) && Number.isFinite(dimension)) {
+      map.set(`${dimension}:${tag}`, { dimension, tag, name });
+    }
   }
   return map;
 }
@@ -196,14 +205,17 @@ function readElements(
   const indexById = new Map(nodes.map((node, index) => [node.id, index]));
   for (let block = 0; block < blockCount && cursor < lines.length; block += 1) {
     const parts = tokens(lines[cursor++] ?? '').map(Number);
-    const elementType = GMSH_TYPES[parts[2]!];
+    const typeId = parts[2]!;
+    const elementType = GMSH_TYPES[typeId];
     if (elementType === undefined) {
-      // Kernel has no faithful counterpart for these (hex27, 8-node quad, …):
-      // error out with the node count instead of mapping them onto a wrong
-      // topology. Node count falls back to the block's first element line.
-      const nodeCount = UNSUPPORTED_GMSH_TYPES[parts[2]!] ??
-        Math.max(tokens(lines[cursor] ?? '').length - 1, 0);
-      throw new GmshParseError(`暂不支持 ${nodeCount} 节点单元类型 ${parts[2]}`);
+      // 内核无对应拓扑（hex27、prism18 等）：按 Gmsh 类型表报出明确错误；
+      // 未知 id 时退化为按首个单元行的节点数描述。
+      const unsupported = UNSUPPORTED_GMSH_TYPES[typeId];
+      if (unsupported) {
+        throw new GmshParseError(`暂不支持 ${unsupported.label}（Gmsh 类型 ${typeId}）`);
+      }
+      const nodeCount = Math.max(tokens(lines[cursor] ?? '').length - 1, 0);
+      throw new GmshParseError(`暂不支持 ${nodeCount} 节点单元类型（Gmsh 类型 ${typeId}）`);
     }
     const inBlock = Number(parts[3] ?? 0);
     const physical = entityPhysical.get(`${parts[0]}:${parts[1]}`);
@@ -232,6 +244,11 @@ export function parseGmsh(text: string, name = 'mesh.msh'): EngineeringStudy {
   const version = Number(header[0] ?? 0);
   const isBinary = Number(header[1] ?? 0) !== 0;
   if (isBinary) throw new GmshParseError('binary Gmsh files are not supported — re-export as ASCII');
+  // MSH 4.0 的 $Nodes 是“每行标签+坐标”，与 4.1 的“先标签后坐标”不同。
+  // 宁可明确拒绝，也不静默解析出 NaN 坐标。
+  if (version >= 4 && version < 4.1) {
+    throw new GmshParseError('暂不支持 MSH 4.0，请用 Gmsh 重新导出 4.1 或 2.2 格式');
+  }
   if (version < 2 || version >= 5) {
     throw new GmshParseError(`unsupported Gmsh version ${version}`);
   }
@@ -243,25 +260,27 @@ export function parseGmsh(text: string, name = 'mesh.msh'): EngineeringStudy {
   if (nodes.length === 0) throw new GmshParseError('mesh contains no nodes');
 
   const groups: EngineeringGroup[] = [];
-  const byTag = new Map<number, EngineeringGroup>();
-  for (const [tag, info] of names) {
+  const byKey = new Map<string, EngineeringGroup>();
+  for (const [key, info] of names) {
     const group: EngineeringGroup = {
       dimension: info.dimension,
-      tag,
+      tag: info.tag,
       name: info.name,
       members: [],
     };
     groups.push(group);
-    byTag.set(tag, group);
+    byKey.set(key, group);
   }
   elements.forEach((element, elementIndex) => {
     if (element.group === undefined) return;
-    const group = byTag.get(element.group);
-    if (!group) return;
     const dimension = DIMENSION_BY_TYPE[element.type];
+    if (dimension === undefined) return;
+    // 同一 tag 可同时属于不同维度，必须用 `${dim}:${tag}` 才能命中正确分组。
+    const group = byKey.get(`${dimension}:${element.group}`);
+    if (!group) return;
     // Group members are element ARRAY indices, not format ids (which may have
     // gaps) — use the loop index so BC/material targeting stays correct.
-    if (dimension === group.dimension) group.members.push(elementIndex);
+    group.members.push(elementIndex);
   });
 
   // Physical groups are selections, not boundary conditions — a caller that

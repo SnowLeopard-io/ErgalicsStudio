@@ -28,6 +28,16 @@ const ABAQUS_TYPES: Record<string, ElementType> = {
   T2D2: 'line2', B31: 'line2', B32: 'line3',
 };
 
+/** 受支持单元类型的预期节点数，用于识别 Abaqus 的单元续行。
+ *  未列出的类型无法判断节点数，按原来“一行一单元”处理。 */
+const ABAQUS_NODE_COUNT: Record<string, number> = {
+  C3D4: 4, C3D10: 10, C3D8: 8, C3D8R: 8, C3D20: 20, C3D6: 6, C3D5: 5,
+  CPS3: 3, CPS6: 6, CPS4: 4, CPS8: 8,
+  CPE3: 3, CPE4: 4, CPE4R: 4,
+  S3: 3, S4: 4, S4R: 4,
+  T2D2: 2, B31: 2, B32: 3,
+};
+
 export class AbaqusParseError extends Error {
   constructor(message: string) {
     super(message);
@@ -72,6 +82,31 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
   let currentMaterial: EngineeringMaterial | null = null;
   let currentSet: EngineeringGroup | null = null;
   let setGenerate = false;
+  // 折行单元（如 C3D20）的续行累积状态。
+  let pendingElement: { id: number; type: ElementType; labels: number[]; expected: number } | null = null;
+
+  const resolveNodes = (elementId: number, labels: number[]): number[] =>
+    labels.map((label) => {
+      const index = nodeIdToIndex.get(label);
+      if (index === undefined) {
+        throw new AbaqusParseError(`单元 ${elementId} 引用了未知节点标签 ${label}`);
+      }
+      return index;
+    });
+
+  const pushElement = (id: number, type: ElementType, labels: number[]): void => {
+    const index = elements.length;
+    elementIdToIndex.set(id, index);
+    currentSet?.members.push(index);
+    elements.push({ id, type, nodes: resolveNodes(id, labels) });
+  };
+
+  const flushPendingElement = (): void => {
+    if (!pendingElement) return;
+    throw new AbaqusParseError(
+      `单元 ${pendingElement.id} 节点数不足：期望 ${pendingElement.expected}，实际 ${pendingElement.labels.length}`,
+    );
+  };
 
   const groupTag = (label: string): number => {
     const existing = groups.find((group) => group.name === label);
@@ -88,6 +123,8 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
 
   for (const line of lines) {
     if (line.raw.trim().startsWith('*')) {
+      // 新关键字开始前，折行单元必须是完整的。
+      flushPendingElement();
       flushSet();
       const header = line.raw.trim();
       const upper = header.toUpperCase();
@@ -156,16 +193,27 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
         break;
       }
       case 'element': {
+        // 续行：整行都是节点标签，没有单元 id。
+        if (pendingElement) {
+          pendingElement.labels.push(...values);
+          if (pendingElement.labels.length >= pendingElement.expected) {
+            pushElement(pendingElement.id, pendingElement.type, pendingElement.labels);
+            pendingElement = null;
+          }
+          break;
+        }
         if (values.length < 2) break;
-        const type = ABAQUS_TYPES[metadata.elementType?.toUpperCase() ?? ''] ?? 'polyhedron';
-        const index = elements.length;
-        elementIdToIndex.set(values[0]!, index);
-        currentSet?.members.push(index);
-        elements.push({
-          id: values[0]!,
-          type,
-          nodes: values.slice(1).map((label) => nodeIdToIndex.get(label) ?? label - 1),
-        });
+        const typeName = (metadata.elementType ?? '').toUpperCase();
+        const type = ABAQUS_TYPES[typeName] ?? 'polyhedron';
+        const expected = ABAQUS_NODE_COUNT[typeName];
+        const id = values[0]!;
+        const labels = values.slice(1);
+        if (expected !== undefined && labels.length < expected) {
+          pendingElement = { id, type, labels, expected };
+        } else {
+          // 未知类型 expected 为 undefined：保持一行一单元，不误吞续行。
+          pushElement(id, type, labels);
+        }
         break;
       }
       case 'nset':
@@ -276,6 +324,7 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
     }
   }
 
+  flushPendingElement();
   if (nodes.length === 0) throw new AbaqusParseError('deck contains no *NODE data');
   return makeStudy(name, 'abaqus', { nodes, elements, groups, bounds: [0, 0, 0, 0, 0, 0] }, {
     materials,

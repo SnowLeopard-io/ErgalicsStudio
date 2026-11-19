@@ -171,19 +171,129 @@ function persistState(state: EngineeringProjectState): void {
   useProjectStore.getState().setDirty(true);
 }
 
+/**
+ * Debounce window for `.clproj` engineering writes. Text inputs (material
+ * properties, solver tolerances) fire on every keystroke; snapshotting the
+ * whole study that often is wasted work, especially once a solve made the
+ * study hold full field arrays.
+ */
+const PERSIST_DEBOUNCE_MS = 300;
+
+interface PendingPersist {
+  study: EngineeringStudy | null;
+  result: EngineeringSolveResult | null;
+  scan: EngineeringScanRow[];
+  activeStepId: string | null;
+  /** Project identity captured at schedule time: a flush queued for a project
+   *  that has since been closed/switched must never land in the new one. */
+  session: number;
+  projectId: string | undefined;
+}
+
+let saveFlushHooked = false;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingPersist: PendingPersist | null = null;
+
+/**
+ * `projectStore.save()` flips its status to 'saving' synchronously and only
+ * then collects the project snapshot. Flushing on that transition guarantees
+ * a save never omits an edit still sitting in the persist debounce window.
+ *
+ * Installed lazily (not at module init): projectStore ↔ engineeringStore form
+ * an import cycle, so subscribing while this module is still evaluating would
+ * touch a not-yet-initialised store binding.
+ */
+function ensureSaveFlushHook(): void {
+  if (saveFlushHooked) return;
+  saveFlushHooked = true;
+  useProjectStore.subscribe((state, previous) => {
+    if (state.status === 'saving' && previous.status !== 'saving') {
+      flushEngineeringPersist();
+    }
+  });
+}
+
+function buildProjectState(pending: PendingPersist): EngineeringProjectState {
+  return {
+    // Fields live in the result snapshot; storing them here too would double
+    // the project file and the per-save re-serialization cost.
+    study: pending.study ? toStudySnapshot(pending.study, { includeFields: false }) : null,
+    result: pending.result ? toResultSnapshot(pending.result) : null,
+    scan: pending.scan,
+    activeStepId: pending.activeStepId,
+    updatedAt: Date.now(),
+  };
+}
+
+function cancelScheduledPersist(): void {
+  if (persistTimer !== null) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  pendingPersist = null;
+}
+
+/** Write any debounced engineering state to `project.state` right now.
+ *  Called internally at every point where a stale project would be wrong
+ *  (solve, clear, load, import) and on the projectStore save transition. */
+export function flushEngineeringPersist(): void {
+  if (persistTimer !== null) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  const pending = pendingPersist;
+  pendingPersist = null;
+  if (!pending) return;
+  if (
+    getProjectSession() !== pending.session ||
+    useProjectStore.getState().project?.id !== pending.projectId
+  ) {
+    return;
+  }
+  persistState(buildProjectState(pending));
+}
+
+/** Schedule the trailing write for edit actions (the snapshot itself is built
+ *  at flush time, so a burst of keystrokes materialises the study once). */
 function persistStudy(
   study: EngineeringStudy | null,
   result: EngineeringSolveResult | null,
   scan: EngineeringScanRow[],
   activeStepId: string | null,
 ): void {
-  persistState({
-    study: study ? toStudySnapshot(study) : null,
-    result: result ? toResultSnapshot(result) : null,
+  ensureSaveFlushHook();
+  pendingPersist = {
+    study,
+    result,
     scan,
     activeStepId,
-    updatedAt: Date.now(),
-  });
+    session: getProjectSession(),
+    projectId: useProjectStore.getState().project?.id,
+  };
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    flushEngineeringPersist();
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+/** Bypass the debounce (imports, solves, clears). */
+function persistStudyNow(
+  study: EngineeringStudy | null,
+  result: EngineeringSolveResult | null,
+  scan: EngineeringScanRow[],
+  activeStepId: string | null,
+): void {
+  ensureSaveFlushHook();
+  cancelScheduledPersist();
+  persistState(buildProjectState({
+    study,
+    result,
+    scan,
+    activeStepId,
+    session: getProjectSession(),
+    projectId: useProjectStore.getState().project?.id,
+  }));
 }
 
 export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
@@ -217,7 +327,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         buildStats: null,
         buildCached: false,
       });
-      persistStudy(study, null, [], step.id);
+      persistStudyNow(study, null, [], step.id);
       // Mirror the source into the industrial workspace folders. Failures are
       // non-fatal (a study can be edited without a project open).
       const project = useProjectStore.getState().project;
@@ -277,10 +387,13 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       scan: [],
       error: null,
     });
-    persistStudy(next, null, [], step?.id ?? null);
+    persistStudyNow(next, null, [], step?.id ?? null);
   },
 
   loadFromProject: (project) => {
+    // Pending edits belong to the project being left; they must not bleed
+    // into the project we are about to install.
+    cancelScheduledPersist();
     const stored = project?.state.engineering;
     const study = stored?.study ? fromStudySnapshot(stored.study) : null;
     if (!study) {
@@ -297,6 +410,12 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       return;
     }
     const normalized = ensureDefaults(study);
+    const restoredResult = stored?.result ? fromResultSnapshot(stored.result) : null;
+    // Persisted study snapshots omit fields (they are stored once, in the
+    // result snapshot); restore them so the viewers still render after reload.
+    if (normalized.fields.length === 0 && restoredResult && restoredResult.fields.length > 0) {
+      normalized.fields = restoredResult.fields;
+    }
     const stepId =
       stored?.activeStepId &&
       ensureCase(normalized.cases).some((studyCase) =>
@@ -306,7 +425,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         : ensureCase(normalized.cases)[0]!.steps[0]!.id;
     set({
       study: normalized,
-      result: stored?.result ? fromResultSnapshot(stored.result) : null,
+      result: restoredResult,
       scan: stored?.scan ?? [],
       activeStepId: stepId,
       error: null,
@@ -328,7 +447,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       buildStats: null,
       buildCached: false,
     });
-    persistState({ study: null, result: null, scan: [], activeStepId: null, updatedAt: Date.now() });
+    persistStudyNow(null, null, [], null);
   },
 
   addMaterial: (templateId, name) => {
@@ -359,10 +478,17 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   updateMaterialProperty: (materialName, property, value) => {
     const study = get().study;
     if (!study) return;
-    const next = cloneStudy(study);
-    const material = next.materials.find((item) => item.name === materialName);
-    if (!material) return;
-    material.properties = { ...material.properties, [property]: value };
+    const index = study.materials.findIndex((item) => item.name === materialName);
+    if (index === -1) return;
+    // Targeted immutable update: mesh/fields/cases are never mutated in place
+    // (solvers only read them), so sharing them avoids a per-keystroke deep
+    // clone of the whole study while keeping the update immutable.
+    const materials = study.materials.slice();
+    materials[index] = {
+      ...study.materials[index]!,
+      properties: { ...study.materials[index]!.properties, [property]: value },
+    };
+    const next: EngineeringStudy = { ...study, materials };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
     set({ study: next, result: null, scan: [] });
@@ -410,8 +536,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   updateBoundaryCondition: (index, patch) => {
     const study = get().study;
     if (!study || !study.boundaryConditions[index]) return;
-    const next = cloneStudy(study);
-    next.boundaryConditions[index] = { ...next.boundaryConditions[index]!, ...patch };
+    // Shallow array copy: only this entry changes, the rest is shared safely.
+    const boundaryConditions = study.boundaryConditions.slice();
+    boundaryConditions[index] = { ...study.boundaryConditions[index]!, ...patch };
+    const next: EngineeringStudy = { ...study, boundaryConditions };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
     set({ study: next, result: null, scan: [] });
@@ -450,15 +578,23 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   updateStep: (stepId, patch) => {
     const study = get().study;
     if (!study) return;
-    const next = cloneStudy(study);
-    for (const studyCase of ensureCase(next.cases)) {
-      const step = studyCase.steps.find((candidate) => candidate.id === stepId);
-      if (!step) continue;
-      // Merge solver before Object.assign overwrites it with a partial patch.
-      const mergedSolver = patch.solver ? { ...step.solver, ...patch.solver } : undefined;
-      Object.assign(step, patch);
-      if (mergedSolver) step.solver = mergedSolver;
-    }
+    // Only the touched case/step objects are rebuilt; sibling steps and all
+    // other study arrays are shared (they are never mutated in place).
+    const cases = ensureCase(study.cases).map((studyCase) => {
+      if (!studyCase.steps.some((candidate) => candidate.id === stepId)) return studyCase;
+      return {
+        ...studyCase,
+        steps: studyCase.steps.map((step) => {
+          if (step.id !== stepId) return step;
+          // Merge solver before the spread overwrites it with a partial patch.
+          const mergedSolver = patch.solver ? { ...step.solver, ...patch.solver } : undefined;
+          const updated: EngineeringStep = { ...step, ...patch };
+          if (mergedSolver) updated.solver = mergedSolver;
+          return updated;
+        }),
+      };
+    });
+    const next: EngineeringStudy = { ...study, cases };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
     set({ study: next, result: null, scan: [] });
@@ -501,6 +637,9 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
 
   solve: async (stepId) => {
     if (get().solving) return null;
+    // Land any debounced edit first: the project state must describe the same
+    // inputs the solver is about to read.
+    flushEngineeringPersist();
     const study = get().study;
     if (!study) return null;
     const step =
@@ -529,8 +668,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         return null;
       }
       const result = built.result;
-      const next = cloneStudy(study);
-      next.fields = result.fields;
+      // Shallow copy + fresh solver arrays: nothing on the pre-solve study is
+      // mutated, and a deep clone here would re-materialise the previous
+      // fields for nothing.
+      const next: EngineeringStudy = { ...study, fields: result.fields };
       set({
         study: next,
         result,
@@ -539,7 +680,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         buildStats: built.stats,
         buildCached: built.cached,
       });
-      persistStudy(next, result, get().scan, step.id);
+      persistStudyNow(next, result, get().scan, step.id);
       // Make the solve visible in /studio/runs, lineage and auto-commit, just
       // like a Flow run — with its build breakdown and attestation digest.
       const stats = built.stats;

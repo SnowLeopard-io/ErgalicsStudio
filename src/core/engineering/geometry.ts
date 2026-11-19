@@ -25,6 +25,142 @@ export class GeometryParseError extends Error {
 
 const CIRCLE_SEGMENTS = 64;
 
+// ---- 长度单位 --------------------------------------------------------------
+// CAD 导出器用 `$INSUNITS`（DXF HEADER）或 STEP 单位定义实体声明长度单位。
+// 解析结果统一换算到米，比例因子即单位对应的米数。
+
+interface LengthUnit {
+  metres: number;
+  name: string;
+}
+
+const UNIT_INCH: LengthUnit = { metres: 0.0254, name: 'inch' };
+const UNIT_FOOT: LengthUnit = { metres: 0.3048, name: 'foot' };
+const UNIT_MILE: LengthUnit = { metres: 1609.344, name: 'mile' };
+const UNIT_MILLIMETRE: LengthUnit = { metres: 0.001, name: 'millimetre' };
+const UNIT_CENTIMETRE: LengthUnit = { metres: 0.01, name: 'centimetre' };
+const UNIT_METRE: LengthUnit = { metres: 1, name: 'metre' };
+const UNIT_KILOMETRE: LengthUnit = { metres: 1000, name: 'kilometre' };
+const UNIT_MICROINCH: LengthUnit = { metres: 2.54e-8, name: 'microinch' };
+const UNIT_MICRON: LengthUnit = { metres: 1e-6, name: 'micron' };
+const UNIT_MIL: LengthUnit = { metres: 2.54e-5, name: 'mil' };
+const UNIT_YARD: LengthUnit = { metres: 0.9144, name: 'yard' };
+
+const UNKNOWN_LENGTH_UNIT: LengthUnit = { metres: 1, name: 'unknown' };
+
+// INSUNITS 编码 → 米。0 表示无单位，按 1 倍处理。
+const LENGTH_UNITS_BY_CODE = new Map<number, LengthUnit>([
+  [0, { metres: 1, name: 'unitless' }],
+  [1, UNIT_INCH],
+  [2, UNIT_FOOT],
+  [3, UNIT_MILE],
+  [4, UNIT_MILLIMETRE],
+  [5, UNIT_CENTIMETRE],
+  [6, UNIT_METRE],
+  [7, UNIT_KILOMETRE],
+  [8, UNIT_MICROINCH],
+  [9, UNIT_MICRON],
+  [10, UNIT_MIL],
+  [11, UNIT_YARD],
+]);
+
+// STEP 的 CONVERSION_BASED_UNIT 名称 → 米（键为去掉空白/下划线/连字符后的大写名）。
+const LENGTH_UNITS_BY_NAME = new Map<string, LengthUnit>([
+  ['INCH', UNIT_INCH],
+  ['IN', UNIT_INCH],
+  ['FOOT', UNIT_FOOT],
+  ['FEET', UNIT_FOOT],
+  ['FT', UNIT_FOOT],
+  ['MILE', UNIT_MILE],
+  ['YARD', UNIT_YARD],
+  ['YD', UNIT_YARD],
+  ['MIL', UNIT_MIL],
+  ['THOU', UNIT_MIL],
+  ['MICROINCH', UNIT_MICROINCH],
+  ['MICRON', UNIT_MICRON],
+  ['MICROMETRE', UNIT_MICRON],
+  ['MICROMETER', UNIT_MICRON],
+  ['MILLIMETRE', UNIT_MILLIMETRE],
+  ['MILLIMETER', UNIT_MILLIMETRE],
+  ['CENTIMETRE', UNIT_CENTIMETRE],
+  ['CENTIMETER', UNIT_CENTIMETRE],
+  ['METRE', UNIT_METRE],
+  ['METER', UNIT_METRE],
+  ['KILOMETRE', UNIT_KILOMETRE],
+  ['KILOMETER', UNIT_KILOMETRE],
+]);
+
+const SI_PREFIX_TO_METRES: Record<string, number> = {
+  '': 1,
+  MILLI: 1e-3,
+  CENTI: 1e-2,
+  DECI: 1e-1,
+  DECA: 1e1,
+  HECTO: 1e2,
+  KILO: 1e3,
+  MICRO: 1e-6,
+  NANO: 1e-9,
+};
+
+/**
+ * 读取 DXF HEADER 中的 `$INSUNITS`：键是组码 9，值是紧随其后的组码 70。
+ * 从整个组码表扫描（旧实现从头扫且被首个组码 0 截断，永远读不到）。
+ */
+function dxfLengthUnit(pairs: DxfPair[]): LengthUnit {
+  for (let i = 0; i < pairs.length; i += 1) {
+    const pair = pairs[i]!;
+    if (pair.code !== 9 || pair.value.toUpperCase() !== '$INSUNITS') continue;
+    for (let j = i + 1; j < pairs.length; j += 1) {
+      const value = pairs[j]!;
+      if (value.code === 9) break;
+      if (value.code === 70) {
+        return LENGTH_UNITS_BY_CODE.get(Number(value.value)) ?? UNKNOWN_LENGTH_UNIT;
+      }
+    }
+  }
+  return UNKNOWN_LENGTH_UNIT;
+}
+
+/** 识别 STEP 中声明的长度单位；无法识别时保持 1 倍并标记 unknown。 */
+function stepLengthUnit(text: string): LengthUnit {
+  // 1) HEADER 里显式写出的 INSUNITS 编码（键与值可能分行）。
+  const declared = /\$?INSUNITS\s*[:=]?\s*['"]?(\d+)/i.exec(text);
+  if (declared) {
+    const unit = LENGTH_UNITS_BY_CODE.get(Number(declared[1]));
+    if (unit) return unit;
+  }
+  // 2) 标准单位定义实体。CONVERSION_BASED_UNIT 优先：其 SI_UNIT 基单位
+  //    往往写成毫米（例如英寸文件里的 LENGTH_MEASURE(25.4) 基准）。
+  const conversion = /CONVERSION_BASED_UNIT\s*\(\s*'([^']*)'/gi;
+  let match: RegExpExecArray | null;
+  while ((match = conversion.exec(text)) !== null) {
+    const key = match[1]!.trim().toUpperCase().replace(/[\s_-]+/g, '');
+    const unit = LENGTH_UNITS_BY_NAME.get(key);
+    if (unit) return unit;
+  }
+  // 3) SI_UNIT(.MILLI.,.METRE.) / SI_UNIT($,.METRE.)。
+  const si = /SI_UNIT\s*\(\s*(?:\.([A-Z]+)\.|\$)\s*,\s*\.METRE\s*\./i.exec(text);
+  if (si) {
+    const prefix = (si[1] ?? '').toUpperCase();
+    const metres = SI_PREFIX_TO_METRES[prefix];
+    if (metres !== undefined) {
+      return { metres, name: prefix ? `${prefix.toLowerCase()}metre` : 'metre' };
+    }
+  }
+  return UNKNOWN_LENGTH_UNIT;
+}
+
+function scalePoints(entities: GeometryEntity[], factor: number): void {
+  if (factor === 1) return;
+  for (const entity of entities) {
+    for (const point of entity.points) {
+      point[0] *= factor;
+      point[1] *= factor;
+      point[2] *= factor;
+    }
+  }
+}
+
 function boundsOf(points: Array<[number, number, number]>): EngineeringGeometry['bounds'] {
   if (points.length === 0) return [0, 0, 0, 0, 0, 0];
   let minX = Infinity, minY = Infinity, minZ = Infinity;
@@ -231,11 +367,15 @@ export function parseDxf(text: string, name = 'drawing.dxf'): EngineeringGeometr
     }
   }
 
+  // 统一换算到米；圆/圆弧的半径已折算进离散点，随坐标一起缩放。
+  const unit = dxfLengthUnit(pairs);
+  scalePoints(entities, unit.metres);
+
   return finishGeometry('dxf', entities, {
     name,
     layers: String(layers.size),
     entities: String(entities.length),
-    units: textValue(pairs, 0, 9) || 'unknown',
+    units: unit.name,
   });
 }
 
@@ -248,13 +388,20 @@ export function parseStep(text: string, name = 'part.step'): EngineeringGeometry
   if (!/ISO-10303-21/i.test(text)) {
     throw new GeometryParseError('not an ISO-10303-21 (STEP) file');
   }
+  // 解析得到的坐标仍是以文件声明单位计的数值，统一换算到米。
+  const unit = stepLengthUnit(text);
+  const factor = unit.metres;
   const points: Array<[number, number, number]> = [];
   const seen = new Set<string>();
   let match: RegExpExecArray | null;
   while ((match = CARTESIAN_POINT.exec(text)) !== null) {
     const parts = match[2]!.split(',').map((part) => Number(part.trim()));
     if (parts.length < 2 || parts.some((value) => !Number.isFinite(value))) continue;
-    const point: [number, number, number] = [parts[0]!, parts[1]!, parts[2] ?? 0];
+    const point: [number, number, number] = [
+      parts[0]! * factor,
+      parts[1]! * factor,
+      (parts[2] ?? 0) * factor,
+    ];
     const key = point.map((value) => value.toFixed(6)).join(',');
     if (seen.has(key)) continue;
     seen.add(key);
@@ -272,14 +419,11 @@ export function parseStep(text: string, name = 'part.step'): EngineeringGeometry
     points,
     closed: false,
   };
-  const units = /SI_UNIT\s*\(\s*\.(?:MILLI|CENTI|KILO)?\.\s*,\s*\.METRE/i.test(text)
-    ? 'metre'
-    : 'unknown';
   return finishGeometry('step', [entity], {
     name,
     entities: '1',
     points: String(points.length),
-    units,
+    units: unit.name,
   });
 }
 

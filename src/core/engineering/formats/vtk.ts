@@ -140,9 +140,15 @@ function parseLegacy(text: string, name: string): EngineeringStudy {
   });
 }
 
+/** Escape regex metacharacters so field names such as `u.x`, `S(MPa)` or
+ *  `a+b` become literal matches instead of patterns. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** Return the full <DataArray …>…</DataArray> element for a named field. */
 function dataArrayElement(xml: string, name: string): string {
-  const regex = new RegExp(`<DataArray\\b(?=[^>]*\\bName="${name}")[^>]*>[\\s\\S]*?<\\/DataArray>`, 'i');
+  const regex = new RegExp(`<DataArray\\b(?=[^>]*\\bName="${escapeRegExp(name)}")[^>]*>[\\s\\S]*?<\\/DataArray>`, 'i');
   return regex.exec(xml)?.[0] ?? '';
 }
 
@@ -151,7 +157,7 @@ function dataArrayInner(element: string): string {
 }
 
 function arrayByAttribute(xml: string, attribute: string, value: string): string {
-  const regex = new RegExp(`<DataArray\\b(?=[^>]*\\b${attribute}="${value}")[^>]*>([\\s\\S]*?)<\\/DataArray>`, 'i');
+  const regex = new RegExp(`<DataArray\\b(?=[^>]*\\b${escapeRegExp(attribute)}="${escapeRegExp(value)}")[^>]*>([\\s\\S]*?)<\\/DataArray>`, 'i');
   return regex.exec(xml)?.[1] ?? '';
 }
 
