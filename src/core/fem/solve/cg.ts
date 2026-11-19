@@ -50,7 +50,17 @@ export function conjugateGradient(A: CsrMatrix, b: ArrayLike<number>, options: C
 
   let iterations = 0;
   let converged = Math.sqrt(rr) <= tol * bNorm;
-  while (!converged && iterations < maxIter) {
+  // Degenerate systems (e.g. zero-area elements) can poison the recurrence
+  // with NaN/Inf: detect it before/after every update and fail fast through
+  // the normal non-converged return instead of spinning to maxIter.
+  const allFinite = (values: Float64Array): boolean => {
+    for (let i = 0; i < values.length; i += 1) {
+      if (!Number.isFinite(values[i]!)) return false;
+    }
+    return true;
+  };
+  let valid = allFinite(x) && allFinite(r) && allFinite(p);
+  while (!converged && iterations < maxIter && valid) {
     csrMulVec(A, p, Ap);
     let pAp = 0;
     for (let i = 0; i < n; i += 1) pAp += p[i]! * Ap[i]!;
@@ -67,6 +77,11 @@ export function conjugateGradient(A: CsrMatrix, b: ArrayLike<number>, options: C
     rr = rrNew;
     iterations += 1;
     converged = Math.sqrt(rr) <= tol * bNorm;
+    valid = allFinite(x) && allFinite(r) && allFinite(p);
+  }
+  if (!valid) {
+    // Broken iterate: the true residual is meaningless (NaN) — report failure.
+    return { solution: x, iterations, residual: Number.NaN, converged: false };
   }
   // Report the true residual ‖b − A x‖.
   csrMulVec(A, x, Ap);

@@ -18,9 +18,9 @@ import {
 import { solvePoisson } from '@/core/fem/physics/poisson';
 import { solveHeat } from '@/core/fem/physics/heat';
 import { rectStructuredMesh } from '@/core/fem/mesh/domain';
-import { nodeCount } from '@/core/fem/mesh/types';
+import { nodeCount, triangleSignedArea } from '@/core/fem/mesh/types';
 import { toPlanarMesh } from './mesh';
-import { coefficientByTag } from './materials';
+import { coefficientByTag, materialProperty, resolveMaterial } from './materials';
 import { ensureCase, normalizeStep } from './cases';
 import type {
   BoundaryCondition,
@@ -99,7 +99,11 @@ function combinedDirichlet(
   };
 }
 
-function fieldRange(values: Float64Array, components: number): { min: number; max: number } {
+function fieldRange(
+  name: string,
+  values: Float64Array,
+  components: number,
+): { min: number; max: number } {
   let min = Infinity;
   let max = -Infinity;
   for (let i = 0; i < values.length; i += 1) {
@@ -114,14 +118,23 @@ function fieldRange(values: Float64Array, components: number): { min: number; ma
       value = Math.sqrt(value);
       i += components - 1;
     }
+    // A non-finite entry means the solve diverged (typically a degenerate
+    // element): propagate the failure instead of masking it, so a NaN field
+    // can never be reported as a valid result.
+    if (!Number.isFinite(value)) {
+      throw new EngineeringSolveError(
+        `${name} field contains non-finite values — the mesh is likely degenerate or the solve diverged`,
+      );
+    }
     if (value < min) min = value;
     if (value > max) max = value;
   }
+  // Empty arrays keep the legacy 0/0 display default.
   return { min: Number.isFinite(min) ? min : 0, max: Number.isFinite(max) ? max : 0 };
 }
 
 function addRangeMetrics(metrics: Record<string, number>, name: string, field: EngineeringField): void {
-  const range = fieldRange(field.values, field.components);
+  const range = fieldRange(name, field.values, field.components);
   metrics[`min_${name}`] = range.min;
   metrics[`max_${name}`] = range.max;
 }
@@ -139,6 +152,18 @@ export function solveEngineeringStudy(
     throw new EngineeringSolveError(
       'mesh is not planarly solvable: only 2-D tri3/quad4 meshes with z ≈ 0 are supported',
     );
+  }
+  // Degenerate elements (zero area / non-finite coordinates) silently produce
+  // a singular system; reject them before assembly with a clear message
+  // instead of returning a NaN field that looks like a valid result.
+  for (let e = 0; e < planar.elements.length; e += 1) {
+    const element = planar.elements[e]!;
+    const area = Math.abs(triangleSignedArea(planar.nodes, element.a, element.b, element.c));
+    if (!Number.isFinite(area) || area <= 0) {
+      throw new EngineeringSolveError(
+        `degenerate element ${e}: zero or non-finite area — check for duplicate or collinear nodes`,
+      );
+    }
   }
   // Element physical tags present in the mesh — per-tag materials are only
   // meaningful for tags that actually exist in the mesh.
@@ -232,8 +257,6 @@ export function solveEngineeringStudy(
     addRangeMetrics(metrics, 'stress', fields[2]!);
   } else if (step.kind === 'steady-heat' || step.kind === 'transient-heat') {
     const k = coefficientByTag(study.materials, study.materialAssignment, 'k', 1, tags);
-    const rho = coefficientByTag(study.materials, study.materialAssignment, 'rho', 1, tags);
-    const cp = coefficientByTag(study.materials, study.materialAssignment, 'cp', 1, tags);
     const dirichlet = combinedDirichlet(
       study.mesh,
       study.boundaryConditions.filter((condition) => condition.kind === 'temperature'),
@@ -269,10 +292,13 @@ export function solveEngineeringStudy(
       const result = solveHeat({
         mesh: planar,
         k,
-        heatCapacity: () => {
-          const rv = typeof rho === 'number' ? rho : rho[0] ?? 1;
-          const cv = typeof cp === 'number' ? cp : cp[0] ?? 1;
-          return rv * cv;
+        // ρc per element tag: resolve each tag's material directly (the
+        // Coefficient function form). The old rho[0]/cp[0] lookup silently
+        // fell back to 1 whenever tag 0 was absent from the per-tag record,
+        // corrupting the heat capacity by orders of magnitude.
+        heatCapacity: (tag: number) => {
+          const material = resolveMaterial(study.materials, study.materialAssignment, tag);
+          return materialProperty(material, 'rho', 1) * materialProperty(material, 'cp', 1);
         },
         initial: () => options.initialTemperature ?? 0,
         dirichlet: { nodes: heatDirichlet.nodes, value: heatDirichlet.value },

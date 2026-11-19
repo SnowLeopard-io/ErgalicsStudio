@@ -107,21 +107,28 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
    */
   const loadIndustrialExample = async (id: string) => {
     const example = INDUSTRIAL_EXAMPLES.find((item) => item.id === id);
-    if (!example) return;
-    // Industrial tools are project-bound: give the sample a project when the
-    // workbench is still empty, so it opens instead of an EmptyProject gate.
-    if (!useProjectStore.getState().project) {
-      await useProjectStore.getState().createProject('');
+    // Same re-entrancy guard as loadExample: a double-click must not build
+    // two projects / studies.
+    if (!example || loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      // Industrial tools are project-bound: give the sample a project when the
+      // workbench is still empty, so it opens instead of an EmptyProject gate.
+      if (!useProjectStore.getState().project) {
+        await useProjectStore.getState().createProject('');
+      }
+      useEngineeringStore.getState().setStudy(example.build());
+      const app = useAppStore.getState();
+      app.setMode('standard');
+      app.setSidebarView('industrial');
+      app.setEmbeddedTool('mesh-viewer');
+      notify('success', t('industrial.example_loaded', {
+        name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
+      }));
+      onClose();
+    } finally {
+      loadingRef.current = false;
     }
-    useEngineeringStore.getState().setStudy(example.build());
-    const app = useAppStore.getState();
-    app.setMode('standard');
-    app.setSidebarView('industrial');
-    app.setEmbeddedTool('mesh-viewer');
-    notify('success', t('industrial.example_loaded', {
-      name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
-    }));
-    onClose();
   };
 
   /**

@@ -24,8 +24,8 @@ describe('engineering file entry point', () => {
     expect(isEngineeringExtension('a.msh')).toBe(true);
     expect(isEngineeringExtension('a.csv')).toBe(false);
     expect(detectEngineeringFormat('a.msh')).toBe('gmsh');
-    expect(detectEngineeringFormat('unknown.dat', MSH)).toBe('gmsh');
-    expect(detectEngineeringFormat('unknown.dat', '*NODE\n1,0,0')).toBe('abaqus');
+    expect(detectEngineeringFormat('unknown.unknown', MSH)).toBe('gmsh');
+    expect(detectEngineeringFormat('unknown.unknown', '*NODE\n1,0,0')).toBe('abaqus');
     expect(detectEngineeringFormat('a.txt')).toBeNull();
   });
 

@@ -69,7 +69,7 @@ import type {
   EngineeringScanRow,
 } from '@/core/engineering/projectState';
 import { ENGINEERING_STUDY_PATH } from '@/core/engineering/projectState';
-import { useProjectStore, getProjectRepoPath } from './projectStore';
+import { useProjectStore, getProjectRepoPath, getProjectSession } from './projectStore';
 import { useAppStore } from './appStore';
 import { getVfs } from '@/core/vfs';
 import { t, getLocale } from '@/i18n';
@@ -119,7 +119,7 @@ interface EngineeringStore {
   /** Clear cached engineering solves. */
   clearBuildCache: () => void;
   runBenchmark: () => BenchmarkResult;
-  runScan: (points?: number) => EngineeringScanRow[];
+  runScan: (points?: number) => Promise<EngineeringScanRow[]>;
   fingerprint: () => EngineeringFingerprint | null;
   buildReport: () => EngineeringReport | null;
   /** Persist the study JSON into the workspace (`study/engineering.json`). */
@@ -165,8 +165,10 @@ function persistState(state: EngineeringProjectState): void {
       updatedAt: Date.now(),
       state: { ...project.state, engineering: state },
     },
-    dirty: true,
   });
+  // Route through the store action: a raw `dirty: true` bypassed editRevision
+  // (breaking save-change detection) and the 2s dirty-flush debounce.
+  useProjectStore.getState().setDirty(true);
 }
 
 function persistStudy(
@@ -211,6 +213,9 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         activeStepId: step.id,
         error: null,
         benchmark: null,
+        solving: false,
+        buildStats: null,
+        buildCached: false,
       });
       persistStudy(study, null, [], step.id);
       // Mirror the source into the industrial workspace folders. Failures are
@@ -279,7 +284,16 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const stored = project?.state.engineering;
     const study = stored?.study ? fromStudySnapshot(stored.study) : null;
     if (!study) {
-      set({ study: null, result: null, scan: [], activeStepId: null, error: null });
+      set({
+        study: null,
+        result: null,
+        scan: [],
+        activeStepId: null,
+        error: null,
+        solving: false,
+        buildStats: null,
+        buildCached: false,
+      });
       return;
     }
     const normalized = ensureDefaults(study);
@@ -296,11 +310,24 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       scan: stored?.scan ?? [],
       activeStepId: stepId,
       error: null,
+      solving: false,
+      buildStats: null,
+      buildCached: false,
     });
   },
 
   clear: () => {
-    set({ study: null, result: null, scan: [], activeStepId: null, error: null, benchmark: null });
+    set({
+      study: null,
+      result: null,
+      scan: [],
+      activeStepId: null,
+      error: null,
+      benchmark: null,
+      solving: false,
+      buildStats: null,
+      buildCached: false,
+    });
     persistState({ study: null, result: null, scan: [], activeStepId: null, updatedAt: Date.now() });
   },
 
@@ -312,6 +339,16 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       ? materialFromTemplate(templateId, name)
       : makeMaterial(name ?? `Material ${next.materials.length + 1}`, { E: 2.1e11, nu: 0.3, rho: 7850 });
     if (!material) return;
+    // Material names key the update/remove lookups and the fingerprint's
+    // materialHashes Record: a duplicate name would let the fingerprint
+    // overwrite the first material while the solver still reads the first,
+    // making the cache key disagree with the actual inputs. Deduplicate.
+    const taken = new Set(next.materials.map((item) => item.name));
+    if (taken.has(material.name)) {
+      let suffix = 2;
+      while (taken.has(`${material.name} (${suffix})`)) suffix += 1;
+      material.name = `${material.name} (${suffix})`;
+    }
     next.materials.push(material);
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
@@ -463,6 +500,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   },
 
   solve: async (stepId) => {
+    if (get().solving) return null;
     const study = get().study;
     if (!study) return null;
     const step =
@@ -470,9 +508,26 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         .flatMap((studyCase) => studyCase.steps)
         .find((candidate) => candidate.id === (stepId ?? get().activeStepId)) ??
       ensureCase(study.cases)[0]!.steps[0]!;
+    // Capture the session + study reference BEFORE the await: edits during the
+    // solve replace the study object and a project switch changes the session.
+    // Resolving against either stale target would roll the user's edits back
+    // or persist this study into another project.
+    const session = getProjectSession();
+    const projectId = useProjectStore.getState().project?.id;
     set({ solving: true, error: null });
     try {
       const built: EngineeringBuild = await runEngineeringBuild(study, { step });
+      const project = useProjectStore.getState().project;
+      if (getProjectSession() !== session || project?.id !== projectId) {
+        // Project switched mid-solve: drop the result. The switch reset
+        // `solving`; a newer solve may own the flag now — don't touch it.
+        return null;
+      }
+      if (get().study !== study) {
+        // Edited mid-solve (same project): keep the edits, discard the result.
+        set({ solving: false });
+        return null;
+      }
       const result = built.result;
       const next = cloneStudy(study);
       next.fields = result.fields;
@@ -519,8 +574,15 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.warn('engineering', 'solve failed', err);
-      set({ solving: false, error: message });
-      useAppStore.getState().notify('error', message);
+      // Same staleness guard as the success path: after a project switch the
+      // flag/error surface belongs to the new project's state.
+      if (
+        getProjectSession() === session &&
+        useProjectStore.getState().project?.id === projectId
+      ) {
+        set({ solving: false, error: message });
+        useAppStore.getState().notify('error', message);
+      }
       return null;
     }
   },
@@ -536,16 +598,24 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     return benchmark;
   },
 
-  runScan: (points) => {
+  runScan: async (points) => {
     const study = get().study;
     if (!study) return [];
     const studyCase = ensureCase(study.cases)[0]!;
     const designPoints = expandDesign(studyCase.design, { samples: points });
     if (designPoints.length === 0) return [];
     const stepId = get().activeStepId;
+    // The batches below yield to the event loop, so the study/project can
+    // change mid-scan. Capture the targets now and re-validate before
+    // persisting so a stale scan never lands in another project/state.
+    const session = getProjectSession();
+    const projectId = useProjectStore.getState().project?.id;
     const rows: EngineeringScanRow[] = [];
     const cap = 2048;
-    for (const point of designPoints.slice(0, cap)) {
+    const batchSize = 64;
+    const limited = designPoints.slice(0, cap);
+    for (let index = 0; index < limited.length; index += 1) {
+      const point = limited[index]!;
       const variant = cloneStudy(study);
       const variantSteps = ensureCase(variant.cases)[0]!.steps;
       const warnings = applyDesignPoint({
@@ -575,6 +645,19 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         });
         logger.debug('engineering', 'scan point failed', err);
       }
+      // Yield between batches: keeps the busy spinner painting and the main
+      // thread responsive across a full-cap scan.
+      if (index % batchSize === batchSize - 1 && index < limited.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    if (
+      getProjectSession() !== session ||
+      useProjectStore.getState().project?.id !== projectId ||
+      get().study !== study
+    ) {
+      // Stale scan (edit or project switch mid-run): rows stay local.
+      return rows;
     }
     set({ scan: rows });
     persistStudy(study, get().result, rows, get().activeStepId);

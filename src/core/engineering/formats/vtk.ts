@@ -96,21 +96,35 @@ function parseLegacy(text: string, name: string): EngineeringStudy {
   }
 
   const fields: EngineeringField[] = [];
+  // Legacy files declare the active attribute block: POINT_DATA → nodal
+  // fields, CELL_DATA → per-element fields (default: nodal).
+  let location: EngineeringField['location'] = 'node';
   for (let i = 0; i < lines.length; i += 1) {
-    const match = /^SCALARS\s+(\S+)\s+\S+(?:\s+(\d+))?/i.exec(lines[i]!.trim());
+    const line = lines[i]!.trim();
+    if (/^POINT_DATA/i.test(line)) location = 'node';
+    else if (/^CELL_DATA/i.test(line)) location = 'element';
+    const match = /^SCALARS\s+(\S+)\s+\S+(?:\s+(\d+))?/i.exec(line);
     if (!match) continue;
     const nameField = match[1]!;
     const components = Number(match[2] ?? 1);
     const data: number[] = [];
     for (let j = i + 1; j < lines.length; j += 1) {
-      const line = lines[j]!.trim();
-      if (/^LOOKUP_TABLE/i.test(line)) continue;
-      if (/^[A-Z]/i.test(line)) break;
-      data.push(...numbers(line));
+      const dataLine = lines[j]!.trim();
+      if (/^LOOKUP_TABLE/i.test(dataLine)) continue;
+      if (/^[A-Z]/i.test(dataLine)) break;
+      data.push(...numbers(dataLine));
+    }
+    // Field length must match the block's entity count — a mismatch means the
+    // parse drifted, so fail loudly instead of importing a corrupted field.
+    const expected = (location === 'node' ? pointCount : cellCount) * components;
+    if (data.length !== expected) {
+      throw new VtkParseError(
+        `field "${nameField}" has ${data.length} values, expected ${expected} for ${location === 'node' ? 'point' : 'cell'} data`,
+      );
     }
     fields.push({
       name: nameField,
-      location: 'node',
+      location,
       components,
       values: Float64Array.from(data),
     });

@@ -20,7 +20,15 @@ import {
 const GMSH_TYPES: Record<number, ElementType> = {
   1: 'line2', 2: 'tri3', 3: 'quad4', 4: 'tet4', 5: 'hex8',
   6: 'wedge6', 7: 'pyramid5', 8: 'line3', 9: 'tri6', 10: 'quad9',
-  11: 'tet10', 12: 'quad8', 13: 'hex20', 15: 'point', 17: 'polyhedron', 18: 'polygon',
+  11: 'tet10', 13: 'hex20', 15: 'point', 17: 'polyhedron', 18: 'polygon',
+};
+
+/** Gmsh high-order ids with no faithful entry in the closed element
+ *  vocabulary (id → node count). Parsing fails loudly instead of silently
+ *  mislabelling the topology and dropping nodes. */
+const UNSUPPORTED_GMSH_TYPES: Record<number, number> = {
+  12: 27, // 27-node second-order hexahedron (hex27)
+  16: 8,  // 8-node second-order quadrangle (quad8)
 };
 
 const DIMENSION_BY_TYPE: Partial<Record<ElementType, number>> = {
@@ -140,9 +148,10 @@ function readEntityPhysicalTags(lines: string[]): Map<string, number[]> {
     for (let i = 0; i < n && cursor < lines.length; i += 1) {
       const parts = tokens(lines[cursor++]!).map(Number);
       const entityTag = parts[0]!;
-      // Point: tag x y z numPhys phys… ; Curve/Surface/Volume: tag 6 bbox coords
-      // numPhys phys… then bounding entities. Physical count is at index 4/8.
-      const physCountIndex = dim === 0 ? 4 : 8;
+      // Point: tag x y z numPhys phys… ; Curve/Surface/Volume: tag + 6 bbox
+      // coords + numPhys phys… then bounding entities. The physical-tag
+      // count therefore sits at index 4 for points, 7 for dim ≥ 1.
+      const physCountIndex = dim === 0 ? 4 : 7;
       const physCount = parts[physCountIndex] ?? 0;
       const physical: number[] = [];
       for (let p = 0; p < physCount; p += 1) physical.push(parts[physCountIndex + 1 + p]!);
@@ -187,7 +196,15 @@ function readElements(
   const indexById = new Map(nodes.map((node, index) => [node.id, index]));
   for (let block = 0; block < blockCount && cursor < lines.length; block += 1) {
     const parts = tokens(lines[cursor++] ?? '').map(Number);
-    const elementType = GMSH_TYPES[parts[2]!] ?? 'polyhedron';
+    const elementType = GMSH_TYPES[parts[2]!];
+    if (elementType === undefined) {
+      // Kernel has no faithful counterpart for these (hex27, 8-node quad, …):
+      // error out with the node count instead of mapping them onto a wrong
+      // topology. Node count falls back to the block's first element line.
+      const nodeCount = UNSUPPORTED_GMSH_TYPES[parts[2]!] ??
+        Math.max(tokens(lines[cursor] ?? '').length - 1, 0);
+      throw new GmshParseError(`暂不支持 ${nodeCount} 节点单元类型 ${parts[2]}`);
+    }
     const inBlock = Number(parts[3] ?? 0);
     const physical = entityPhysical.get(`${parts[0]}:${parts[1]}`);
     for (let i = 0; i < inBlock && cursor < lines.length; i += 1, cursor += 1) {

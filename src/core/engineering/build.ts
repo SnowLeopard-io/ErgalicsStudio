@@ -129,7 +129,11 @@ export async function runEngineeringBuild(
     const text = raw && 'kind' in raw && raw.kind === 'scalar' ? String(raw.value) : '';
     const restored = fromResultSnapshot(JSON.parse(text));
     if (!restored) throw new Error('cached engineering result could not be restored');
-    result = restored;
+    // Display-only refresh: the snapshot carries the step name from whenever
+    // it was first computed, so a rename since then would show stale. stepId
+    // is part of the cache key, so identity holds — only the label changes
+    // (the cache key itself is untouched).
+    result = restored.stepName === step.name ? restored : { ...restored, stepName: step.name };
   } else {
     // The runner solved on the compute path; reuse that result rather than
     // solving a second time.

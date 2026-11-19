@@ -65,6 +65,11 @@ export function CadViewport({
 }: CadViewportProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<SceneHandle | null>(null);
+  // Keep the snapshot callback in a ref: the parent passes a fresh closure on
+  // every render, and listing it in the snapshot effect's deps would re-run
+  // (and re-download) the PNG after each unrelated parent re-render.
+  const onSnapshotReadyRef = useRef(onSnapshotReady);
+  onSnapshotReadyRef.current = onSnapshotReady;
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,10 +173,11 @@ export function CadViewport({
   useEffect(() => {
     if (snapshotRequest === 0) return;
     const handle = handleRef.current;
-    if (!handle || !onSnapshotReady) return;
+    const ready = onSnapshotReadyRef.current;
+    if (!handle || !ready) return;
     handle.renderer.render(handle.scene, handle.camera);
-    onSnapshotReady(handle.renderer.domElement.toDataURL('image/png'));
-  }, [snapshotRequest, onSnapshotReady]);
+    ready(handle.renderer.domElement.toDataURL('image/png'));
+  }, [snapshotRequest]);
 
   return (
     <div className="ind-cad-viewport" style={{ height }} ref={hostRef}>

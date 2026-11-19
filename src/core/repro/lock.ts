@@ -724,7 +724,18 @@ export function verifyLock(
   if (lock.engineering) {
     const currentEngineering =
       options.engineering === undefined ? projectEngineeringFingerprint(project) : options.engineering;
-    if (currentEngineering) {
+    if (!currentEngineering) {
+      // The lock recorded an engineering study but none is loaded now: the
+      // fingerprint cannot be checked, so report it as a missing drift with
+      // the same missing=fail semantics as run records — not a silent pass.
+      drifts.push({
+        category: 'code',
+        kind: 'missing',
+        target: 'engineering:fingerprint',
+        message: 'engineering study fingerprint is missing (no study loaded)',
+        severity: 'fail',
+      });
+    } else {
       const push = (target: string, expected: string, actual: string): void => {
         if (expected === actual) return;
         drifts.push({

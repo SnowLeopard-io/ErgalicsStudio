@@ -248,12 +248,16 @@ function SvgPlot({ spec }: { spec: PlotSpec }) {
 function StudyMeta() {
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
+  // Mesh statistics are O(elements): cache the summary per mesh reference so
+  // page re-renders do not rescan the whole mesh every time.
+  const mesh = study?.mesh ?? null;
+  const meshSummary = useMemo(() => (mesh ? localizedMeshSummary(t, mesh) : ''), [t, mesh]);
   if (!study) return null;
   const material = primaryMaterial(study);
   return (
     <div className="ind-meta">
       <span className="tag">{study.sourceFormat}</span>
-      <span>{localizedMeshSummary(t, study.mesh)}</span>
+      <span>{meshSummary}</span>
       <span>{material?.name ?? '—'}</span>
     </div>
   );
@@ -275,6 +279,9 @@ export function GeometryPage() {
   const [wireframe, setWireframe] = useState(true);
   const [snapshotTick, setSnapshotTick] = useState(0);
   const entities = geometry?.entities.filter((entity) => selected === 'all' || entity.layer === selected) ?? [];
+  // Stable identity per selection: a fresh array on every render would trip
+  // the CadViewport content-rebuild effect and reset the camera.
+  const layers = useMemo(() => (selected === 'all' ? undefined : [selected]), [selected]);
   const base = artifactBaseName(study);
   const takeSnapshot = (url: string) => {
     const link = document.createElement('a');
@@ -351,7 +358,7 @@ export function GeometryPage() {
                 </div>
                 <CadViewport
                   geometry={geometry}
-                  layers={selected === 'all' ? undefined : [selected]}
+                  layers={layers}
                   wireframe={wireframe}
                   preset={preset}
                   snapshotRequest={snapshotTick}
@@ -556,7 +563,7 @@ export function MaterialsPage() {
                 <section key={material.name} className="ind-card">
                   <header className="ind-card-head">
                     <strong>{material.name}</strong>
-                    <button type="button" className="btn btn-sm" onClick={() => removeMaterial(material.name)}>×</button>
+                    <button type="button" className="btn btn-sm" aria-label={t('common.delete')} onClick={() => removeMaterial(material.name)}>×</button>
                   </header>
                   <div className="ind-hint">{materialSummary(material)}</div>
                   <div className="ind-prop-grid">
@@ -645,7 +652,7 @@ export function CasesPage() {
                   <header className="ind-card-head">
                     <button type="button" className="ind-link" onClick={() => selectStep(step.id)}>{step.name}</button>
                     <span className="tag">{stepKindLabel(t, step.kind)}</span>
-                    <button type="button" className="btn btn-sm" onClick={() => removeStep(step.id)}>×</button>
+                    <button type="button" className="btn btn-sm" aria-label={t('common.delete')} onClick={() => removeStep(step.id)}>×</button>
                   </header>
                   <div className="ind-prop-grid">
                     <label className="ind-field">
@@ -738,7 +745,7 @@ function BoundaryEditor() {
           <thead><tr><th>{t('industrial.name')}</th><th>{t('industrial.kind')}</th><th>{t('industrial.target')}</th><th>{t('industrial.components')}</th><th /></tr></thead>
           <tbody>
             {study.boundaryConditions.map((bc, index) => (
-              <tr key={`${bc.name}-${index}`}>
+              <tr key={index}>
                 <td><input className="input input-sm" value={bc.name} onChange={(e) => update(index, { name: e.target.value })} /></td>
                 <td>{boundaryKindLabel(t, bc.kind)}</td>
                 <td>{bc.target.dimension}:{bc.target.tag}</td>
@@ -748,7 +755,7 @@ function BoundaryEditor() {
                   <input className="input input-sm" type="number" step="any" value={bc.components[1] ?? 0}
                     onChange={(e) => update(index, { components: { ...bc.components, 1: Number(e.target.value) } })} />
                 </td>
-                <td><button type="button" className="btn btn-sm" onClick={() => remove(index)}>×</button></td>
+                <td><button type="button" className="btn btn-sm" aria-label={t('common.delete')} onClick={() => remove(index)}>×</button></td>
               </tr>
             ))}
           </tbody>
@@ -793,7 +800,7 @@ function DesignSpaceEditor({
               {design.parameters.map((parameter, index) => (
                 <tr key={`${parameter.name}-${index}`}>
                   <td>{parameter.name}</td><td>{parameter.min}</td><td>{parameter.max}</td><td>{parameter.levels}</td>
-                  <td><button type="button" className="btn btn-sm" onClick={() => onChange({
+                  <td><button type="button" className="btn btn-sm" aria-label={t('common.delete')} onClick={() => onChange({
                     ...design,
                     parameters: design.parameters.filter((_, i) => i !== index),
                   })}>×</button></td>
@@ -1068,7 +1075,7 @@ export function DesignScanPage() {
           <>
             <div className="ind-toolbar analysis-row">
               <button type="button" className="btn btn-sm btn-primary" disabled={busy || design.parameters.length === 0}
-                onClick={() => { setBusy(true); try { runScan(); } finally { setBusy(false); } }}>
+                onClick={async () => { setBusy(true); try { await runScan(); } finally { setBusy(false); } }}>
                 {busy ? <span className="spinner" /> : t('industrial.run_scan')}
               </button>
               <span className="ind-hint">{t('industrial.scan_summary', { p: design.parameters.length, n: scan.length })}</span>
@@ -1144,6 +1151,7 @@ export function FluidPage() {
   const setStudy = useEngineeringStore((s) => s.setStudy);
   const result = useEngineeringStore((s) => s.result);
   const solve = useEngineeringStore((s) => s.solve);
+  const solving = useEngineeringStore((s) => s.solving);
   const [fieldName, setFieldName] = useState('');
   const fields = result?.fields ?? study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
@@ -1157,7 +1165,7 @@ export function FluidPage() {
         <header className="ind-page-head"><h2>{t('industrial.fluid')}</h2><StudyMeta /></header>
         <div className="ind-toolbar analysis-row">
           <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
+          <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
           <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
         </div>
         <EngineeringImportButton />

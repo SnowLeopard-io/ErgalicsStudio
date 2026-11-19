@@ -189,7 +189,7 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
         break;
       }
       case 'boundary': {
-        if (values.length < 3) break;
+        if (values.length < 2) break;
         const label = line.parts[0]!;
         const set = groups.find((group) => group.name === label);
         let target: { dimension: number; tag: number };
@@ -204,12 +204,21 @@ export function parseAbaqus(text: string, name = 'model.inp'): EngineeringStudy 
           target = { dimension: 0, tag };
         }
         const components: Record<number, number> = {};
-        // Abaqus syntax is (firstDOF, lastDOF, magnitude) triples.
-        for (let i = 1; i + 2 < values.length; i += 3) {
-          const first = values[i]!;
-          const last = values[i + 1]!;
-          const magnitude = values[i + 2]!;
-          for (let dof = first; dof <= last; dof += 1) components[dof - 1] = magnitude;
+        // Data-line forms: (node, dof) fixes the DOF at 0, (node, dof, mag)
+        // prescribes one DOF, (node, firstDOF, lastDOF, mag[, …]) is the
+        // range-triple form. Shorter lines used to fail the range condition
+        // below and produce empty components, silently dropping the BC.
+        if (values.length >= 4) {
+          for (let i = 1; i + 2 < values.length; i += 3) {
+            const first = values[i]!;
+            const last = values[i + 1]!;
+            const magnitude = values[i + 2]!;
+            for (let dof = first; dof <= last; dof += 1) components[dof - 1] = magnitude;
+          }
+        } else if (values.length === 3) {
+          components[values[1]! - 1] = values[2]!;
+        } else {
+          components[values[1]! - 1] = 0;
         }
         boundaryConditions.push({
           name: `BC-${label}`,

@@ -23,7 +23,7 @@ import { readProjectFile } from '@/core/workspace/project-files';
 import { getVfs } from '@/core/vfs';
 import { vfsBasename as basename } from '@/core/vfs/path';
 import { adoptBibFile, adoptTexFile } from '@/core/publish/adopt';
-import { isEngineeringExtension } from '@/core/engineering';
+import { isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import {
   classifyFile,
@@ -92,12 +92,17 @@ export async function openProjectPreview(
       if (study) {
         useAppStore.getState().setMode('standard');
         useAppStore.getState().setEmbeddedTool(
-          name.toLowerCase().endsWith('.dxf') || name.toLowerCase().endsWith('.step') || name.toLowerCase().endsWith('.stp')
-            ? 'geometry-import'
-            : 'mesh-viewer',
+          isGeometryExtension(name) ? 'geometry-import' : 'mesh-viewer',
         );
+        // Keep the industrial tool list visible, matching the drop router.
+        useAppStore.getState().setSidebarView('industrial');
+        return;
       }
-      return;
+      // The parser rejected the file: surface the store's error, then fall
+      // through to the generic placeholder below so the open still yields a
+      // tab instead of failing silently.
+      const error = useEngineeringStore.getState().error;
+      if (error) useAppStore.getState().notify('error', error);
     } catch {
       /* fall through to the generic placeholder below */
     }

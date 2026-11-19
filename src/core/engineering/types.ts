@@ -122,7 +122,10 @@ export type EngineeringFormat =
   | 'vtk'
   | 'vtu'
   | 'dxf'
-  | 'step';
+  | 'step'
+  | 'nastran'
+  | 'ansys'
+  | 'openfoam';
 
 // ---- geometry (P3, lightweight B-rep-free representation) -----------------
 

@@ -21,11 +21,17 @@ export * from './export';
 export { parseGmsh, GmshParseError } from './formats/gmsh';
 export { parseAbaqus, AbaqusParseError } from './formats/abaqus';
 export { parseVtk, VtkParseError } from './formats/vtk';
+export { parseNastran, NastranParseError } from './formats/nastran';
+export { parseAnsys, AnsysParseError } from './formats/ansys';
+export { parseOpenfoam, OpenFoamParseError } from './formats/openfoam';
 
 import type { EngineeringFormat, EngineeringStudy } from './types';
 import { parseGmsh, GmshParseError } from './formats/gmsh';
 import { parseAbaqus, AbaqusParseError } from './formats/abaqus';
 import { parseVtk, VtkParseError } from './formats/vtk';
+import { parseNastran, NastranParseError } from './formats/nastran';
+import { parseAnsys, AnsysParseError } from './formats/ansys';
+import { parseOpenfoam, OpenFoamParseError } from './formats/openfoam';
 import {
   detectGeometryFormat,
   geometryToStudy,
@@ -41,6 +47,12 @@ const EXTENSIONS: Record<string, EngineeringFormat> = {
   '.dxf': 'dxf',
   '.step': 'step',
   '.stp': 'step',
+  '.bdf': 'nastran',
+  '.dat': 'nastran',
+  '.nas': 'nastran',
+  '.cdb': 'ansys',
+  '.db': 'ansys',
+  '.foam': 'openfoam',
 };
 
 export class EngineeringParseError extends Error {
@@ -78,6 +90,9 @@ export function detectEngineeringFormat(name: string, text = ''): EngineeringFor
   if (/^\s*\*HEADING|\*\s*NODE\b/im.test(text)) return 'abaqus';
   if (/<VTKFile\b/i.test(text)) return 'vtu';
   if (/vtk DataFile Version/i.test(text) && /UNSTRUCTURED_GRID/i.test(text)) return 'vtk';
+  if (/^GRID[,\s]/im.test(text)) return 'nastran';
+  if (/^\s*ET\s*,/im.test(text) && /^\s*N\s*,/im.test(text)) return 'ansys';
+  if (/FoamFile|polyMesh|internalField\s+nonuniform/im.test(text)) return 'openfoam';
   return null;
 }
 
@@ -93,6 +108,9 @@ export function parseEngineeringFile(text: string, name: string): EngineeringStu
       case 'abaqus': return parseAbaqus(text, name);
       case 'vtk':
       case 'vtu': return parseVtk(text, name);
+      case 'nastran': return parseNastran(text, name);
+      case 'ansys': return parseAnsys(text, name);
+      case 'openfoam': return parseOpenfoam(text, name);
       case 'dxf':
       case 'step': return geometryToStudy(parseGeometryFile(text, name), name);
     }
@@ -101,6 +119,9 @@ export function parseEngineeringFile(text: string, name: string): EngineeringStu
       err instanceof GmshParseError ||
       err instanceof AbaqusParseError ||
       err instanceof VtkParseError ||
+      err instanceof NastranParseError ||
+      err instanceof AnsysParseError ||
+      err instanceof OpenFoamParseError ||
       err instanceof GeometryParseError
     ) {
       throw new EngineeringParseError(`${format}: ${err.message}`);
