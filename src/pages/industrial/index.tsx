@@ -299,7 +299,7 @@ export function MaterialsPage() {
       <div className="ind-page analysis-body">
         <PageHead toolId="material-library" title={t('industrial.materials')} />
         <IndustrialActions toolId="material-library">
-          <div className="ind-toolbar analysis-row">
+          <div className="ind-toolbar analysis-row ind-add-row">
             <select className="input input-sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
               {MATERIAL_LIBRARY.map((item) => (
                 <option key={item.id} value={item.id}>

@@ -17,17 +17,20 @@ import {
   type FilePickerColumn,
   type FilePickerItem,
 } from '@/components/FilePicker';
-import { DownloadIcon, FileIcon, FolderOpenIcon } from '@/components/icons';
+import { DownloadIcon, FileIcon, FolderOpenIcon, PlusIcon } from '@/components/icons';
 import { useLocale, useT } from '@/i18n';
 import { ENGINEERING_EXTENSIONS, isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
 import { INDUSTRIAL_EXAMPLES } from '@/core/engineering/examples';
+import { studyDocument } from '@/core/engineering/export';
 import { openProjectFile } from '@/core/workspace/open-file';
+import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { formatBytes } from '@/core/storage';
 import { getVfs } from '@/core/vfs';
 import { logger } from '@/core/logger';
 import { useAppStore } from '@/stores/appStore';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { getProjectRepoPath, useProjectStore } from '@/stores/projectStore';
+import { safeName } from './artifacts';
 
 /** Workspace folders that hold engineering source files. */
 const ENGINEERING_FOLDERS = ['geometry', 'mesh'] as const;
@@ -56,18 +59,27 @@ interface ProjectEngineeringFile {
 async function listProjectEngineeringFiles(root: string): Promise<ProjectEngineeringFile[]> {
   const vfs = getVfs();
   const files: ProjectEngineeringFile[] = [];
-  for (const folder of ENGINEERING_FOLDERS) {
+  const walk = async (folder: string, depth: number): Promise<void> => {
     let entries;
     try {
       entries = await vfs.readDir(root, folder);
     } catch {
-      continue;
+      return;
     }
     for (const entry of entries) {
-      if (entry.isDir || !isEngineeringExtension(entry.name)) continue;
+      if (entry.name.startsWith('.')) continue;
+      if (entry.isDir) {
+        // Users organise large studies as geometry/source/… and mesh/parts/…;
+        // show nested files too, but cap the walk so a pathological tree
+        // cannot stall the dialog.
+        if (depth < 3) await walk(entry.path, depth + 1);
+        continue;
+      }
+      if (!isEngineeringExtension(entry.name)) continue;
       files.push({ path: entry.path, name: entry.name, folder, size: entry.size });
     }
-  }
+  };
+  for (const folder of ENGINEERING_FOLDERS) await walk(folder, 0);
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -93,6 +105,7 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<ProjectEngineeringFile[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [replaced, setReplaced] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -197,6 +210,24 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
     close();
   };
 
+  /** Persist a bundled sample as a study JSON inside the project workspace so
+   *  it shows up in the explorer and the left-hand column like any import. */
+  const saveExampleToProject = async (item: FilePickerItem) => {
+    const example = INDUSTRIAL_EXAMPLES.find((candidate) => candidate.id === item.id);
+    if (!example) return;
+    try {
+      let project = useProjectStore.getState().project;
+      if (!project) project = await useProjectStore.getState().createProject('');
+      const name = `${safeName(example.id)}-study.json`;
+      await saveTextArtifact(project, 'study', name, studyDocument(example.build()));
+      notify('success', t('industrial.example_saved', { name }));
+      void refresh();
+    } catch (err) {
+      logger.warn('engineering', 'example save failed', err);
+      notify('error', t('industrial.example_save_failed', { reason: String(err) }));
+    }
+  };
+
   const columns: FilePickerColumn[] = [
     {
       key: 'project',
@@ -242,6 +273,28 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
         description: example.descriptionI18n[locale] ?? example.descriptionI18n['en-US'],
         icon: fileIcon(FORMAT_EXTENSION[example.format] ?? '.msh'),
         meta: example.format.toUpperCase(),
+        actions: (
+          <>
+            <button
+              type="button"
+              className="icon-btn"
+              title={t('common.load')}
+              aria-label={t('common.load')}
+              onClick={() => loadExample({ id: example.id, name: '' })}
+            >
+              <DownloadIcon size={13} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={t('industrial.example_save_project')}
+              aria-label={t('industrial.example_save_project')}
+              onClick={() => void saveExampleToProject({ id: example.id, name: '' })}
+            >
+              <PlusIcon size={13} />
+            </button>
+          </>
+        ),
       })),
     },
   ];
@@ -269,14 +322,33 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
         open={open}
         title={t('industrial.import_title')}
         onClose={close}
-        width={760}
+        width={980}
         footer={
           <button type="button" className="btn" onClick={close}>
             {t('common.close')}
           </button>
         }
       >
-        <div className="project-files">
+        <div
+          className={`project-files${dragOver ? ' is-dragover' : ''}`}
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes('Files')) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setDragOver(true);
+          }}
+          onDragLeave={(event) => {
+            // Ignore bubbling from child rows; only clear when leaving the host.
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            setDragOver(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setDragOver(false);
+            void handleImport(event.dataTransfer.files);
+          }}
+        >
           <div className="project-files-toolbar">
             <button
               type="button"

@@ -4243,6 +4243,12 @@
   max-height: 420px;
 }
 
+.project-files.is-dragover {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
+}
+
 .project-files-toolbar {
   display: flex;
   align-items: center;
@@ -12093,6 +12099,19 @@
 .ind-empty-actions {
   justify-content: center;
   margin-top: 4px;
+}
+
+/* Material library "template + add" row: the picker and the button share the
+   row 50/50 instead of hugging their own content at different lengths. */
+.ind-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.ind-add-row > select,
+.ind-add-row > .btn {
+  width: 100%;
 }
 
 /* Report exports: an explicit Download group and Save-to-workspace group,
