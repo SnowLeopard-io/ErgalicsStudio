@@ -50,11 +50,17 @@ function plain(value: string): string {
  */
 export function markdownToPdfBlocks(markdown: string): PdfTextBlock[] {
   const blocks: PdfTextBlock[] = [];
+  let tableRows: string[][] | null = null;
+  const flushTable = () => {
+    if (tableRows && tableRows.length > 0) blocks.push({ kind: 'table', text: '', rows: tableRows });
+    tableRows = null;
+  };
   for (const raw of markdown.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
     if (heading) {
+      flushTable();
       blocks.push({ kind: 'heading', level: heading[1]!.length, text: plain(heading[2]!) });
       continue;
     }
@@ -63,15 +69,17 @@ export function markdownToPdfBlocks(markdown: string): PdfTextBlock[] {
     if (/^\|?[\s:|-]+\|?$/.test(line)) continue;
     if (line.startsWith('|')) {
       const cells = line.replace(/^\||\|$/g, '').split('|').map((cell) => plain(cell));
-      blocks.push({ kind: 'text', text: cells.join('  |  ') });
+      (tableRows ??= []).push(cells);
       continue;
     }
+    flushTable();
     if (/^[-*]\s+/.test(line)) {
       blocks.push({ kind: 'bullet', text: plain(line.replace(/^[-*]\s+/, '')) });
       continue;
     }
     blocks.push({ kind: 'text', text: plain(line.replace(/^>\s?/, '')) });
   }
+  flushTable();
   return blocks;
 }
 
@@ -80,7 +88,14 @@ export function markdownToPdfBlocks(markdown: string): PdfTextBlock[] {
  *  stay out of the industrial bundle until the user actually exports a PDF. */
 export async function buildReportPdf(title: string, markdown: string): Promise<Uint8Array> {
   const { buildTextPdf } = await import('@/core/publish/pdf');
-  return buildTextPdf(title, markdownToPdfBlocks(markdown));
+  const blocks = markdownToPdfBlocks(markdown);
+  // buildTextPdf prints the title itself; drop the Markdown H1 when it would
+  // only repeat it (as in "Bracket plate (DXF) — 工程报告" twice).
+  const first = blocks[0];
+  if (first && first.kind === 'heading' && (first.level ?? 1) === 1 && first.text === plain(title)) {
+    blocks.shift();
+  }
+  return buildTextPdf(title, blocks);
 }
 
 export function useIndustrialArtifacts() {
