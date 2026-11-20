@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useT } from '@/i18n';
 import { CloseIcon } from './icons';
 
@@ -48,6 +49,20 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
   // press started on the card). Only close when the press itself began on
   // the overlay, so drag-selecting body text never discards the dialog.
   const mouseDownOnOverlay = useRef(false);
+  // The overlay must escape every ancestor stacking context (embedded tool
+  // views cap their subtree at z-index 20, below the panel edge buttons at
+  // 45 — in-place rendering let the collapse buttons bleed through the
+  // overlay). Portal to the body; inside a fullscreen element, portal there
+  // instead so the dialog stays visible while fullscreen.
+  const [portalTarget, setPortalTarget] = useState<HTMLElement>(
+    () => document.fullscreenElement ?? document.body,
+  );
+  useEffect(() => {
+    if (!open) return;
+    const sync = () => setPortalTarget(document.fullscreenElement ?? document.body);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -110,7 +125,7 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
       } as CSSProperties)
     : undefined;
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       className="modal-overlay"
@@ -139,6 +154,7 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-footer">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    portalTarget,
   );
 }
