@@ -12095,6 +12095,30 @@
   margin-top: 4px;
 }
 
+/* Report preview: a printable A4 sheet on a neutral desktop backdrop. */
+.ind-paper-shell {
+  display: flex;
+  /* `safe` keeps the sheet's left edge reachable once it overflows; without
+     it, centred overflow is clipped and unscrollable. */
+  justify-content: safe center;
+  padding: 20px 16px 28px;
+  border-radius: var(--radius-md, 8px);
+  background: #cbd5e1;
+  overflow-x: auto;
+}
+
+.ind-paper-frame {
+  /* The sheet must never be squeezed sideways: keep the true 210 mm A4 width
+     and let the shell scroll horizontally on narrow panels instead. */
+  width: 210mm;
+  min-width: 210mm;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 28%);
+}
+
 .ind-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

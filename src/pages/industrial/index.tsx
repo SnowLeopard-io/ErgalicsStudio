@@ -19,7 +19,6 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { useAppStore } from '@/stores/appStore';
 import { useLocale } from '@/i18n';
-import { mdToHtml } from '@/core/notebook/notebook';
 import { renderSVG } from '@/core/plot';
 import {
   elementsToCSV,
@@ -1405,13 +1404,24 @@ export function FingerprintPage() {
 
 export function IndustrialReportPage() {
   const t = useT();
+  const { locale } = useLocale();
   const study = useEngineeringStore((s) => s.study);
+  const result = useEngineeringStore((s) => s.result);
+  const benchmark = useEngineeringStore((s) => s.benchmark);
   const buildReport = useEngineeringStore((s) => s.buildReport);
   const base = artifactBaseName(study);
-  // buildReport reads study/result/benchmark/locale from the store; it is a
-  // cheap pure string build, so recompute on every render instead of faking
-  // hook dependencies (the action itself is the only real dependency).
-  const report = buildReport();
+  // buildReport stamps `generatedAt` with the current time, so memoize it on
+  // the real inputs: otherwise every render produces a new HTML string and the
+  // preview would reload (and its timestamp would drift).
+  const report = useMemo(
+    () => buildReport(),
+    // buildReport reads study/result/benchmark/locale from the store, which
+    // the linter cannot see — list them so the memo invalidates on real input
+    // changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [buildReport, study, result, benchmark, locale],
+  );
+  const [paperHeight, setPaperHeight] = useState(1120);
   const { outputText } = useIndustrialOutput();
   const download = () => {
     if (!report) return;
@@ -1438,10 +1448,20 @@ export function IndustrialReportPage() {
           <NoStudy />
         ) : (
           <>
-            <div
-              className="central-md-preview"
-              dangerouslySetInnerHTML={{ __html: mdToHtml(report.markdown) }}
-            />
+            {/* Print-style preview: the report renders as a white A4 sheet, the
+                same markup the downloaded HTML uses — WYSIWYG by construction. */}
+            <div className="ind-paper-shell">
+              <iframe
+                title={report.title}
+                className="ind-paper-frame"
+                srcDoc={report.html}
+                style={{ height: paperHeight }}
+                onLoad={(event) => {
+                  const doc = event.currentTarget.contentDocument;
+                  if (doc) setPaperHeight(Math.max(640, doc.documentElement.scrollHeight));
+                }}
+              />
+            </div>
           </>
         )}
       </div>

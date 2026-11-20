@@ -351,10 +351,22 @@ function markdownToHtml(markdown: string, title: string): string {
   }
   if (inTable) html.push('</table>');
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>body{font-family:ui-sans-serif,system-ui,sans-serif;max-width:880px;margin:2rem auto;padding:0 1rem;line-height:1.6;color:#1f2933}
-h1{font-size:1.6rem}h2{font-size:1.15rem;margin-top:1.8rem;border-bottom:1px solid #d9e2ec;padding-bottom:.3rem}
-table{border-collapse:collapse;width:100%;margin:.6rem 0;font-size:.9rem}th,td{border:1px solid #d9e2ec;padding:.35rem .5rem;text-align:left}
-th{background:#f0f4f8}code{background:#f0f4f8;padding:.1rem .3rem;border-radius:4px}blockquote{color:#52606d;border-left:3px solid #9fb3c8;margin:0;padding-left:.8rem}</style>
+<style>
+@page{size:A4;margin:18mm 16mm}
+html,body{margin:0}
+body{font-family:"Segoe UI","Microsoft YaHei",ui-sans-serif,system-ui,sans-serif;max-width:178mm;margin:0 auto;padding:18mm 16mm;line-height:1.65;color:#1f2933;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+h1{font-size:1.5rem;line-height:1.3;margin:0 0 .6rem;padding-bottom:.45rem;border-bottom:2px solid #1f2933}
+h2{font-size:1.05rem;margin-top:1.7rem;margin-bottom:.5rem;padding-bottom:.25rem;border-bottom:1px solid #d9e2ec}
+p{margin:.35rem 0}
+p.report-item{margin:.2rem 0 .2rem 1rem;position:relative}
+p.report-item::before{content:"•";position:absolute;left:-.9rem;color:#52606d}
+table{border-collapse:collapse;width:100%;margin:.5rem 0 .9rem;font-size:.86rem}
+th,td{border:1px solid #cbd2d9;padding:.32rem .5rem;text-align:left;vertical-align:top}
+th{background:#eef2f6;font-weight:600}
+code{background:#eef2f6;padding:.08rem .28rem;border-radius:3px;font-size:.88em}
+blockquote{color:#52606d;border-left:3px solid #9fb3c8;margin:1rem 0 0;padding-left:.8rem;font-size:.88rem}
+@media print{body{padding:0;max-width:none}}
+</style>
 </head><body>${html.join('\n')}</body></html>`;
 }
 
