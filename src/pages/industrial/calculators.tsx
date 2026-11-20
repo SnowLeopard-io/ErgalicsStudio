@@ -10,8 +10,10 @@
 import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import {
+  beamQuick,
   pipePressureDrop,
   thermalStack,
+  type BeamInput,
   type PipeInput,
   type ThermalLayer,
 } from '@/core/engineering/calc';
@@ -137,6 +139,7 @@ export function CalculatorsPage() {
         <PageHead toolId="engineering-calc" title={t('tool.engineering-calc.title')} />
         <PipeSection />
         <ThermalSection />
+        <BeamSection />
       </div>
     </Page>
   );
@@ -243,6 +246,115 @@ function ThermalSection() {
         ))}
         <ResultRow label={t('industrial.calc.thermal.total_r')} value={result?.totalR ?? null} unit="K/W" />
         <ResultRow label={t('industrial.calc.thermal.cold')} value={result?.coldC ?? null} unit="°C" />
+      </div>
+      <ExportGroups
+        items={[{
+          label: t('industrial.calc.export_csv'),
+          onDownload: () => exportCsv('download'),
+          onSave: () => exportCsv('save'),
+        }]}
+      />
+    </section>
+  );
+}
+
+// --- beam quick check ---------------------------------------------------------
+
+const BEAM_DEFAULT: BeamInput = {
+  support: 'cantilever', load: 'point', spanMm: 200, pointLoadN: 100,
+  udlNMm: 0.5, section: 'rect', widthMm: 20, heightMm: 10, elasticGPa: 210,
+};
+
+function BeamSection() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  const { outputText } = useIndustrialOutput();
+  const [input, setInput] = useState<BeamInput>(BEAM_DEFAULT);
+  const set = (patch: Partial<BeamInput>) => setInput((s) => ({ ...s, ...patch }));
+  const result = useMemo(() => beamQuick(input), [input]);
+  const exportCsv = (target: 'download' | 'save') => {
+    const rows = [
+      ['quantity', 'value', 'unit'],
+      ['support', input.support, ''],
+      ['load', input.load, ''],
+      ['span', String(input.spanMm), 'mm'],
+      ['section', input.section, ''],
+      ['area', result ? String(result.areaMm2) : '', 'mm2'],
+      ['inertia', result ? String(result.inertiaMm4) : '', 'mm4'],
+      ['max_moment', result ? String(result.maxMomentNmm) : '', 'N.mm'],
+      ['max_stress', result ? String(result.maxStressMPa) : '', 'MPa'],
+      ['max_deflection', result ? String(result.maxDeflectionMm) : '', 'mm'],
+    ];
+    void outputText('results', `${artifactBaseName(study)}-beam-check.csv`, rows.map((r) => r.join(',')).join('\n'), target);
+  };
+  return (
+    <section className="ind-card">
+      <h3 className="ind-card-title">{t('industrial.calc.beam.title')}</h3>
+      <p className="ind-hint">{t('industrial.calc.beam.desc')}</p>
+      <div className="ind-toolbar analysis-row">
+        <label className="ind-field">
+          <span>{t('industrial.calc.beam.support')}</span>
+          <select className="input input-sm" value={input.support}
+            onChange={(e) => set({ support: e.target.value as BeamInput['support'] })}>
+            <option value="cantilever">{t('industrial.calc.beam.cantilever')}</option>
+            <option value="simple">{t('industrial.calc.beam.simple')}</option>
+          </select>
+        </label>
+        <label className="ind-field">
+          <span>{t('industrial.calc.beam.load')}</span>
+          <select className="input input-sm" value={input.load}
+            onChange={(e) => set({ load: e.target.value as BeamInput['load'] })}>
+            <option value="point">{t('industrial.calc.beam.point')}</option>
+            <option value="udl">{t('industrial.calc.beam.udl')}</option>
+          </select>
+        </label>
+        <NumField label={t('industrial.calc.beam.span')} unit="mm" value={input.spanMm} onChange={(v) => set({ spanMm: v })} />
+      </div>
+      <div className="ind-toolbar analysis-row">
+        {input.load === 'point'
+          ? <NumField label={t('industrial.calc.beam.point_load')} unit="N" value={input.pointLoadN} onChange={(v) => set({ pointLoadN: v })} />
+          : <NumField label={t('industrial.calc.beam.udl_load')} unit="N/mm" value={input.udlNMm} onChange={(v) => set({ udlNMm: v })} />}
+        <label className="ind-field">
+          <span>{t('industrial.calc.beam.section')}</span>
+          <select className="input input-sm" value={input.section}
+            onChange={(e) => set({ section: e.target.value as BeamInput['section'] })}>
+            <option value="rect">{t('industrial.calc.beam.rect')}</option>
+            <option value="circle">{t('industrial.calc.beam.circle')}</option>
+          </select>
+        </label>
+        {input.section === 'rect'
+          ? <NumField label={t('industrial.calc.beam.width')} unit="mm" value={input.widthMm} onChange={(v) => set({ widthMm: v })} />
+          : null}
+        <NumField label={input.section === 'rect' ? t('industrial.calc.beam.height') : t('industrial.calc.beam.diameter')} unit="mm" value={input.heightMm} onChange={(v) => set({ heightMm: v })} />
+        <NumField label={t('industrial.calc.beam.e_modulus')} unit="GPa" value={input.elasticGPa} onChange={(v) => set({ elasticGPa: v })} />
+      </div>
+      {study && study.materials.length > 0 && (
+        <div className="ind-toolbar analysis-row">
+          <label className="ind-field">
+            <span>{t('industrial.calc.thermal.from_material')}</span>
+            <select
+              className="input input-sm"
+              value=""
+              onChange={(e) => {
+                const material = study.materials.find((m) => m.name === e.target.value);
+                const ePa = material ? materialProperty(material, 'E', NaN) : NaN;
+                if (Number.isFinite(ePa)) set({ elasticGPa: ePa / 1e9 });
+              }}
+            >
+              <option value="">{t('industrial.calc.beam.pick_e')}</option>
+              {study.materials.map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      <div className="ind-calc-results">
+        <ResultRow label={t('industrial.calc.beam.area')} value={result?.areaMm2 ?? null} unit="mm²" />
+        <ResultRow label={t('industrial.calc.beam.inertia')} value={result?.inertiaMm4 ?? null} unit="mm⁴" />
+        <ResultRow label={t('industrial.calc.beam.max_moment')} value={result ? result.maxMomentNmm / 1000 : null} unit="N·m" />
+        <ResultRow label={t('industrial.calc.beam.max_stress')} value={result?.maxStressMPa ?? null} unit="MPa" />
+        <ResultRow label={t('industrial.calc.beam.max_deflection')} value={result?.maxDeflectionMm ?? null} unit="mm" />
       </div>
       <ExportGroups
         items={[{

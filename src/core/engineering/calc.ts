@@ -126,3 +126,75 @@ export function thermalStack(input: ThermalStackInput): ThermalStackResult | nul
   });
   return { totalR, layerR, layerHotC, coldC: ambientC + filmR * powerW };
 }
+
+// --- beam quick check (Euler-Bernoulli closed forms) -------------------------
+
+export type BeamSupport = 'cantilever' | 'simple';
+export type BeamLoad = 'point' | 'udl';
+export type BeamSection = 'rect' | 'circle';
+
+export interface BeamInput {
+  support: BeamSupport;
+  load: BeamLoad;
+  /** Span [mm]. */
+  spanMm: number;
+  /** Point load [N] (ignored for udl). */
+  pointLoadN: number;
+  /** Distributed load [N/mm] (ignored for point). */
+  udlNMm: number;
+  section: BeamSection;
+  /** Rect width [mm] (ignored for circle). */
+  widthMm: number;
+  /** Rect height / circle diameter [mm]. */
+  heightMm: number;
+  /** Young's modulus [GPa]. */
+  elasticGPa: number;
+}
+
+export interface BeamResult {
+  areaMm2: number;
+  inertiaMm4: number;
+  outerFiberMm: number;
+  /** Max bending moment [N·mm]. */
+  maxMomentNmm: number;
+  /** Max bending stress [MPa]. */
+  maxStressMPa: number;
+  /** Max deflection [mm]. */
+  maxDeflectionMm: number;
+}
+
+/** Closed-form max moment, stress and deflection for the four basic cases. */
+export function beamQuick(input: BeamInput): BeamResult | null {
+  const { support, load, spanMm, pointLoadN, udlNMm, section, widthMm, heightMm, elasticGPa } = input;
+  if (!(spanMm > 0) || !(elasticGPa > 0) || !(heightMm > 0)) return null;
+  if (section === 'rect' && !(widthMm > 0)) return null;
+
+  const areaMm2 = section === 'rect'
+    ? widthMm * heightMm
+    : Math.PI * heightMm * heightMm / 4;
+  const inertiaMm4 = section === 'rect'
+    ? widthMm * heightMm ** 3 / 12
+    : Math.PI * heightMm ** 4 / 64;
+  const c = heightMm / 2;
+  const e = elasticGPa * 1000; // MPa
+
+  const moment = support === 'cantilever'
+    ? (load === 'point' ? pointLoadN * spanMm : udlNMm * spanMm ** 2 / 2)
+    : (load === 'point' ? pointLoadN * spanMm / 4 : udlNMm * spanMm ** 2 / 8);
+  const deflection = support === 'cantilever'
+    ? (load === 'point'
+        ? pointLoadN * spanMm ** 3 / (3 * e * inertiaMm4)
+        : udlNMm * spanMm ** 4 / (8 * e * inertiaMm4))
+    : (load === 'point'
+        ? pointLoadN * spanMm ** 3 / (48 * e * inertiaMm4)
+        : 5 * udlNMm * spanMm ** 4 / (384 * e * inertiaMm4));
+
+  return {
+    areaMm2,
+    inertiaMm4,
+    outerFiberMm: c,
+    maxMomentNmm: moment,
+    maxStressMPa: moment * c / inertiaMm4,
+    maxDeflectionMm: deflection,
+  };
+}

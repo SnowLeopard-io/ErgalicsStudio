@@ -1,7 +1,7 @@
 // Tests for the mesh-free engineering calculators (core/engineering/calc.ts).
 
 import { describe, expect, it } from 'vitest';
-import { pipePressureDrop, thermalStack } from '@/core/engineering/calc';
+import { beamQuick, pipePressureDrop, thermalStack } from '@/core/engineering/calc';
 
 describe('pipePressureDrop', () => {
   // Water, 6 m³/h in a DN40 (40 mm) pipe: v ≈ 1.326 m/s, Re ≈ 5.28e4.
@@ -84,5 +84,39 @@ describe('thermalStack', () => {
       powerW: 5, ambientC: 25, hExternal: 0,
       layers: [{ name: 'x', k: 0, thicknessMm: 1, areaCm2: 4 }],
     })).toBeNull();
+  });
+});
+
+describe('beamQuick', () => {
+  // Steel cantilever 200 mm, 100 N at the tip, 20×10 rect:
+  // I = 20·10³/12 ≈ 1666.7 mm⁴, M = 2e4 N·mm, σ = 2e4·5/I = 60 MPa,
+  // δ = P L³/(3EI) = 100·8e6/(3·2.1e5·1666.7) ≈ 0.762 mm.
+  const base = {
+    support: 'cantilever', load: 'point', spanMm: 200, pointLoadN: 100,
+    udlNMm: 0.5, section: 'rect', widthMm: 20, heightMm: 10, elasticGPa: 210,
+  } as const;
+
+  it('cantilever + point load matches the textbook numbers', () => {
+    const r = beamQuick(base)!;
+    expect(r.inertiaMm4).toBeCloseTo(1666.67, 1);
+    expect(r.maxMomentNmm).toBeCloseTo(20000, 3);
+    expect(r.maxStressMPa).toBeCloseTo(60, 1);
+    expect(r.maxDeflectionMm).toBeCloseTo(0.762, 2);
+  });
+
+  it('switches to the simply-supported point-load formulas', () => {
+    const r = beamQuick({ ...base, support: 'simple' })!;
+    expect(r.maxMomentNmm).toBeCloseTo(5000, 3); // PL/4
+    expect(r.maxStressMPa).toBeCloseTo(15, 1);
+    expect(r.maxDeflectionMm).toBeCloseTo(0.0952, 3); // PL³/48EI
+  });
+
+  it('circular section uses πd⁴/64', () => {
+    const r = beamQuick({ ...base, section: 'circle', heightMm: 10 })!;
+    expect(r.inertiaMm4).toBeCloseTo(Math.PI * 10000 / 64, 2);
+  });
+
+  it('rejects non-physical spans', () => {
+    expect(beamQuick({ ...base, spanMm: 0 })).toBeNull();
   });
 });
