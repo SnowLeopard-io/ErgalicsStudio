@@ -2818,6 +2818,13 @@
   padding: var(--space-1);
 }
 
+/* Items carry their own padding; the bare empty hint would otherwise sit
+   flush against the column edge — pad it to align with item text. */
+.data-file-picker-list .empty-hint {
+  padding: var(--space-2);
+  text-align: center;
+}
+
 .data-file-picker-item {
   display: flex;
   align-items: center;
@@ -12138,14 +12145,15 @@
 
 /* One equal column per button, whatever the group size. */
 .ind-export-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .ind-export-row .btn {
-  width: 100%;
+  flex: 1 1 auto;
+  /* Never squeeze a label into clipping: the row wraps instead. */
+  white-space: nowrap;
   justify-content: center;
 }
 

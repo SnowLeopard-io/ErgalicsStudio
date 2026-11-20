@@ -55,6 +55,7 @@
 - [项目结构](#项目结构)
 - [四种工作模式](#四种工作模式)
 - [科研模块](#科研模块)
+- [工业套件](#工业套件)
 - [版本控制](#版本控制git-仓库化项目)
 - [插件系统](#插件系统)
 - [GPU 计算与原生核心](#gpu-计算与原生核心)
@@ -87,6 +88,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建系统**（命中率可视化、逐节点缓存徽章、干跑预览、可校验溯源、可移植缓存快照、一键复现包）、189 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide（import 科学计算包时按需自动安装）；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **35 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
+| 工业 | **10 个工程工具**（几何 / 网格 / 材料 / 工况 / 求解 / 后处理 / 设计扫描 / 快速流体 / 复现指纹 / 工业报告）复用同一工作台，8 种 CAD/CAE 格式解析为统一工程模型，支持 CSV/JSON/SVG/PNG/PDF/HTML 导出 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场）、工作台与文档站点，统一合并部署、深链互通 |
 
@@ -412,6 +414,32 @@ flowchart TB
 ![作品画廊 — 可复现科研作品库](docs/assets/screenshots/platform/laboratory/workgallery-gallery.png)
 
 *作品画廊按学科汇聚可复现作品，每张卡片按复现锁状态（已锁定 / 检出漂移 / 未锁定）标记，便于发现、核验与引用。*
+
+---
+
+## 工业套件
+
+工业套件不是独立应用，而是建立在同一工作台、同一项目格式与同一插件运行时上的第二份能力清单。其工具注册在共享工具注册表中，并通过
+`domains: ['industrial']` 过滤，因此打开工程类项目时活动栏会显示工业工具，科研工具仍然可用。
+
+| 工具 | 路由 | 作用 |
+| ---- | ---- | ---- |
+| **几何** | `/studio/geometry-import` | 导入 DXF/STEP，查看图层与实体 |
+| **网格** | `/studio/mesh-viewer` | Gmsh/Abaqus/VTK/Nastran/Ansys/OpenFOAM 网格、组与场着色 |
+| **材料** | `/studio/material-library` | 材料库、按标签分配、工程属性编辑 |
+| **工况** | `/studio/load-cases` | 平面应力/应变、边界条件、载荷、求解设置、设计参数 |
+| **求解器** | `/studio/fea-solver` | 二维弹性与稳态热、三维四面体稳态热、解析解基准、求解前检查清单 |
+| **后处理** | `/studio/post-processing` | 二维场云图、三维体素/等值面视图、场值分布直方图 |
+| **设计扫描** | `/studio/design-scan` | 参数扫描、响应曲线、扫描结果导出 |
+| **快速流体** | `/studio/quick-fluid` | 通道流示例与快速流体指标 |
+| **复现指纹** | `/studio/repro-fingerprint` | `repro.lock` v3 工程指纹与漂移校验 |
+| **工业报告** | `/studio/industrial-report` | 中英文工程报告（HTML/Markdown/PDF）与 A4 预览 |
+
+**支持格式。** Gmsh（`.msh`）、Abaqus（`.inp`）、VTK（`.vtk` / `.vtu`）、DXF（`.dxf`）、STEP（`.step`）、Nastran（`.bdf`）、Ansys（`.cdb`）与 OpenFOAM（`.foam`）。所有格式都会解析为同一个中立的 `EngineeringStudy`（节点、单元、组、材料、工况、场变量），供全部工具共享。
+
+**项目工作区。** 工业项目在标准骨架之外增加 `geometry/`、`mesh/`、`materials/`、`cases/`、`results/` 与 `study/` 目录。工程文件可从文件资源管理器或双栏导入窗打开（左栏项目内工业文件，右栏内置示例），导入后会镜像到工作区，`study/engineering.json` 为研究提供可复现快照。
+
+**输出。** 场变量、网格、几何、指标与设计扫描结果可导出 CSV；研究可导出 JSON；图形可导出 SVG/PNG/PDF；报告可导出 HTML/Markdown/PDF。导出既可直接下载，也可通过右侧输出开关写入 `results/`、`figures/` 与 `study/`。工业图表可送入 Figure Studio，求解器还能通过跨套件桥把材料与平面状态交给科研侧的 **FEM Lab** 插件。
 
 ---
 

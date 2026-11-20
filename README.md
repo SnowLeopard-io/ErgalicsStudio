@@ -55,6 +55,7 @@
 - [Project Layout](#project-layout)
 - [Four Workbench Modes](#four-workbench-modes)
 - [Research Modules](#research-modules)
+- [Industrial Suite](#industrial-suite)
 - [Version Control](#version-control-git-backed-projects)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
@@ -91,6 +92,7 @@ What ships today:
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **35 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Industrial        | **10 engineering tools** on the same workbench (geometry / mesh / materials / cases / solver / post / design scan / quick fluid / fingerprint / report), 8 CAD/CAE formats parsed into one neutral study, CSV/JSON/SVG/PNG/PDF/HTML exports |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
 
@@ -508,6 +510,48 @@ windowing and filtering, with one-click Send to Figure Studio.*
 *The Gallery curates reproducible works by discipline, each card tagged by
 repro-lock state (locked / drift / unlocked) for discovery, verification and
 citation.*
+
+---
+
+## Industrial Suite
+
+The industrial suite is a second capability list built on the same workbench,
+project format and plugin runtime — not a separate application. Its tools are
+registered in the shared tool registry and filtered by
+`domains: ['industrial']`, so an engineering project shows the industrial
+activity bar while the research tools remain available.
+
+| Tool | Route | What it does |
+| ---- | ----- | ------------ |
+| **Geometry** | `/studio/geometry-import` | DXF/STEP import, layer and entity inspection |
+| **Mesh** | `/studio/mesh-viewer` | Gmsh/Abaqus/VTK/Nastran/Ansys/OpenFOAM meshes, groups, field colouring |
+| **Materials** | `/studio/material-library` | Material library, tag assignment, engineering properties |
+| **Load cases** | `/studio/load-cases` | Plane stress/strain, boundary conditions, loads, solver settings, design parameters |
+| **Solver** | `/studio/fea-solver` | 2-D elasticity and steady heat, 3-D tetrahedral heat, analytic benchmarks, pre-solve checklist |
+| **Post-processing** | `/studio/post-processing` | 2-D field maps, 3-D voxel/iso-surface views, field histograms |
+| **Design scan** | `/studio/design-scan` | Parametric sweeps, response curves, scan export |
+| **Quick fluid** | `/studio/quick-fluid` | Channel-flow sample and quick fluid metrics |
+| **Fingerprint** | `/studio/repro-fingerprint` | `repro.lock` v3 engineering fingerprint and drift checks |
+| **Report** | `/studio/industrial-report` | Localized engineering report (HTML/Markdown/PDF) with A4 preview |
+
+**Formats.** Gmsh (`.msh`), Abaqus (`.inp`), VTK (`.vtk` / `.vtu`), DXF
+(`.dxf`), STEP (`.step`), Nastran (`.bdf`), Ansys (`.cdb`) and OpenFOAM
+(`.foam`). Every format is parsed into one neutral `EngineeringStudy` — nodes,
+elements, groups, materials, cases and fields — that all tools share.
+
+**Project workspace.** Industrial projects add `geometry/`, `mesh/`,
+`materials/`, `cases/`, `results/` and `study/` to the standard skeleton.
+Engineering files open from the file explorer or the dual-column import
+window (project files on the left, built-in samples on the right), are
+mirrored into the workspace, and `study/engineering.json` snapshots the study
+for reproducibility.
+
+**Output.** Field, mesh, geometry, metrics and design-scan data export as CSV;
+studies as JSON; figures as SVG/PNG/PDF; reports as HTML/Markdown/PDF. Exports
+either download or are written into `results/`, `figures/` and `study/`
+through the right-panel output toggle. Industrial charts can be sent to
+Figure Studio, and the solver can hand material and plane-state data to the
+research **FEM Lab** plugin through the cross-suite bridge.
 
 ---
 

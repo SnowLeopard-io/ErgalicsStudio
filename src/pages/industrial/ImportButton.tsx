@@ -86,13 +86,15 @@ async function listProjectEngineeringFiles(root: string): Promise<ProjectEnginee
 interface EngineeringImportButtonProps {
   /** Optional format hint shown next to the import button. */
   hint?: string;
+  /** Render as a plain button with this label instead of the inline field. */
+  label?: string;
 }
 
 /**
  * Shared entry point for industrial imports. Renders the trigger button plus
  * the floating picker window.
  */
-export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) {
+export function EngineeringImportButton({ hint, label }: EngineeringImportButtonProps) {
   const t = useT();
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
@@ -303,7 +305,17 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
     <>
       {/* Same inline field shape as the research suite's DataFilePickField so
           the import entry lives in one consistent place across both domains. */}
-      <span className="data-file-field ind-import-field">
+      {label ? (
+        <button
+          type="button"
+          className="btn btn-sm"
+          title={hint ?? t('industrial.import_exts')}
+          onClick={() => setOpen(true)}
+        >
+          {label}
+        </button>
+      ) : (
+        <span className="data-file-field ind-import-field">
         <span className="analysis-label">{t('industrial.data_file')}</span>
         <button
           type="button"
@@ -316,7 +328,8 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
           </span>
           <span className="data-file-field-name">{studyName || t('industrial.select_file')}</span>
         </button>
-      </span>
+        </span>
+      )}
 
       <FilesManagerModal
         open={open}

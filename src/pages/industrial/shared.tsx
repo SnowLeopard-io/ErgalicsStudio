@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { ToolIcon } from '@/components/icons';
 import { getTool } from '@/pages/research/toolRegistry';
 import { sendSpecToFigure } from '@/pages/research/researchUi';
+import { EngineeringImportButton } from './ImportButton';
 import { useProjectStore } from '@/stores/projectStore';
 import { primaryMaterial, useEngineeringStore } from '@/stores/engineeringStore';
 import { toolTabKey, useAppStore } from '@/stores/appStore';
@@ -205,6 +206,9 @@ export function NoStudy({
           <button type="button" className="btn btn-sm btn-primary" onClick={loadExample}>
             {t('industrial.load_example')}
           </button>
+          {/* There are many examples and project files — open the shared
+              industrial window so the user can pick instead of guessing. */}
+          <EngineeringImportButton label={t('industrial.open_import_window')} />
           {/* On the mesh viewer itself this button would be a no-op. */}
           {toolId !== 'mesh-viewer' && (
             <button
