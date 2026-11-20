@@ -263,6 +263,12 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
     icon: 'industrial-report', titleKey: 'tool.industrial-report.title', group: 'post',
     domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering', requireProject: true,
   }),
+  // Mesh-free quick calculators (pipe Δp, thermal stacks, …) — usable with
+  // no study loaded, hence no project requirement.
+  tool('engineering-calc', () => import('@/pages/industrial/calculators').then((m) => ({ default: m.CalculatorsPage })), {
+    icon: 'calc', titleKey: 'tool.engineering-calc.title', group: 'post',
+    domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering',
+  }),
 ];
 
 export const GRID_GROUPS: ResearchGroupId[] = [

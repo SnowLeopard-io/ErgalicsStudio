@@ -12219,6 +12219,40 @@
   background: var(--color-bg-elevated);
 }
 
+/* Engineering calculators: compact value+unit fields and result rows that
+   mirror the shared .ind-row table look. */
+.ind-calc-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ind-calc-field .input-sm {
+  width: 84px;
+  flex: none;
+}
+
+.ind-calc-unit {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ind-calc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+
+.ind-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .ind-card.is-active {
   border-color: var(--color-accent, #3b82f6);
   box-shadow: 0 0 0 1px var(--color-accent, #3b82f6) inset;
