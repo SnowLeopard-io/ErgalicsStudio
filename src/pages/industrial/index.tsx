@@ -12,8 +12,6 @@ import { useT } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { ToolIcon } from '@/components/icons';
 import { EngineeringImportButton } from './ImportButton';
-import { DataFilePickerModal } from '@/components/DataFilePickerModal';
-import { resolveDataFile } from '@/core/dataFiles';
 import { CadViewport, type CadViewPreset } from './CadViewport';
 import { sampleTetField } from '@/core/engineering/volume';
 import { artifactBaseName, buildReportPdf, safeName, useIndustrialArtifacts, useIndustrialOutput } from './artifacts';
@@ -84,29 +82,6 @@ export function GeometryPage() {
   const [preset, setPreset] = useState<CadViewPreset>('fit');
   const [wireframe, setWireframe] = useState(true);
   const [snapshotTick, setSnapshotTick] = useState(0);
-  // Shared project-data window: geometry files may also live in the project's
-  // data-file registry (uploaded through the top-bar 数据 button); this pick
-  // entry routes them through the same engineering parser as a file import.
-  const [dataPickerOpen, setDataPickerOpen] = useState(false);
-  const notify = useAppStore((s) => s.notify);
-  const loadProjectDataFile = async (name: string) => {
-    const text = await resolveDataFile(name);
-    if (text === undefined) {
-      notify('error', t('workbench.files.load_failed', { reason: name }));
-      return;
-    }
-    const study = useEngineeringStore.getState().importText(text, name);
-    if (!study) {
-      const reason = useEngineeringStore.getState().error ?? name;
-      notify('error', t('industrial.import_failed', { reason }));
-      return;
-    }
-    notify('success', t('industrial.imported', { name }));
-    const app = useAppStore.getState();
-    app.setMode('standard');
-    app.setSidebarView('industrial');
-    app.setEmbeddedTool(/\.(dxf|step|stp)$/i.test(name) ? 'geometry-import' : 'mesh-viewer');
-  };
   const entities = geometry?.entities.filter((entity) => selected === 'all' || entity.layer === selected) ?? [];
   // Stable identity per selection: a fresh array on every render would trip
   // the CadViewport content-rebuild effect and reset the camera.
@@ -122,14 +97,6 @@ export function GeometryPage() {
         <PageHead toolId="geometry-import" title={t('industrial.geometry')} />
         <IndustrialActions toolId="geometry-import">
           <EngineeringImportButton hint="DXF / STEP" />
-          <button
-            type="button"
-            className="btn btn-sm"
-            title={t('industrial.project_files')}
-            onClick={() => setDataPickerOpen(true)}
-          >
-            {t('industrial.project_files')}
-          </button>
           {geometry && (
             <>
               <div className="ind-toolbar analysis-row">
@@ -171,11 +138,6 @@ export function GeometryPage() {
             </>
           )}
         </IndustrialActions>
-        <DataFilePickerModal
-          open={dataPickerOpen}
-          onClose={() => setDataPickerOpen(false)}
-          onChoose={(name) => void loadProjectDataFile(name)}
-        />
         {!geometry ? (
           <NoStudy
             toolId="geometry-import"
