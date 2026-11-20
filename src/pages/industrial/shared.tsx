@@ -7,12 +7,13 @@
 // study summary strip, and the publication-grade plot renderer.
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { EmptyState } from '@/components/EmptyState';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ToolIcon } from '@/components/icons';
 import { getTool } from '@/pages/research/toolRegistry';
 import { sendSpecToFigure } from '@/pages/research/researchUi';
@@ -47,6 +48,39 @@ export function useStudyLoaded(): void {
 export function Page({ toolId, children }: { toolId: string; children: ReactNode }) {
   useStudyLoaded();
   return <ToolShell toolId={toolId}>{children}</ToolShell>;
+}
+
+/**
+ * Every suite edits one shared study, so loading a model anywhere replaces
+ * the user's configured materials, boundary conditions and results. Route
+ * each load through this guard: with a study already in place it asks before
+ * replacing, without one it just proceeds. Render the returned `dialog`
+ * alongside the component that guards its load actions.
+ */
+export function useStudyReplaceGuard() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  const [pending, setPending] = useState<{ run: () => void } | null>(null);
+  const guard = (action: () => void) => {
+    if (study) setPending({ run: action });
+    else action();
+  };
+  const dialog = (
+    <ConfirmDialog
+      open={pending !== null}
+      title={t('industrial.replace_title')}
+      message={t('industrial.replace_message')}
+      name={study?.name}
+      danger
+      confirmLabel={t('industrial.replace_confirm')}
+      onConfirm={() => {
+        pending?.run();
+        setPending(null);
+      }}
+      onClose={() => setPending(null)}
+    />
+  );
+  return { guard, dialog };
 }
 
 /**
@@ -178,22 +212,25 @@ export function NoStudy({
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
   const setStudy = useEngineeringStore((s) => s.setStudy);
+  const { guard, dialog } = useStudyReplaceGuard();
   // A dead end is the worst first-run experience: offer a solvable sample and
   // a way into the mesh viewer instead of only telling the user something is
   // missing.
   const loadExample = () => {
-    const example =
-      INDUSTRIAL_EXAMPLES.find((candidate) => candidate.toolId === toolId) ??
-      INDUSTRIAL_EXAMPLES[0];
-    if (!example) return;
-    setStudy(example.build());
-    notify('success', t('industrial.example_loaded', {
-      name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
-    }));
-    // Geometry examples only make sense in the geometry viewer — open that
-    // tool so the freshly loaded study is actually visible. Otherwise the
-    // user stays on the same empty page and the button looks dead.
-    if (example.toolId) useAppStore.getState().setEmbeddedTool(example.toolId);
+    guard(() => {
+      const example =
+        INDUSTRIAL_EXAMPLES.find((candidate) => candidate.toolId === toolId) ??
+        INDUSTRIAL_EXAMPLES[0];
+      if (!example) return;
+      setStudy(example.build());
+      notify('success', t('industrial.example_loaded', {
+        name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
+      }));
+      // Geometry examples only make sense in the geometry viewer — open that
+      // tool so the freshly loaded study is actually visible. Otherwise the
+      // user stays on the same empty page and the button looks dead.
+      if (example.toolId) useAppStore.getState().setEmbeddedTool(example.toolId);
+    });
   };
   return (
     <div className="ind-empty">
@@ -221,6 +258,7 @@ export function NoStudy({
           )}
         </div>
       )}
+      {dialog}
     </div>
   );
 }

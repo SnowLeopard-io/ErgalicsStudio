@@ -64,6 +64,7 @@ import {
   PageHead,
   SvgPlot,
   useSendFigure,
+  useStudyReplaceGuard,
 } from './shared';
 import { downloadSnapshot, MeshCanvas, ViewPresetBar, ViewToggle } from './viewers';
 import { openFemLab, runFemLabCheck, type SimulationCheck } from './interop';
@@ -1426,13 +1427,16 @@ export function FluidPage() {
   const { locale } = useLocale();
   const fields = result?.fields ?? study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
+  const { guard, dialog } = useStudyReplaceGuard();
   const makeChannel = () => {
-    const example = industrialExampleById('industrial-channel-flow');
-    if (!example) return;
-    setStudy(example.build());
-    notify('success', t('industrial.example_loaded', {
-      name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
-    }));
+    guard(() => {
+      const example = industrialExampleById('industrial-channel-flow');
+      if (!example) return;
+      setStudy(example.build());
+      notify('success', t('industrial.example_loaded', {
+        name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
+      }));
+      });
   };
   return (
     <Page toolId="quick-fluid">
@@ -1445,6 +1449,7 @@ export function FluidPage() {
             <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
           </div>
           <EngineeringImportButton />
+          {dialog}
         </IndustrialActions>
         {!study ? <NoStudy toolId="quick-fluid" /> : (
           <>

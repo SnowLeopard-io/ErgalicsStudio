@@ -31,6 +31,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { getProjectRepoPath, useProjectStore } from '@/stores/projectStore';
 import { safeName } from './artifacts';
+import { useStudyReplaceGuard } from './shared';
 
 /** Workspace folders that hold engineering source files. */
 const ENGINEERING_FOLDERS = ['geometry', 'mesh'] as const;
@@ -111,6 +112,7 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
   const [replaced, setReplaced] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { guard, dialog } = useStudyReplaceGuard();
 
   const refresh = useCallback(async () => {
     const current = useProjectStore.getState().project;
@@ -248,7 +250,7 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
               className="icon-btn"
               title={t('common.load')}
               aria-label={t('common.load')}
-              onClick={() => void loadProjectFile({ id: file.path, name: file.name })}
+              onClick={() => guard(() => void loadProjectFile({ id: file.path, name: file.name }))}
             >
               <DownloadIcon size={13} />
             </button>
@@ -282,7 +284,7 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
               className="icon-btn"
               title={t('common.load')}
               aria-label={t('common.load')}
-              onClick={() => loadExample({ id: example.id, name: '' })}
+              onClick={() => guard(() => loadExample({ id: example.id, name: '' }))}
             >
               <DownloadIcon size={13} />
             </button>
@@ -352,7 +354,7 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
             event.preventDefault();
             event.stopPropagation();
             setDragOver(false);
-            void handleImport(event.dataTransfer.files);
+            guard(() => void handleImport(event.dataTransfer.files));
           },
         }}
       >
@@ -379,8 +381,8 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
           <FilePickerPanel
             columns={columns}
             onChoose={(item, column) => {
-              if (column.key === 'examples') loadExample(item);
-              else void loadProjectFile(item);
+              if (column.key === 'examples') guard(() => loadExample(item));
+              else guard(() => void loadProjectFile(item));
             }}
           />
 
@@ -391,11 +393,12 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
           accept={ENGINEERING_EXTENSIONS.join(',')}
           style={{ display: 'none' }}
           onChange={(e) => {
-            void handleImport(e.target.files);
+            guard(() => void handleImport(e.target.files));
             e.target.value = '';
           }}
         />
       </FilesManagerModal>
+      {dialog}
     </>
   );
 }
