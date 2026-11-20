@@ -44,12 +44,16 @@ import {
   stepKindLabel,
 } from './labels';
 import { industrialExampleById } from '@/core/engineering/examples';
+import { targetNodeIndices } from '@/core/engineering/solve';
 import { MATERIAL_LIBRARY, MATERIAL_PROPERTY_META, materialSummary, formatEngineering } from '@/core/engineering/materials';
 import { defaultCase, ensureCase } from '@/core/engineering/cases';
 import { engineeringFingerprint } from '@/core/engineering/study';
 import type {
   BoundaryKind,
+  EngineeringCase,
+  EngineeringStep,
   EngineeringStepKind,
+  EngineeringStudy,
 } from '@/core/engineering/types';
 import {
   FieldPicker,
@@ -312,7 +316,12 @@ export function MaterialsPage() {
           <NoStudy />
         ) : (
           <>
-            {study.materials.length === 0 && <EmptyState title={t('industrial.no_material')} />}
+            {study.materials.length === 0 && (
+              <EmptyState
+                title={t('industrial.no_material')}
+                description={t('industrial.no_material_desc')}
+              />
+            )}
             <div className="ind-cards">
               {study.materials.map((material) => (
                 <section key={material.name} className="ind-card">
@@ -574,6 +583,94 @@ function DesignSpaceEditor({
 // Solver (P2)
 // --------------------------------------------------------------------------
 
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+interface ReadinessItem {
+  key: string;
+  label: string;
+  severity: 'ok' | 'warn' | 'info';
+  detail: string;
+}
+
+/** Pre-solve model check, the way desktop FEA tools gate a solve: surface what
+ *  is missing on the page instead of failing after the user presses Solve. */
+function solveChecklist(study: EngineeringStudy, step: EngineeringStep | undefined, t: Translate): ReadinessItem[] {
+  const { mesh } = study;
+  const items: ReadinessItem[] = [];
+  const finite = mesh.nodes.every(
+    (node) => Number.isFinite(node.x) && Number.isFinite(node.y) && Number.isFinite(node.z),
+  );
+  const meshOk = mesh.nodes.length > 0 && mesh.elements.length > 0 && finite;
+  items.push({
+    key: 'mesh',
+    label: t('industrial.check_mesh'),
+    severity: meshOk ? 'ok' : 'warn',
+    detail: meshOk
+      ? t('industrial.check_mesh_detail', { nodes: mesh.nodes.length, elements: mesh.elements.length })
+      : t('industrial.check_mesh_empty'),
+  });
+
+  const isHeat = step?.kind === 'steady-heat' || step?.kind === 'transient-heat';
+  const property = (material: EngineeringStudy['materials'][number], key: string): number => {
+    const raw = material.properties[key];
+    return typeof raw === 'number' ? raw : Number.NaN;
+  };
+  const material = study.materials.find((candidate) => {
+    if (isHeat) return property(candidate, 'k') > 0;
+    const E = property(candidate, 'E');
+    const nu = property(candidate, 'nu');
+    return Number.isFinite(E) && E > 0 && Number.isFinite(nu) && nu > -1 && nu < 0.5;
+  });
+  items.push({
+    key: 'material',
+    label: t('industrial.check_material'),
+    severity: material ? 'ok' : 'warn',
+    detail: material ? material.name : t('industrial.check_material_missing'),
+  });
+
+  const constraintKind: BoundaryKind = isHeat
+    ? 'temperature'
+    : step?.kind === 'potential-flow' ? 'pressure' : 'displacement';
+  const constraints = study.boundaryConditions.filter(
+    (bc) => bc.kind === constraintKind && targetNodeIndices(mesh, bc.target).length > 0,
+  );
+  items.push({
+    key: 'constraint',
+    label: t('industrial.check_constraint'),
+    severity: constraints.length > 0 ? 'ok' : 'warn',
+    detail: constraints.length > 0
+      ? t('industrial.check_constraint_ok', { n: constraints.length })
+      : t('industrial.check_constraint_missing'),
+  });
+
+  const loadKinds: BoundaryKind[] = isHeat
+    ? ['heat-flux']
+    : step?.kind === 'potential-flow' ? ['pressure', 'electric-potential', 'other'] : ['traction', 'force', 'pressure'];
+  const loads = study.boundaryConditions.filter(
+    (bc) => loadKinds.includes(bc.kind) && Object.values(bc.components).some((value) => value !== 0),
+  );
+  items.push({
+    key: 'load',
+    label: t('industrial.check_load'),
+    severity: loads.length > 0 ? 'ok' : 'info',
+    detail: loads.length > 0
+      ? t('industrial.check_load_ok', { n: loads.length })
+      : t('industrial.check_load_empty'),
+  });
+
+  const hasTet = mesh.elements.some((element) => element.type === 'tet4');
+  const stepOk = step ? !hasTet || step.kind === 'steady-heat' : false;
+  items.push({
+    key: 'step',
+    label: t('industrial.check_step'),
+    severity: !step ? 'warn' : stepOk ? 'ok' : 'warn',
+    detail: !step
+      ? t('industrial.check_step_missing')
+      : stepOk ? step.name : t('industrial.check_step_mismatch'),
+  });
+  return items;
+}
+
 export function SolvePage() {
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
@@ -592,6 +689,9 @@ export function SolvePage() {
   const [simBusy, setSimBusy] = useState(false);
   const [simCheck, setSimCheck] = useState<SimulationCheck | null>(null);
   const steps = study ? ensureCase(study.cases)[0]!.steps : [];
+  const activeStep = steps.find((candidate) => candidate.id === activeStepId) ?? steps[0];
+  const checklist = study ? solveChecklist(study, activeStep, t) : [];
+  const readyCount = checklist.filter((item) => item.severity !== 'warn').length;
   const base = artifactBaseName(study);
   const exportMetrics = () => {
     if (result) void outputText('results', `${base}-metrics.csv`, resultToCSV(result));
@@ -648,6 +748,37 @@ export function SolvePage() {
           <NoStudy />
         ) : (
           <>
+            <div className="ind-card">
+              <header className="ind-card-head">
+                <strong>{t('industrial.check_title')}</strong>
+                <span className={`tag${checklist.length > 0 && readyCount === checklist.length ? ' is-hit' : ''}`}>
+                  {t('industrial.check_summary', { ok: readyCount, total: checklist.length })}
+                </span>
+              </header>
+              <ul className="ind-check">
+                {checklist.map((item) => (
+                  <li key={item.key} className={`ind-check-item is-${item.severity}`}>
+                    <span className="ind-check-mark" aria-hidden="true">
+                      {item.severity === 'ok' ? '✓' : item.severity === 'warn' ? '!' : 'i'}
+                    </span>
+                    <strong>{item.label}</strong>
+                    <span>{item.detail}</span>
+                    {item.severity === 'warn' && (
+                      <button
+                        type="button"
+                        className="ind-check-fix"
+                        onClick={() => useAppStore.getState().setEmbeddedTool(
+                          item.key === 'material' ? 'material-library'
+                            : item.key === 'mesh' ? 'mesh-viewer' : 'load-cases',
+                        )}
+                      >
+                        {t('industrial.check_fix')}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
             {benchmark && (
               <div className="ind-card">
                 <header className="ind-card-head"><strong>{benchmarkLabel(t, benchmark.name)}</strong></header>
@@ -878,11 +1009,193 @@ export function PostPage() {
 // Design scan (P4)
 // --------------------------------------------------------------------------
 
+// --------------------------------------------------------------------------
+// Design scan (parametric sweep)
+// --------------------------------------------------------------------------
+
+interface ScanSuggestion {
+  path: string;
+  min: number;
+  max: number;
+  levels: number;
+}
+
+/** Parameter paths that actually exist in the current study. `applyDesignPoint`
+ *  silently ignores a path whose entity name does not match, so the scan page
+ *  offers one-click starters instead of making the user guess the syntax. */
+function scanSuggestions(study: EngineeringStudy): ScanSuggestion[] {
+  const out: ScanSuggestion[] = [];
+  const material = study.materials[0];
+  const E = material?.properties.E;
+  if (material && typeof E === 'number' && E > 0) {
+    out.push({
+      path: `material.${material.name}.E`,
+      min: Number((E * 0.8).toPrecision(6)),
+      max: Number((E * 1.2).toPrecision(6)),
+      levels: 3,
+    });
+  }
+  const step = ensureCase(study.cases)[0]?.steps[0];
+  if (step) {
+    out.push({ path: `step.${step.id}.tolerance`, min: 1e-11, max: 1e-9, levels: 3 });
+  }
+  const bc = study.boundaryConditions.find((item) => Math.abs(item.components[0] ?? 0) > 0);
+  const value = bc?.components[0];
+  if (bc && typeof value === 'number') {
+    out.push({
+      path: `bc.${bc.name}.0`,
+      min: Number((value * 0.5).toPrecision(6)),
+      max: Number((value * 1.5).toPrecision(6)),
+      levels: 3,
+    });
+  }
+  return out;
+}
+
+/** Inline design-space editor: the scan page must be operable on its own —
+ *  previously parameters could only be added on the Loads & BCs page. */
+function ScanParameterEditor({
+  study,
+  design,
+  onChange,
+}: {
+  study: EngineeringStudy;
+  design: EngineeringCase['design'];
+  onChange: (design: EngineeringCase['design']) => void;
+}) {
+  const t = useT();
+  const suggestions = useMemo(() => scanSuggestions(study), [study]);
+  const [path, setPath] = useState(suggestions[0]?.path ?? '');
+  const [min, setMin] = useState(suggestions[0]?.min ?? 0);
+  const [max, setMax] = useState(suggestions[0]?.max ?? 1);
+  const [levels, setLevels] = useState(suggestions[0]?.levels ?? 3);
+  const points = design.parameters.reduce(
+    (total, parameter) => total * Math.max(2, Math.round(parameter.levels) || 2),
+    1,
+  );
+  const pick = (item: ScanSuggestion) => {
+    setPath(item.path);
+    setMin(item.min);
+    setMax(item.max);
+    setLevels(item.levels);
+  };
+  const add = () => {
+    const name = path.trim();
+    if (!name) return;
+    onChange({
+      ...design,
+      parameters: [
+        ...design.parameters,
+        { name, min, max, levels: Math.max(2, Math.round(levels) || 2) },
+      ],
+    });
+  };
+  return (
+    <section className="ind-card">
+      <header className="ind-card-head">
+        <strong>{t('industrial.scan_setup_title')}</strong>
+        <span className="ind-hint">{t('industrial.scan_setup_steps')}</span>
+      </header>
+      <div className="ind-toolbar analysis-row">
+        <input
+          className="input input-sm"
+          value={path}
+          list="scan-param-suggestions"
+          placeholder={t('industrial.parameter_path')}
+          onChange={(e) => setPath(e.target.value)}
+        />
+        <datalist id="scan-param-suggestions">
+          {suggestions.map((item) => <option key={item.path} value={item.path} />)}
+        </datalist>
+        <input
+          className="input input-sm"
+          type="number"
+          step="any"
+          title={t('industrial.min')}
+          value={min}
+          onChange={(e) => setMin(Number(e.target.value))}
+        />
+        <input
+          className="input input-sm"
+          type="number"
+          step="any"
+          title={t('industrial.max')}
+          value={max}
+          onChange={(e) => setMax(Number(e.target.value))}
+        />
+        <input
+          className="input input-sm"
+          type="number"
+          min={2}
+          title={t('industrial.levels')}
+          value={levels}
+          onChange={(e) => setLevels(Number(e.target.value))}
+        />
+        <button type="button" className="btn btn-sm btn-primary" disabled={!path.trim()} onClick={add}>
+          {t('industrial.add_parameter')}
+        </button>
+      </div>
+      {suggestions.length > 0 && (
+        <div className="ind-toolbar analysis-row">
+          <span className="ind-hint">{t('industrial.scan_suggestions')}</span>
+          {suggestions.map((item) => (
+            <button key={item.path} type="button" className="btn btn-sm" onClick={() => pick(item)}>
+              {item.path}
+            </button>
+          ))}
+        </div>
+      )}
+      {design.parameters.length === 0 ? (
+        <div className="ind-hint">{t('industrial.scan_path_hint')}</div>
+      ) : (
+        <div className="ind-table-wrap">
+          <table className="sweep-table">
+            <thead>
+              <tr>
+                <th>{t('industrial.parameter')}</th>
+                <th>{t('industrial.min')}</th>
+                <th>{t('industrial.max')}</th>
+                <th>{t('industrial.levels')}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {design.parameters.map((parameter, index) => (
+                <tr key={`${parameter.name}-${index}`}>
+                  <td className="mono">{parameter.name}</td>
+                  <td>{parameter.min}</td>
+                  <td>{parameter.max}</td>
+                  <td>{parameter.levels}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      aria-label={t('common.delete')}
+                      onClick={() => onChange({
+                        ...design,
+                        parameters: design.parameters.filter((_, i) => i !== index),
+                      })}
+                    >
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="ind-hint">{t('industrial.scan_points', { n: points })}</div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function DesignScanPage() {
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const scan = useEngineeringStore((s) => s.scan);
   const runScan = useEngineeringStore((s) => s.runScan);
+  const updateDesign = useEngineeringStore((s) => s.updateCaseDesign);
   const [busy, setBusy] = useState(false);
   const [metric, setMetric] = useState('');
   const sendFigure = useSendFigure();
@@ -945,12 +1258,9 @@ export function DesignScanPage() {
         </IndustrialActions>
         {!study || !design ? (
           <NoStudy />
-        ) : design.parameters.length === 0 ? (
-          <div className="ind-empty">
-            <EmptyState title={t('industrial.no_parameters')} />
-          </div>
         ) : (
           <>
+            <ScanParameterEditor study={study} design={design} onChange={updateDesign} />
             {scan.length > 0 && keys.length > 0 && (
               <div className="ind-card">
                 <header className="ind-card-head">
@@ -975,6 +1285,9 @@ export function DesignScanPage() {
                   </tbody>
                 </table>
               </div>
+            )}
+            {scan.length === 0 && design.parameters.length > 0 && (
+              <div className="ind-hint">{t('industrial.scan_ready')}</div>
             )}
           </>
         )}

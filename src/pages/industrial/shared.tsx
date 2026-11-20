@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
-import { useT } from '@/i18n';
+import { useT, useLocale } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { EmptyState } from '@/components/EmptyState';
 import { ToolIcon } from '@/components/icons';
@@ -22,6 +22,7 @@ import { toolTabKey, useAppStore } from '@/stores/appStore';
 import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { renderSVG } from '@/core/plot';
 import type { PlotSpec } from '@/core/plot/types';
+import { INDUSTRIAL_EXAMPLES } from '@/core/engineering/examples';
 import type { EngineeringField } from '@/core/engineering/types';
 import { fieldLabel, localizedMeshSummary } from './labels';
 
@@ -125,10 +126,37 @@ export function StudyMeta() {
 
 export function NoStudy({ children }: { children?: ReactNode }) {
   const t = useT();
+  const { locale } = useLocale();
+  const notify = useAppStore((s) => s.notify);
+  const setStudy = useEngineeringStore((s) => s.setStudy);
+  // A dead end is the worst first-run experience: offer a solvable sample and
+  // a way into the mesh viewer instead of only telling the user something is
+  // missing.
+  const loadExample = () => {
+    const example = INDUSTRIAL_EXAMPLES[0];
+    if (!example) return;
+    setStudy(example.build());
+    notify('success', t('industrial.example_loaded', {
+      name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
+    }));
+  };
   return (
     <div className="ind-empty">
       <EmptyState title={t('industrial.no_study')} description={t('industrial.no_study_desc')} />
-      {children}
+      {children ?? (
+        <div className="ind-toolbar analysis-row ind-empty-actions">
+          <button type="button" className="btn btn-sm btn-primary" onClick={loadExample}>
+            {t('industrial.load_example')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => useAppStore.getState().setEmbeddedTool('mesh-viewer')}
+          >
+            {t('industrial.open_mesh_viewer')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -12032,6 +12032,69 @@
   color: var(--color-error);
 }
 
+/* Pre-solve model checklist (mesh / material / constraints / loads / step). */
+.ind-check {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ind-check-item {
+  display: grid;
+  grid-template-columns: 16px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm, 12px);
+  color: var(--color-text-secondary);
+}
+
+.ind-check-fix {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--font-size-sm, 12px);
+  color: var(--color-accent, #2dd4bf);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ind-check-item strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ind-check-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-success);
+}
+
+.ind-check-item.is-warn .ind-check-mark {
+  background: var(--color-warning);
+  color: #1f2937;
+}
+
+.ind-check-item.is-info .ind-check-mark {
+  background: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.ind-empty-actions {
+  justify-content: center;
+  margin-top: 4px;
+}
+
 .ind-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -12258,6 +12321,16 @@
 .rp-engineering-actions .ind-toolbar > .research-check,
 .rp-engineering-actions .ind-toolbar > .btn-primary {
   grid-column: 1 / -1;
+}
+
+/* Two equal-weight actions (e.g. HTML + Markdown report downloads): let the
+   primary share the row with its sibling. Spanning both columns would leave
+   the secondary alone with an empty cell and two mismatched button widths. */
+.rp-engineering-actions .ind-toolbar:has(
+  > .btn:not(.btn-primary) ~ .btn-primary,
+  > .btn-primary ~ .btn:not(.btn-primary)
+) > .btn-primary {
+  grid-column: auto;
 }
 
 .rp-engineering-actions .ind-toolbar-spacer {
