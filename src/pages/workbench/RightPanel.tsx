@@ -488,7 +488,13 @@ export function RightPanel() {
         </div>
       ) : embeddedToolId ? (
         <>
-          <h3 className="panel-title">{t('workbench.right.suite')}</h3>
+          {/* Research and industrial suites share this panel; label it by
+              which kind of tool is actually embedded. */}
+          <h3 className="panel-title">
+            {getTool(embeddedToolId)?.rightPanel === 'engineering'
+              ? t('workbench.right.industrial')
+              : t('workbench.right.suite')}
+          </h3>
           {getTool(embeddedToolId)?.rightPanel === 'engineering' ? (
             <EngineeringPanel toolId={embeddedToolId} />
           ) : (
