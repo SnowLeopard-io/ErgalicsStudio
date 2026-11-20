@@ -725,6 +725,13 @@ export class RtPlugin implements Plugin {
       g.lineTo(ox + w, py(s.mean));
       g.stroke();
       g.setLineDash([]);
+      // Value label at the right end of the mean line, kept inside the panel.
+      g.fillStyle = 'rgba(120,220,190,0.95)';
+      g.font = '9px Consolas, monospace';
+      g.textAlign = 'right';
+      const label = `${s.mean.toFixed(1)} ms`;
+      const labelY = Math.max(oy + 10, py(s.mean) - 4);
+      g.fillText(label, ox + w - 4, labelY);
     }
     g.textAlign = 'left';
     g.fillStyle = 'rgba(140,152,170,0.85)';
