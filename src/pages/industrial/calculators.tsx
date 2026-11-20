@@ -137,18 +137,18 @@ function PipeSection() {
   );
 }
 
-// Registry of calculator sections. The sidebar (portal action bar) and the
-// canvas empty state both render this list; picking an entry swaps the
-// canvas to that calculator.
-const CALCULATORS: { id: string; titleKey: string; Section: ComponentType }[] = [
-  { id: 'pipe', titleKey: 'industrial.calc.pipe.title', Section: PipeSection },
-  { id: 'thermal', titleKey: 'industrial.calc.thermal.title', Section: ThermalSection },
-  { id: 'beam', titleKey: 'industrial.calc.beam.title', Section: BeamSection },
-  { id: 'fatigue', titleKey: 'industrial.calc.fatigue.title', Section: FatigueSection },
-  { id: 'tolerance', titleKey: 'industrial.calc.tol.title', Section: ToleranceSection },
-  { id: 'safety', titleKey: 'industrial.calc.safety.title', Section: SafetySection },
+// Registry of calculator sections. The sidebar renders the compact nav; the
+// canvas empty state renders the card grid. Both pick the same entry.
+const CALCULATORS: { id: string; titleKey: string; descKey: string; Section: ComponentType }[] = [
+  { id: 'pipe', titleKey: 'industrial.calc.pipe.title', descKey: 'industrial.calc.pipe.desc', Section: PipeSection },
+  { id: 'thermal', titleKey: 'industrial.calc.thermal.title', descKey: 'industrial.calc.thermal.desc', Section: ThermalSection },
+  { id: 'beam', titleKey: 'industrial.calc.beam.title', descKey: 'industrial.calc.beam.desc', Section: BeamSection },
+  { id: 'fatigue', titleKey: 'industrial.calc.fatigue.title', descKey: 'industrial.calc.fatigue.desc', Section: FatigueSection },
+  { id: 'tolerance', titleKey: 'industrial.calc.tol.title', descKey: 'industrial.calc.tol.desc', Section: ToleranceSection },
+  { id: 'safety', titleKey: 'industrial.calc.safety.title', descKey: 'industrial.calc.safety.desc', Section: SafetySection },
 ];
 
+/** Compact vertical nav used in the sidebar action bar. */
 function CalculatorList({ active, onPick }: { active: string | null; onPick: (id: string) => void }) {
   const t = useT();
   return (
@@ -157,10 +157,25 @@ function CalculatorList({ active, onPick }: { active: string | null; onPick: (id
         <button
           key={id}
           type="button"
-          className={`btn btn-sm${active === id ? ' btn-primary' : ''}`}
+          className={`ind-calc-nav-item${active === id ? ' is-active' : ''}`}
           onClick={() => onPick(id)}
         >
           {t(titleKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Card grid shown on the canvas before an algorithm is chosen. */
+function CalculatorGrid({ onPick }: { onPick: (id: string) => void }) {
+  const t = useT();
+  return (
+    <div className="ind-calc-grid">
+      {CALCULATORS.map(({ id, titleKey, descKey }) => (
+        <button key={id} type="button" className="ind-calc-card" onClick={() => onPick(id)}>
+          <span className="ind-calc-card-title">{t(titleKey)}</span>
+          <span className="ind-calc-card-desc">{t(descKey)}</span>
         </button>
       ))}
     </div>
@@ -181,12 +196,12 @@ export function CalculatorsPage() {
         {current ? (
           <current.Section />
         ) : (
-          <div className="ind-empty ind-calc-empty">
+          <div className="ind-calc-empty">
             <EmptyState
               title={t('industrial.calc.empty.title')}
               description={t('industrial.calc.empty.desc')}
             />
-            <CalculatorList active={active} onPick={setActive} />
+            <CalculatorGrid onPick={setActive} />
           </div>
         )}
       </div>

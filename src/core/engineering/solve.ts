@@ -55,6 +55,90 @@ export interface SolveEngineeringOptions {
   source?: number;
 }
 
+export interface BoundaryConflict {
+  dimension: number;
+  tag: number;
+  /** The condition prescribing a fixed value (displacement / temperature). */
+  prescribed: BoundaryCondition;
+  /** The condition applying a load to the same target. */
+  load: BoundaryCondition;
+}
+
+/**
+ * A group cannot both prescribe a field value and carry an external load: the
+ * reaction absorbs the load, so the solve succeeds but the result is not what
+ * the user asked for. Detect that contradiction early and report both names
+ * instead of silently producing a misleading field.
+ */
+export function findBoundaryConflicts(
+  conditions: readonly BoundaryCondition[],
+  kind: EngineeringStepKind,
+): BoundaryConflict[] {
+  const prescribedKinds: readonly BoundaryCondition['kind'][] =
+    kind === 'static-structural'
+      ? ['displacement']
+      : kind === 'steady-heat' || kind === 'transient-heat'
+        ? ['temperature']
+        : [];
+  const loadKinds: readonly BoundaryCondition['kind'][] =
+    kind === 'static-structural'
+      ? ['force', 'traction', 'pressure']
+      : kind === 'steady-heat' || kind === 'transient-heat'
+        ? ['heat-flux']
+        : [];
+  if (prescribedKinds.length === 0 || loadKinds.length === 0) return [];
+
+  const byTarget = new Map<string, { prescribed?: BoundaryCondition; loads: BoundaryCondition[] }>();
+  for (const condition of conditions) {
+    const key = `${condition.target.dimension}:${condition.target.tag}`;
+    const entry = byTarget.get(key) ?? { loads: [] };
+    if (prescribedKinds.includes(condition.kind)) entry.prescribed ??= condition;
+    if (loadKinds.includes(condition.kind)) entry.loads.push(condition);
+    byTarget.set(key, entry);
+  }
+
+  const conflicts: BoundaryConflict[] = [];
+  for (const [key, entry] of byTarget) {
+    if (!entry.prescribed) continue;
+    const [dimension, tag] = key.split(':').map(Number) as [number, number];
+    for (const load of entry.loads) {
+      conflicts.push({ dimension, tag, prescribed: entry.prescribed, load });
+    }
+  }
+  return conflicts;
+}
+
+/** Reject non-finite BC values and solver controls before they reach the
+ *  kernels. Empty number inputs can produce NaN in some browsers / imported
+ *  decks, and a single NaN silently poisons the whole linear system. */
+function validateSolveInputs(study: EngineeringStudy, step: EngineeringStep): void {
+  for (const condition of study.boundaryConditions) {
+    for (const [component, value] of Object.entries(condition.components)) {
+      if (!Number.isFinite(value)) {
+        throw new EngineeringSolveError(
+          `boundary condition "${condition.name}" has a non-finite value in component ${component}`,
+        );
+      }
+    }
+  }
+  const { tolerance, maxIterations } = step.solver;
+  if (!Number.isFinite(tolerance) || tolerance <= 0) {
+    throw new EngineeringSolveError('tolerance must be a positive finite number');
+  }
+  if (!Number.isInteger(maxIterations) || maxIterations < 1) {
+    throw new EngineeringSolveError('maxIterations must be an integer ≥ 1');
+  }
+  const conflict = findBoundaryConflicts(study.boundaryConditions, step.kind)[0];
+  if (conflict) {
+    throw new EngineeringSolveError(
+      `boundary condition "${conflict.load.name}" applies a load to group ` +
+        `${conflict.dimension}:${conflict.tag}, which already has prescribed ` +
+        `${conflict.prescribed.kind} by "${conflict.prescribed.name}" — ` +
+        `split them onto different groups`,
+    );
+  }
+}
+
 /** Nodes addressed by a BC target. Dimension 0 groups store node indices;
  *  higher dimensions store element indices, expanded to their nodes. */
 export function targetNodeIndices(
@@ -188,6 +272,7 @@ export function solveEngineeringStudy(
   const step = normalizeStep(
     options.step ?? ensureCase(study.cases)[0]!.steps[0]!,
   );
+  validateSolveInputs(study, step);
   // 3-D tetrahedral steady heat: dispatch to the dedicated volume solver
   // (reuses the sparse CG kernel) before the 2-D planar conversion.
   const hasTet4 = study.mesh.elements.some((e) => e.type === 'tet4');
