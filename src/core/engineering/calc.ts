@@ -67,3 +67,62 @@ export function pipePressureDrop(input: PipeInput): PipeResult | null {
     dpTotal: dpFriction + dpFittings,
   };
 }
+
+// --- thermal resistance stack (1-D series network) ---------------------------
+
+export interface ThermalLayer {
+  name: string;
+  /** Thermal conductivity [W/(m·K)]. */
+  k: number;
+  /** Layer thickness [mm]. */
+  thicknessMm: number;
+  /** Heat-transfer cross-section [cm²]. */
+  areaCm2: number;
+}
+
+export interface ThermalStackInput {
+  /** Dissipated heat [W]. */
+  powerW: number;
+  /** Ambient temperature on the cold side [°C]. */
+  ambientC: number;
+  /** Optional external convection coefficient [W/(m²·K)]. */
+  hExternal: number;
+  layers: ThermalLayer[];
+}
+
+export interface ThermalStackResult {
+  /** Total resistance [K/W] (layers + optional external convection). */
+  totalR: number;
+  /** Per-layer resistances in stack order [K/W]. */
+  layerR: number[];
+  /** Temperature at the hot side of each layer [°C], stack order. */
+  layerHotC: number[];
+  /** Cold-side temperature after external convection [°C]. */
+  coldC: number;
+}
+
+/**
+ * Series 1-D thermal network: T_hot(j) = T_ambient + Q · Σ R. With an
+ * external convection film its resistance 1/(h·A) sits at the cold end.
+ */
+export function thermalStack(input: ThermalStackInput): ThermalStackResult | null {
+  const { powerW, ambientC, hExternal, layers } = input;
+  if (!(powerW >= 0) || !Number.isFinite(ambientC)) return null;
+  const layerR: number[] = [];
+  for (const layer of layers) {
+    const a = layer.areaCm2 * 1e-4;
+    if (!(layer.k > 0) || !(layer.thicknessMm > 0) || !(a > 0)) return null;
+    layerR.push(layer.thicknessMm / 1000 / (layer.k * a));
+  }
+  const filmR = hExternal > 0
+    ? 1 / (hExternal * layers.reduce((acc, l) => acc + l.areaCm2 * 1e-4, 0))
+    : 0;
+  const totalR = layerR.reduce((a, b) => a + b, 0) + filmR;
+  let acc = 0;
+  const layerHotC = layerR.map((r) => {
+    const hot = ambientC + filmR * powerW + (acc + r) * powerW;
+    acc += r;
+    return hot;
+  });
+  return { totalR, layerR, layerHotC, coldC: ambientC + filmR * powerW };
+}

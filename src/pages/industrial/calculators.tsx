@@ -9,7 +9,13 @@
 
 import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
-import { pipePressureDrop, type PipeInput } from '@/core/engineering/calc';
+import {
+  pipePressureDrop,
+  thermalStack,
+  type PipeInput,
+  type ThermalLayer,
+} from '@/core/engineering/calc';
+import { materialProperty } from '@/core/engineering/materials';
 import { artifactBaseName, useIndustrialOutput } from './artifacts';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { ExportGroups, Page, PageHead } from './shared';
@@ -130,7 +136,121 @@ export function CalculatorsPage() {
       <div className="ind-page analysis-body">
         <PageHead toolId="engineering-calc" title={t('tool.engineering-calc.title')} />
         <PipeSection />
+        <ThermalSection />
       </div>
     </Page>
+  );
+}
+
+// --- thermal resistance stack -----------------------------------------------
+
+const THERMAL_LAYER_DEFAULT: ThermalLayer = { name: '', k: 0.2, thicknessMm: 2, areaCm2: 4 };
+
+function ThermalSection() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  const { outputText } = useIndustrialOutput();
+  const [powerW, setPowerW] = useState(5);
+  const [ambientC, setAmbientC] = useState(25);
+  const [hExternal, setHExternal] = useState(0);
+  const [layers, setLayers] = useState<ThermalLayer[]>([
+    { ...THERMAL_LAYER_DEFAULT, name: 'Si', k: 148, thicknessMm: 0.5, areaCm2: 4 },
+    { ...THERMAL_LAYER_DEFAULT, name: 'TIM', k: 4, thicknessMm: 0.2, areaCm2: 4 },
+    { ...THERMAL_LAYER_DEFAULT, name: 'Cu', k: 390, thicknessMm: 2, areaCm2: 4 },
+  ]);
+  const setLayer = (index: number, patch: Partial<ThermalLayer>) =>
+    setLayers((ls) => ls.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  const result = useMemo(() => thermalStack({ powerW, ambientC, hExternal, layers }), [powerW, ambientC, hExternal, layers]);
+  const exportCsv = (target: 'download' | 'save') => {
+    const rows = [['layer', 'k_W_mK', 'thickness_mm', 'area_cm2', 'R_K_W', 'hot_side_C']];
+    layers.forEach((l, i) => {
+      rows.push([
+        l.name || `layer-${i + 1}`,
+        String(l.k),
+        String(l.thicknessMm),
+        String(l.areaCm2),
+        result ? String(result.layerR[i] ?? '') : '',
+        result ? String(result.layerHotC[i] ?? '') : '',
+      ]);
+    });
+    rows.push(['total_R', '', '', '', result ? String(result.totalR) : '', '']);
+    void outputText('results', `${artifactBaseName(study)}-thermal-stack.csv`, rows.map((r) => r.join(',')).join('\n'), target);
+  };
+  return (
+    <section className="ind-card">
+      <h3 className="ind-card-title">{t('industrial.calc.thermal.title')}</h3>
+      <p className="ind-hint">{t('industrial.calc.thermal.desc')}</p>
+      <div className="ind-toolbar analysis-row">
+        <NumField label={t('industrial.calc.thermal.power')} unit="W" value={powerW} onChange={setPowerW} />
+        <NumField label={t('industrial.calc.thermal.ambient')} unit="°C" value={ambientC} onChange={setAmbientC} />
+        <NumField label={t('industrial.calc.thermal.h_ext')} unit="W/(m²·K)" value={hExternal} onChange={setHExternal} />
+      </div>
+      <div className="ind-geometry-list">
+        {layers.map((layer, i) => (
+          <div key={i} className="ind-row">
+            <span className="tag">{layer.name || `#${i + 1}`}</span>
+            <NumField label="k" unit="W/(m·K)" value={layer.k} onChange={(v) => setLayer(i, { k: v })} />
+            <NumField label={t('industrial.calc.thermal.thickness')} unit="mm" value={layer.thicknessMm} onChange={(v) => setLayer(i, { thicknessMm: v })} />
+            <NumField label={t('industrial.calc.thermal.area')} unit="cm²" value={layer.areaCm2} onChange={(v) => setLayer(i, { areaCm2: v })} />
+            <button
+              type="button"
+              className="btn btn-sm"
+              title={t('industrial.delete')}
+              disabled={layers.length <= 1}
+              onClick={() => setLayers((ls) => ls.filter((_, j) => j !== i))}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="ind-toolbar analysis-row">
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => setLayers((ls) => [...ls, { ...THERMAL_LAYER_DEFAULT }])}
+        >
+          {t('industrial.calc.thermal.add_layer')}
+        </button>
+        {study && study.materials.length > 0 && (
+          <label className="ind-field">
+            <span>{t('industrial.calc.thermal.from_material')}</span>
+            <select
+              className="input input-sm"
+              value=""
+              onChange={(e) => {
+                const material = study.materials.find((m) => m.name === e.target.value);
+                const k = material ? materialProperty(material, 'k', NaN) : NaN;
+                if (Number.isFinite(k)) setLayers((ls) => [...ls, { ...THERMAL_LAYER_DEFAULT, name: material!.name, k }]);
+              }}
+            >
+              <option value="">{t('industrial.calc.thermal.pick_material')}</option>
+              {study.materials.map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="ind-calc-results">
+        {layers.map((layer, i) => (
+          <ResultRow
+            key={i}
+            label={`${t('industrial.calc.thermal.hot_side')} · ${layer.name || `#${i + 1}`}`}
+            value={result?.layerHotC[i] ?? null}
+            unit="°C"
+          />
+        ))}
+        <ResultRow label={t('industrial.calc.thermal.total_r')} value={result?.totalR ?? null} unit="K/W" />
+        <ResultRow label={t('industrial.calc.thermal.cold')} value={result?.coldC ?? null} unit="°C" />
+      </div>
+      <ExportGroups
+        items={[{
+          label: t('industrial.calc.export_csv'),
+          onDownload: () => exportCsv('download'),
+          onSave: () => exportCsv('save'),
+        }]}
+      />
+    </section>
   );
 }
