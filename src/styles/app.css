@@ -12095,6 +12095,38 @@
   margin-top: 4px;
 }
 
+/* Report exports: an explicit Download group and Save-to-workspace group,
+   each in thirds so buttons never leave a hanging empty cell. */
+.ind-export-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ind-export-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ind-export-label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ind-export-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ind-export-row .btn {
+  width: 100%;
+  justify-content: center;
+}
+
 /* Report preview: a printable A4 sheet on a neutral desktop backdrop. */
 .ind-paper-toolbar {
   display: flex;

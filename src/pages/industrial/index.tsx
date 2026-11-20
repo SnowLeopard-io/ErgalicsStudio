@@ -14,12 +14,13 @@ import { ToolIcon } from '@/components/icons';
 import { EngineeringImportButton } from './ImportButton';
 import { CadViewport, type CadViewPreset } from './CadViewport';
 import { sampleTetField } from '@/core/engineering/volume';
-import { artifactBaseName, safeName, useIndustrialOutput } from './artifacts';
+import { artifactBaseName, buildReportPdf, safeName, useIndustrialArtifacts, useIndustrialOutput } from './artifacts';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { useAppStore } from '@/stores/appStore';
 import { useLocale } from '@/i18n';
-import { renderSVG } from '@/core/plot';
+import { downloadBytes, downloadText, renderSVG } from '@/core/plot';
+import { logger } from '@/core/logger';
 import {
   elementsToCSV,
   fieldHistogramSpec,
@@ -1435,23 +1436,69 @@ export function IndustrialReportPage() {
     const ratio = available / frame.offsetWidth;
     setZoom(Math.max(50, Math.min(100, Math.floor(ratio * 100))));
   };
-  const { outputText } = useIndustrialOutput();
-  const download = () => {
-    if (!report) return;
-    void outputText('results', `${base}-report.html`, report.html);
+  const { saveText, saveBinary, notify } = useIndustrialArtifacts();
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const downloadHtml = () => {
+    if (report) downloadText(report.html, `${base}-report.html`, 'text/html');
   };
   const downloadMarkdown = () => {
+    if (report) downloadText(report.markdown, `${base}-report.md`, 'text/markdown');
+  };
+  const saveHtml = () => {
+    if (report) void saveText('results', `${base}-report.html`, report.html);
+  };
+  const saveMarkdown = () => {
+    if (report) void saveText('results', `${base}-report.md`, report.markdown);
+  };
+  /** PDF goes through the shared document pipeline (jsPDF + CJK font). */
+  const exportPdf = async (target: 'download' | 'save') => {
     if (!report) return;
-    void outputText('results', `${base}-report.md`, report.markdown);
+    setPdfBusy(true);
+    try {
+      const bytes = await buildReportPdf(report.title, report.markdown);
+      if (target === 'download') downloadBytes(bytes, `${base}-report.pdf`, 'application/pdf');
+      else await saveBinary('results', `${base}-report.pdf`, bytes);
+    } catch (err) {
+      logger.warn('engineering', 'report PDF export failed', err);
+      notify('error', t('industrial.pdf_failed'));
+    } finally {
+      setPdfBusy(false);
+    }
   };
   return (
     <Page toolId="industrial-report">
       <div className="ind-page analysis-body">
         <PageHead toolId="industrial-report" title={t('industrial.report')} />
         <IndustrialActions toolId="industrial-report">
-          <div className="ind-toolbar analysis-row">
-            <button type="button" className="btn btn-sm btn-primary" onClick={download}>{t('industrial.download_report')}</button>
-            <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>{t('industrial.download_markdown')}</button>
+          <div className="ind-export-groups">
+            <div className="ind-export-group">
+              <span className="ind-export-label">{t('industrial.download')}</span>
+              <div className="ind-export-row">
+                <button type="button" className="btn btn-sm btn-primary" onClick={downloadHtml}>
+                  {t('industrial.export_html')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>
+                  {t('industrial.export_markdown')}
+                </button>
+                <button type="button" className="btn btn-sm" disabled={pdfBusy} onClick={() => void exportPdf('download')}>
+                  {t('industrial.export_pdf')}
+                </button>
+              </div>
+            </div>
+            <div className="ind-export-group">
+              <span className="ind-export-label">{t('industrial.save_to_workspace')}</span>
+              <div className="ind-export-row">
+                <button type="button" className="btn btn-sm" onClick={saveHtml}>
+                  {t('industrial.export_html')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={saveMarkdown}>
+                  {t('industrial.export_markdown')}
+                </button>
+                <button type="button" className="btn btn-sm" disabled={pdfBusy} onClick={() => void exportPdf('save')}>
+                  {t('industrial.export_pdf')}
+                </button>
+              </div>
+            </div>
             {report && (
               <span className="ind-hint">{t('industrial.report_fingerprint', { hash: report.fingerprint.meshHash.slice(0, 12) })}</span>
             )}

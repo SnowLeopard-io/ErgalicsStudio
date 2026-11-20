@@ -110,14 +110,19 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
       </div>
       <section className="rp-engineering-section">
         <div className="rp-engineering-section-title">{t('workbench.right.actions')}</div>
-        <label className="rp-engineering-output">
-          <input
-            type="checkbox"
-            checked={outputToWorkspace}
-            onChange={(e) => setOutputToWorkspace(e.target.checked)}
-          />
-          {t('industrial.output_to_workspace')}
-        </label>
+        {/* The report page ships explicit Download / Save groups (HTML,
+            Markdown, PDF), so the global destination toggle would only add
+            ambiguity there. */}
+        {toolId !== 'industrial-report' && (
+          <label className="rp-engineering-output">
+            <input
+              type="checkbox"
+              checked={outputToWorkspace}
+              onChange={(e) => setOutputToWorkspace(e.target.checked)}
+            />
+            {t('industrial.output_to_workspace')}
+          </label>
+        )}
         <div className="rp-engineering-actions" ref={setActionsHost} />
       </section>
       {!study ? (

@@ -18,6 +18,7 @@ import {
   rasterizePNG,
 } from '@/core/plot/export';
 import { saveBinaryArtifact, saveTextArtifact } from '@/core/workspace-artifacts';
+import type { PdfTextBlock } from '@/core/publish/pdf';
 import { useAppStore } from '@/stores/appStore';
 import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -33,6 +34,53 @@ export function artifactBaseName(study: EngineeringStudy | null | undefined): st
   const project = useProjectStore.getState().project?.name;
   const base = project && study ? `${project}-${study.name}` : (project ?? study?.name ?? 'engineering');
   return safeName(base);
+}
+
+/** Strip inline Markdown emphasis so PDF text stays plain. */
+function plain(value: string): string {
+  return value
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim();
+}
+
+/**
+ * Markdown → PDF text blocks. Matches the manuscript PDF pipeline's table
+ * convention (cells joined with "  |  ") so both exports read the same.
+ */
+export function markdownToPdfBlocks(markdown: string): PdfTextBlock[] {
+  const blocks: PdfTextBlock[] = [];
+  for (const raw of markdown.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const heading = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (heading) {
+      blocks.push({ kind: 'heading', level: heading[1]!.length, text: plain(heading[2]!) });
+      continue;
+    }
+    if (/^(-{3,}|\*{3,})$/.test(line)) continue;
+    // Table alignment row: | --- | :---: |
+    if (/^\|?[\s:|-]+\|?$/.test(line)) continue;
+    if (line.startsWith('|')) {
+      const cells = line.replace(/^\||\|$/g, '').split('|').map((cell) => plain(cell));
+      blocks.push({ kind: 'text', text: cells.join('  |  ') });
+      continue;
+    }
+    if (/^[-*]\s+/.test(line)) {
+      blocks.push({ kind: 'bullet', text: plain(line.replace(/^[-*]\s+/, '')) });
+      continue;
+    }
+    blocks.push({ kind: 'text', text: plain(line.replace(/^>\s?/, '')) });
+  }
+  return blocks;
+}
+
+/** Render an industrial report (its Markdown source) into A4 PDF bytes. The
+ *  document pipeline is imported on demand: it pulls jsPDF + KaTeX, which must
+ *  stay out of the industrial bundle until the user actually exports a PDF. */
+export async function buildReportPdf(title: string, markdown: string): Promise<Uint8Array> {
+  const { buildTextPdf } = await import('@/core/publish/pdf');
+  return buildTextPdf(title, markdownToPdfBlocks(markdown));
 }
 
 export function useIndustrialArtifacts() {
