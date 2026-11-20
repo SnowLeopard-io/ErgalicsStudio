@@ -1,7 +1,7 @@
 // Tests for the mesh-free engineering calculators (core/engineering/calc.ts).
 
 import { describe, expect, it } from 'vitest';
-import { beamQuick, fatigueLife, pipePressureDrop, thermalStack, toleranceChain } from '@/core/engineering/calc';
+import { beamQuick, fatigueLife, pipePressureDrop, safetyFactor, thermalStack, toleranceChain } from '@/core/engineering/calc';
 
 describe('pipePressureDrop', () => {
   // Water, 6 m³/h in a DN40 (40 mm) pipe: v ≈ 1.326 m/s, Re ≈ 5.28e4.
@@ -193,5 +193,26 @@ describe('toleranceChain', () => {
     expect(toleranceChain([])).toBeNull();
     expect(toleranceChain([{ name: 'x', nominalMm: NaN, tolMm: 0.1, distribution: 'normal' }])).toBeNull();
     expect(toleranceChain([{ name: 'x', nominalMm: 10, tolMm: -1, distribution: 'normal' }])).toBeNull();
+  });
+});
+
+describe('safetyFactor', () => {
+  it('computes factor and margin against the required design factor', () => {
+    const r = safetyFactor({ appliedMPa: 120, allowableMPa: 250, requiredSf: 1.5 })!;
+    expect(r.factor).toBeCloseTo(250 / 120, 6);
+    expect(r.margin).toBeCloseTo(250 / 120 - 1.5, 6);
+    expect(r.pass).toBe(true);
+  });
+
+  it('fails when the factor falls below the requirement', () => {
+    const r = safetyFactor({ appliedMPa: 200, allowableMPa: 250, requiredSf: 1.5 })!;
+    expect(r.factor).toBeCloseTo(1.25, 6);
+    expect(r.pass).toBe(false);
+  });
+
+  it('rejects non-physical inputs', () => {
+    expect(safetyFactor({ appliedMPa: 0, allowableMPa: 250, requiredSf: 1.5 })).toBeNull();
+    expect(safetyFactor({ appliedMPa: 100, allowableMPa: -1, requiredSf: 1.5 })).toBeNull();
+    expect(safetyFactor({ appliedMPa: 100, allowableMPa: 250, requiredSf: 0 })).toBeNull();
   });
 });

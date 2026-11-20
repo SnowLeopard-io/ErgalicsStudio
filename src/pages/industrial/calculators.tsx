@@ -13,6 +13,7 @@ import {
   beamQuick,
   fatigueLife,
   pipePressureDrop,
+  safetyFactor,
   thermalStack,
   toleranceChain,
   type BeamInput,
@@ -146,6 +147,7 @@ export function CalculatorsPage() {
         <BeamSection />
         <FatigueSection />
         <ToleranceSection />
+        <SafetySection />
       </div>
     </Page>
   );
@@ -370,7 +372,83 @@ function FatigueSection() {
   );
 }
 
-// --- tolerance chain ------------------------------------------------------------
+// --- safety factor check ---------------------------------------------------------
+
+function SafetySection() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  const { outputText } = useIndustrialOutput();
+  const [appliedMPa, setAppliedMPa] = useState(120);
+  const [allowableMPa, setAllowableMPa] = useState(250);
+  const [requiredSf, setRequiredSf] = useState(1.5);
+  const result = useMemo(
+    () => safetyFactor({ appliedMPa, allowableMPa, requiredSf }),
+    [appliedMPa, allowableMPa, requiredSf],
+  );
+  // The allowable defaults to the active study material's yield strength and
+  // refreshes when the user picks another library material — the same
+  // material state the case editor and solver use.
+  const materials = study?.materials ?? [];
+  const exportCsv = (target: 'download' | 'save') => {
+    const rows = [
+      ['quantity', 'value', 'unit'],
+      ['applied', String(appliedMPa), 'MPa'],
+      ['allowable', String(allowableMPa), 'MPa'],
+      ['required_sf', String(requiredSf), '-'],
+      ['safety_factor', result ? String(result.factor) : '', '-'],
+      ['margin', result ? String(result.margin) : '', '-'],
+      ['pass', result ? String(result.pass) : '', ''],
+    ];
+    void outputText('results', `${artifactBaseName(study)}-safety-factor.csv`, rows.map((r) => r.join(',')).join('\n'), target);
+  };
+  return (
+    <section className="ind-card">
+      <h3 className="ind-card-title">{t('industrial.calc.safety.title')}</h3>
+      <p className="ind-hint">{t('industrial.calc.safety.desc')}</p>
+      <div className="ind-toolbar analysis-row">
+        <NumField label={t('industrial.calc.safety.applied')} unit="MPa" value={appliedMPa} onChange={setAppliedMPa} />
+        <NumField label={t('industrial.calc.safety.allowable')} unit="MPa" value={allowableMPa} onChange={setAllowableMPa} />
+        <NumField label={t('industrial.calc.safety.required')} unit="n" value={requiredSf} onChange={setRequiredSf} step={0.1} />
+      </div>
+      {materials.length > 0 && (
+        <div className="ind-toolbar analysis-row">
+          <label className="ind-field">
+            <span>{t('industrial.calc.safety.from_material')}</span>
+            <select
+              className="input input-sm"
+              value=""
+              onChange={(e) => {
+                const material = materials.find((m) => m.name === e.target.value);
+                const sy = material ? materialProperty(material, 'sy', NaN) : NaN;
+                if (Number.isFinite(sy)) setAllowableMPa(sy / 1e6);
+              }}
+            >
+              <option value="">{t('industrial.calc.safety.pick_material')}</option>
+              {materials.map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      <div className="ind-calc-results">
+        <ResultRow label={t('industrial.calc.safety.factor')} value={result?.factor ?? null} />
+        <ResultRow label={t('industrial.calc.safety.margin')} value={result?.margin ?? null} />
+        <ResultRow
+          label={t('industrial.calc.safety.verdict')}
+          value={result ? (result.pass ? t('industrial.calc.safety.pass') : t('industrial.calc.safety.reject')) : null}
+        />
+      </div>
+      <ExportGroups
+        items={[{
+          label: t('industrial.calc.export_csv'),
+          onDownload: () => exportCsv('download'),
+          onSave: () => exportCsv('save'),
+        }]}
+      />
+    </section>
+  );
+}
 
 const TOL_ITEM_DEFAULT: ToleranceItem = { name: '', nominalMm: 10, tolMm: 0.1, distribution: 'normal' };
 

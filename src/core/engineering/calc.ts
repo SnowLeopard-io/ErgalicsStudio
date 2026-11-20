@@ -317,3 +317,34 @@ export function toleranceChain(items: ToleranceItem[]): ToleranceChainResult | n
     gain: statistical > 0 ? worst / statistical : 1,
   };
 }
+
+// --- safety factor check ---------------------------------------------------------
+
+export interface SafetyFactorInput {
+  /** Applied working stress [MPa]. */
+  appliedMPa: number;
+  /** Material allowable (yield for ductile design) [MPa]. */
+  allowableMPa: number;
+  /** Required minimum safety factor (company/design code). */
+  requiredSf: number;
+}
+
+export interface SafetyFactorResult {
+  /** n = allowable / applied. */
+  factor: number;
+  /** Margin = n − n_required (negative → under-strength). */
+  margin: number;
+  pass: boolean;
+}
+
+/** n = σ_allowable / σ_applied against the required design factor. */
+export function safetyFactor(input: SafetyFactorInput): SafetyFactorResult | null {
+  const { appliedMPa, allowableMPa, requiredSf } = input;
+  if (!(appliedMPa > 0) || !(allowableMPa > 0) || !(requiredSf > 0)) return null;
+  const factor = allowableMPa / appliedMPa;
+  return {
+    factor,
+    margin: factor - requiredSf,
+    pass: factor >= requiredSf,
+  };
+}
