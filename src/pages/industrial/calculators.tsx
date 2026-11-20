@@ -14,10 +14,12 @@ import {
   fatigueLife,
   pipePressureDrop,
   thermalStack,
+  toleranceChain,
   type BeamInput,
   type FatigueRow,
   type PipeInput,
   type ThermalLayer,
+  type ToleranceItem,
 } from '@/core/engineering/calc';
 import { materialProperty } from '@/core/engineering/materials';
 import { artifactBaseName, useIndustrialOutput } from './artifacts';
@@ -143,6 +145,7 @@ export function CalculatorsPage() {
         <ThermalSection />
         <BeamSection />
         <FatigueSection />
+        <ToleranceSection />
       </div>
     </Page>
   );
@@ -355,6 +358,86 @@ function FatigueSection() {
           label={t('industrial.calc.fatigue.verdict')}
           value={result ? (result.safe ? t('industrial.calc.fatigue.safe') : t('industrial.calc.fatigue.fail')) : null}
         />
+      </div>
+      <ExportGroups
+        items={[{
+          label: t('industrial.calc.export_csv'),
+          onDownload: () => exportCsv('download'),
+          onSave: () => exportCsv('save'),
+        }]}
+      />
+    </section>
+  );
+}
+
+// --- tolerance chain ------------------------------------------------------------
+
+const TOL_ITEM_DEFAULT: ToleranceItem = { name: '', nominalMm: 10, tolMm: 0.1, distribution: 'normal' };
+
+function ToleranceSection() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  const { outputText } = useIndustrialOutput();
+  const [items, setItems] = useState<ToleranceItem[]>([
+    { ...TOL_ITEM_DEFAULT, name: 'A', nominalMm: 20, tolMm: 0.1, distribution: 'extreme' },
+    { ...TOL_ITEM_DEFAULT, name: 'B', nominalMm: 15, tolMm: 0.05, distribution: 'normal' },
+    { ...TOL_ITEM_DEFAULT, name: 'C', nominalMm: 8, tolMm: 0.05, distribution: 'normal' },
+  ]);
+  const setItem = (index: number, patch: Partial<ToleranceItem>) =>
+    setItems((is) => is.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+  const result = useMemo(() => toleranceChain(items), [items]);
+  const exportCsv = (target: 'download' | 'save') => {
+    const rows = [['name', 'nominal_mm', 'tol_mm', 'distribution']];
+    for (const it of items) rows.push([it.name || '-', String(it.nominalMm), String(it.tolMm), it.distribution]);
+    rows.push(['nominal', result ? String(result.nominalMm) : '', '', '']);
+    rows.push(['worst_tol', result ? String(result.worstCaseTolMm) : '', '', '']);
+    rows.push(['statistical_tol_3sigma', result ? String(result.statisticalTolMm) : '', '', '']);
+    void outputText('results', `${artifactBaseName(study)}-tolerance-chain.csv`, rows.map((r) => r.join(',')).join('\n'), target);
+  };
+  return (
+    <section className="ind-card">
+      <h3 className="ind-card-title">{t('industrial.calc.tol.title')}</h3>
+      <p className="ind-hint">{t('industrial.calc.tol.desc')}</p>
+      <div className="ind-geometry-list">
+        {items.map((item, i) => (
+          <div key={i} className="ind-row">
+            <span className="tag">{item.name || `#${i + 1}`}</span>
+            <NumField label={t('industrial.calc.tol.nominal')} unit="mm" value={item.nominalMm} onChange={(v) => setItem(i, { nominalMm: v })} />
+            <NumField label={t('industrial.calc.tol.tol')} unit="±mm" value={item.tolMm} onChange={(v) => setItem(i, { tolMm: v })} step={0.01} />
+            <label className="ind-field">
+              <span>{t('industrial.calc.tol.dist')}</span>
+              <select
+                className="input input-sm"
+                value={item.distribution}
+                onChange={(e) => setItem(i, { distribution: e.target.value as ToleranceItem['distribution'] })}
+              >
+                <option value="extreme">{t('industrial.calc.tol.extreme')}</option>
+                <option value="normal">{t('industrial.calc.tol.normal')}</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="btn btn-sm"
+              title={t('common.delete')}
+              disabled={items.length <= 1}
+              onClick={() => setItems((is) => is.filter((_, j) => j !== i))}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="ind-toolbar analysis-row">
+        <button type="button" className="btn btn-sm" onClick={() => setItems((is) => [...is, { ...TOL_ITEM_DEFAULT }])}>
+          {t('industrial.calc.tol.add_item')}
+        </button>
+      </div>
+      <div className="ind-calc-results">
+        <ResultRow label={t('industrial.calc.tol.gap_nominal')} value={result?.nominalMm ?? null} unit="mm" />
+        <ResultRow label={t('industrial.calc.tol.worst')} value={result ? `±${result.worstCaseTolMm}` : null} unit="mm" />
+        <ResultRow label={t('industrial.calc.tol.statistical')} value={result ? `±${result.statisticalTolMm}` : null} unit="mm" />
+        <ResultRow label={t('industrial.calc.tol.gain')} value={result ? `${result.gain.toFixed(2)}×` : null} />
+        <ResultRow label={t('industrial.calc.tol.bounds')} value={result ? `${result.minMm.toFixed(3)} ~ ${result.maxMm.toFixed(3)}` : null} unit="mm" />
       </div>
       <ExportGroups
         items={[{

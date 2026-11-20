@@ -1,7 +1,7 @@
 // Tests for the mesh-free engineering calculators (core/engineering/calc.ts).
 
 import { describe, expect, it } from 'vitest';
-import { beamQuick, fatigueLife, pipePressureDrop, thermalStack } from '@/core/engineering/calc';
+import { beamQuick, fatigueLife, pipePressureDrop, thermalStack, toleranceChain } from '@/core/engineering/calc';
 
 describe('pipePressureDrop', () => {
   // Water, 6 m³/h in a DN40 (40 mm) pipe: v ≈ 1.326 m/s, Re ≈ 5.28e4.
@@ -156,5 +156,42 @@ describe('fatigueLife', () => {
   it('rejects invalid knock-down factors', () => {
     expect(fatigueLife({ ultimateMPa: 400, knockDown: 0, rows: [] })).toBeNull();
     expect(fatigueLife({ ultimateMPa: 400, knockDown: 1.5, rows: [] })).toBeNull();
+  });
+});
+
+describe('toleranceChain', () => {
+  // A: 20 ±0.10 extreme, B: 15 ±0.05 normal, C: 8 ±0.05 normal.
+  // Worst: ±0.20. Statistical: σ = 0.05/3 + 0.05/3 (normals) + 0.10 (extreme as 3σ)
+  // → variance = 0.01 + 2.78e-4 + 2.78e-4 = 1.0556e-2 → 3σ = ±0.308. Hmm — the
+  // extreme entry dominates RSS. Use all-normal instead for the textbook case:
+  const items = [
+    { name: 'A', nominalMm: 20, tolMm: 0.1, distribution: 'normal' as const },
+    { name: 'B', nominalMm: 15, tolMm: 0.1, distribution: 'normal' as const },
+  ];
+
+  it('sums nominals and worst-case tolerances', () => {
+    const r = toleranceChain([
+      { name: 'A', nominalMm: 20, tolMm: 0.1, distribution: 'extreme' },
+      { name: 'B', nominalMm: 15, tolMm: 0.05, distribution: 'normal' },
+      { name: 'C', nominalMm: 8, tolMm: 0.05, distribution: 'normal' },
+    ])!;
+    expect(r.nominalMm).toBeCloseTo(43, 6);
+    expect(r.worstCaseTolMm).toBeCloseTo(0.2, 6);
+    expect(r.minMm).toBeCloseTo(42.8, 6);
+    expect(r.maxMm).toBeCloseTo(43.2, 6);
+  });
+
+  it('all-normal chain: RSS is tighter than worst case', () => {
+    const r = toleranceChain(items)!;
+    // RSS: 3·√(2·(0.1/3)²) = 0.1·√2 ≈ 0.1414.
+    expect(r.statisticalTolMm).toBeCloseTo(0.1 * Math.SQRT2, 3);
+    expect(r.statisticalTolMm).toBeLessThan(r.worstCaseTolMm);
+    expect(r.gain).toBeCloseTo(Math.SQRT2, 3);
+  });
+
+  it('returns null for invalid items', () => {
+    expect(toleranceChain([])).toBeNull();
+    expect(toleranceChain([{ name: 'x', nominalMm: NaN, tolMm: 0.1, distribution: 'normal' }])).toBeNull();
+    expect(toleranceChain([{ name: 'x', nominalMm: 10, tolMm: -1, distribution: 'normal' }])).toBeNull();
   });
 });

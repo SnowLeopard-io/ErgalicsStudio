@@ -263,3 +263,57 @@ export function fatigueLife(input: FatigueInput): FatigueResult | null {
     safe: totalDamage < 1,
   };
 }
+
+// --- tolerance chain (worst-case + statistical RSS) ----------------------------
+
+export type ToleranceDistribution = 'extreme' | 'normal';
+
+export interface ToleranceItem {
+  name: string;
+  /** Nominal dimension [mm]. */
+  nominalMm: number;
+  /** Symmetric tolerance ±[mm]. */
+  tolMm: number;
+  distribution: ToleranceDistribution;
+}
+
+export interface ToleranceChainResult {
+  /** Σ nominal [mm]. */
+  nominalMm: number;
+  /** Worst-case tolerance Σ|t_i| [mm]. */
+  worstCaseTolMm: number;
+  /** Root-sum-of-squares tolerance 3·√Σ(t_i/3)² [mm]. */
+  statisticalTolMm: number;
+  /** Worst-case gap bounds [mm]. */
+  minMm: number;
+  maxMm: number;
+  /** How much tighter the statistical estimate is (worstCase/statistical). */
+  gain: number;
+}
+
+/**
+ * 1-D assembly tolerance chain. Extreme contributions add linearly; normal
+ * (3σ-specified) contributions combine as variances, reported at ±3σ.
+ */
+export function toleranceChain(items: ToleranceItem[]): ToleranceChainResult | null {
+  if (items.length === 0) return null;
+  let nominal = 0;
+  let worst = 0;
+  let variance = 0;
+  for (const item of items) {
+    if (!Number.isFinite(item.nominalMm) || !(item.tolMm >= 0)) return null;
+    nominal += item.nominalMm;
+    worst += item.tolMm;
+    if (item.distribution === 'normal') variance += (item.tolMm / 3) ** 2;
+    else variance += item.tolMm ** 2;
+  }
+  const statistical = 3 * Math.sqrt(variance);
+  return {
+    nominalMm: nominal,
+    worstCaseTolMm: worst,
+    statisticalTolMm: statistical,
+    minMm: nominal - worst,
+    maxMm: nominal + worst,
+    gain: statistical > 0 ? worst / statistical : 1,
+  };
+}
