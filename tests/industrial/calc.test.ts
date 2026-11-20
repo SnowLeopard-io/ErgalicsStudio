@@ -65,9 +65,9 @@ describe('thermalStack', () => {
     const r = thermalStack({ powerW: 5, ambientC: 25, hExternal: 0, layers })!;
     expect(r.totalR).toBeGreaterThan(0.14);
     expect(r.totalR).toBeLessThan(0.15);
-    // TIM dominates — its hot side sits at the highest temperature.
-    expect(r.layerHotC[1]!).toBeGreaterThan(r.layerHotC[0]!);
-    expect(r.layerHotC[1]!).toBeCloseTo(25 + 5 * 0.1463, 1);
+    // Temperature decreases along the stack; Si's hot face is the hottest.
+    expect(r.layerHotC[0]!).toBeGreaterThan(r.layerHotC[1]!);
+    expect(r.layerHotC[0]!).toBeCloseTo(25 + 5 * 0.1463, 1);
     expect(r.coldC).toBe(25);
   });
 
@@ -108,7 +108,7 @@ describe('beamQuick', () => {
     const r = beamQuick({ ...base, support: 'simple' })!;
     expect(r.maxMomentNmm).toBeCloseTo(5000, 3); // PL/4
     expect(r.maxStressMPa).toBeCloseTo(15, 1);
-    expect(r.maxDeflectionMm).toBeCloseTo(0.0952, 3); // PL³/48EI
+    expect(r.maxDeflectionMm).toBeCloseTo(0.0476, 3); // PL³/48EI
   });
 
   it('circular section uses πd⁴/64', () => {

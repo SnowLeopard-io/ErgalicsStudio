@@ -118,12 +118,10 @@ export function thermalStack(input: ThermalStackInput): ThermalStackResult | nul
     ? 1 / (hExternal * layers.reduce((acc, l) => acc + l.areaCm2 * 1e-4, 0))
     : 0;
   const totalR = layerR.reduce((a, b) => a + b, 0) + filmR;
-  let acc = 0;
-  const layerHotC = layerR.map((r) => {
-    const hot = ambientC + filmR * powerW + (acc + r) * powerW;
-    acc += r;
-    return hot;
-  });
+  // Layers are ordered hot-side first, so the hot face of layer j sits
+  // filmR + Σ_{k≥j} R_k above ambient (suffix sum from the cold end).
+  const suffix = layerR.map((_, j) => layerR.slice(j).reduce((a, b) => a + b, 0));
+  const layerHotC = suffix.map((sum) => ambientC + (filmR + sum) * powerW);
   return { totalR, layerR, layerHotC, coldC: ambientC + filmR * powerW };
 }
 
