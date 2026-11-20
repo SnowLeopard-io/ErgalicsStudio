@@ -35,6 +35,8 @@ import {
   expandDesign,
   makeStep,
   normalizeStep,
+  validateDesignParameters,
+  type DesignParameterIssue,
 } from '@/core/engineering/cases';
 import {
   materialFromTemplate,
@@ -49,6 +51,7 @@ import {
   meshSummary,
 } from '@/core/engineering';
 import { buildEngineeringReport, type EngineeringReport } from '@/core/engineering/report';
+import { parseEngineeringFileAsync } from '@/core/engineering/parse-async';
 import {
   runEngineeringBuild,
   clearEngineeringBuildCache,
@@ -88,6 +91,10 @@ const SOLVE_ERROR_RULES: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /degenerate element|zero or non-finite area/i, key: 'industrial.err_degenerate' },
   { pattern: /non-finite values/i, key: 'industrial.err_non_finite' },
   { pattern: /boundary condition "(.+)" matches no boundary edges/i, key: 'industrial.err_bc_no_edges' },
+  { pattern: /boundary condition "(.+)" has a non-finite value/i, key: 'industrial.err_bc_non_finite' },
+  { pattern: /boundary condition "(.+)" .*already has prescribed/i, key: 'industrial.err_bc_conflict' },
+  { pattern: /tolerance must be a positive finite number/i, key: 'industrial.err_tolerance' },
+  { pattern: /maxIterations must be an integer/i, key: 'industrial.err_iterations' },
   { pattern: /potential flow needs/i, key: 'industrial.err_potential_bc' },
   { pattern: /unsupported step kind/i, key: 'industrial.err_unsupported_step' },
   { pattern: /thickness/i, key: 'industrial.err_thickness' },
@@ -113,6 +120,8 @@ interface EngineeringStore {
   study: EngineeringStudy | null;
   result: EngineeringSolveResult | null;
   scan: EngineeringScanRow[];
+  /** Last scan validation failure, shown on the design-scan page. */
+  scanError: DesignParameterIssue | null;
   activeStepId: string | null;
   benchmark: BenchmarkResult | null;
   solving: boolean;
@@ -123,8 +132,15 @@ interface EngineeringStore {
   buildCached: boolean;
 
   /** Parse a text payload and make it the active study. Also mirrors the
-   *  original file into the workspace (`mesh/` or `geometry/`). */
-  importText: (text: string, name: string, sourcePath?: string) => EngineeringStudy | null;
+   *  original file into the workspace (`mesh/` or `geometry/`). `parsed` lets
+   *  the async import path hand over a worker-parsed study instead of
+   *  re-parsing the text on the main thread. */
+  importText: (
+    text: string,
+    name: string,
+    sourcePath?: string,
+    parsed?: EngineeringStudy,
+  ) => EngineeringStudy | null;
   /** Import from a File (drop / file picker); mirrors binary-safe text. */
   importFile: (file: File) => Promise<EngineeringStudy | null>;
   setStudy: (study: EngineeringStudy | null) => void;
@@ -342,6 +358,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   study: null,
   result: null,
   scan: [],
+  scanError: null,
   activeStepId: null,
   benchmark: null,
   solving: false,
@@ -349,19 +366,20 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
   buildStats: null,
   buildCached: false,
 
-  importText: (text, name, sourcePath) => {
+  importText: (text, name, sourcePath, parsedStudy) => {
     try {
       if (!isEngineeringExtension(name)) {
         set({ error: `unsupported engineering file: ${name}` });
         return null;
       }
-      const parsed = parseEngineeringFile(text, name);
+      const parsed = parsedStudy ?? parseEngineeringFile(text, name);
       const study = ensureDefaults(parsed);
       const step = ensureCase(study.cases)[0]!.steps[0]!;
       set({
         study,
         result: null,
         scan: [],
+        scanError: null,
         activeStepId: step.id,
         error: null,
         benchmark: null,
@@ -402,8 +420,15 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
 
   importFile: async (file) => {
     try {
+      if (file.size === 0) {
+        set({ error: t('industrial.empty_file', { name: file.name }) });
+        return null;
+      }
       const text = await file.text();
-      return get().importText(text, file.name);
+      // Large decks are parsed in a worker so the UI keeps painting; small
+      // files stay synchronous (worker startup would dominate the parse).
+      const parsed = await parseEngineeringFileAsync(text, file.name);
+      return get().importText(text, file.name, undefined, parsed);
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
       return null;
@@ -427,6 +452,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       activeStepId: step?.id ?? null,
       result: null,
       scan: [],
+      scanError: null,
       error: null,
     });
     persistStudyNow(next, null, [], step?.id ?? null);
@@ -785,6 +811,19 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const study = get().study;
     if (!study) return [];
     const studyCase = ensureCase(study.cases)[0]!;
+    // applyDesignPoint silently skips unknown paths, so a renamed entity would
+    // make every scan row identical. Validate up front and surface the misses.
+    const designIssues = validateDesignParameters({
+      parameters: studyCase.design.parameters,
+      materials: study.materials,
+      steps: studyCase.steps,
+      boundaryConditions: study.boundaryConditions,
+    });
+    if (designIssues.length > 0) {
+      set({ scanError: designIssues[0]! });
+      return [];
+    }
+    set({ scanError: null });
     const designPoints = expandDesign(studyCase.design, { samples: points });
     if (designPoints.length === 0) return [];
     const stepId = get().activeStepId;

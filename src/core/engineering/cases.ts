@@ -120,6 +120,72 @@ export function validateCase(studyCase: EngineeringCase): CaseIssue[] {
   return issues;
 }
 
+export type DesignIssueReason =
+  | 'empty'
+  | 'inverted'
+  | 'non-finite'
+  | 'levels'
+  | 'unknown-material'
+  | 'unknown-step'
+  | 'unknown-bc'
+  | 'unknown-path';
+
+export interface DesignParameterIssue {
+  parameter: string;
+  reason: DesignIssueReason;
+  /** The unresolved entity name / path fragment, when relevant. */
+  detail: string;
+}
+
+/**
+ * Validate design-space parameter paths before a scan. `applyDesignPoint`
+ * deliberately ignores unknown paths so a renamed entity never crashes a run,
+ * but a scan that silently returns identical rows is worse than an error: this
+ * resolves every path against the current study once and reports the misses.
+ */
+export function validateDesignParameters(input: {
+  parameters: readonly EngineeringDesignParameter[];
+  materials: readonly { name: string }[];
+  steps: readonly EngineeringStep[];
+  boundaryConditions: readonly { name: string }[];
+}): DesignParameterIssue[] {
+  const issues: DesignParameterIssue[] = [];
+  for (const parameter of input.parameters) {
+    const name = parameter.name.trim();
+    if (name === '') {
+      issues.push({ parameter: parameter.name, reason: 'empty', detail: '' });
+      continue;
+    }
+    if (!Number.isFinite(parameter.min) || !Number.isFinite(parameter.max)) {
+      issues.push({ parameter: name, reason: 'non-finite', detail: '' });
+      continue;
+    }
+    if (parameter.max < parameter.min) {
+      issues.push({ parameter: name, reason: 'inverted', detail: '' });
+    }
+    if (!Number.isInteger(parameter.levels) || parameter.levels < 1) {
+      issues.push({ parameter: name, reason: 'levels', detail: String(parameter.levels) });
+    }
+    const [head, ...rest] = name.split('.');
+    if (head === 'material' && rest.length >= 2) {
+      if (!input.materials.some((material) => material.name === rest[0])) {
+        issues.push({ parameter: name, reason: 'unknown-material', detail: rest[0]! });
+      }
+    } else if (head === 'step' && rest.length >= 2) {
+      if (!input.steps.some((step) => step.id === rest[0])) {
+        issues.push({ parameter: name, reason: 'unknown-step', detail: rest[0]! });
+      }
+    } else if (head === 'bc' && rest.length >= 2) {
+      if (!input.boundaryConditions.some((condition) => condition.name === rest[0])) {
+        issues.push({ parameter: name, reason: 'unknown-bc', detail: rest[0]! });
+      }
+    } else {
+      issues.push({ parameter: name, reason: 'unknown-path', detail: name });
+    }
+  }
+  return issues;
+}
+
 /** Values of one parameter along its range (inclusive). */
 export function parameterLevels(parameter: EngineeringDesignParameter): number[] {
   const levels = Math.max(1, Math.floor(parameter.levels));

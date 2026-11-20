@@ -1302,6 +1302,7 @@ export function DesignScanPage() {
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const scan = useEngineeringStore((s) => s.scan);
+  const scanError = useEngineeringStore((s) => s.scanError);
   const runScan = useEngineeringStore((s) => s.runScan);
   const updateDesign = useEngineeringStore((s) => s.updateCaseDesign);
   const [busy, setBusy] = useState(false);
@@ -1403,6 +1404,14 @@ export function DesignScanPage() {
             )}
             {scan.length === 0 && design.parameters.length > 0 && (
               <div className="ind-hint">{t('industrial.scan_ready')}</div>
+            )}
+            {scan.length === 0 && scanError && (
+              <div className="ind-hint ind-scan-error">
+                {t(`industrial.scan_issue_${scanError.reason.replace(/-/g, '_')}`, {
+                  name: scanError.parameter,
+                  detail: scanError.detail,
+                })}
+              </div>
             )}
           </>
         )}
