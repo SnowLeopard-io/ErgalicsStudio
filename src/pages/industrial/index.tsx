@@ -163,7 +163,14 @@ export function GeometryPage() {
                 </div>
               ))}
             </div>
-            {study && !view3d && <MeshCanvas mesh={study.mesh} height={360} />}
+            {study && !view3d && (
+              <MeshCanvas
+                mesh={study.mesh}
+                height={360}
+                snapshotRequest={snapshotTick}
+                onSnapshotReady={(url) => downloadSnapshot(url, `${base}-mesh.png`)}
+              />
+            )}
           </>
         )}
       </div>
@@ -258,7 +265,12 @@ export function MeshViewerPage() {
                 onSnapshotReady={(url) => downloadSnapshot(url, `${base}-mesh.png`)}
               />
             ) : (
-              <MeshCanvas mesh={study.mesh} field={field} />
+              <MeshCanvas
+                mesh={study.mesh}
+                field={field}
+                snapshotRequest={snapshotTick}
+                onSnapshotReady={(url) => downloadSnapshot(url, `${base}-mesh.png`)}
+              />
             )}
             {result && (
               <div className="ind-hint">

@@ -95,7 +95,6 @@ interface ManagerColumnArgs {
   setDeleteFile: (entry: FileEntry) => void;
   startIngest: (entry: FileEntry, chunkSize: number) => unknown;
   chunkRunning: boolean;
-  hasActivePlugin: boolean;
   /** Save a bundled example to disk (examples are not FileEntries). */
   downloadExample: (name: string) => void | Promise<void>;
 }
@@ -111,7 +110,6 @@ function managerColumns({
   setDeleteFile,
   startIngest,
   chunkRunning,
-  hasActivePlugin,
   downloadExample,
 }: ManagerColumnArgs): FilePickerColumn[] {
   return [
@@ -132,7 +130,9 @@ function managerColumns({
                 className="icon-btn"
                 title={t('workbench.files.load')}
                 aria-label={t('workbench.files.load')}
-                disabled={!hasActivePlugin}
+                // Deliberately not disabled: with no active plugin the click
+                // still fires and explains what to do, instead of a silent
+                // dead button.
                 onClick={() => void loadIntoActive(name)}
               >
                 <DownloadIcon size={13} />
@@ -182,7 +182,6 @@ function managerColumns({
               className="icon-btn"
               title={t('workbench.files.load')}
               aria-label={t('workbench.files.load')}
-              disabled={!hasActivePlugin}
               onClick={() => void loadIntoActive(name)}
             >
               <DownloadIcon size={13} />
@@ -340,7 +339,6 @@ function DataFilesManagerBody() {
             setDeleteFile,
             startIngest,
             chunkRunning: Boolean(chunkState?.running),
-            hasActivePlugin: Boolean(activeEntry?.plugin),
             downloadExample,
           })}
           onChoose={() => undefined}

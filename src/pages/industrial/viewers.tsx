@@ -22,9 +22,8 @@ export function downloadSnapshot(url: string, filename: string): void {
   link.click();
 }
 
-/** 3-D ⇄ 2-D switch plus the PNG snapshot trigger. The snapshot button is
- *  hidden in 2-D mode: no Three.js renderer exists there, so it could only
- *  ever do nothing. */
+/** 3-D ⇄ 2-D switch plus the PNG snapshot trigger. Both modes can snapshot:
+ *  3-D renders the WebGL canvas, 2-D the lightweight mesh canvas. */
 export function ViewToggle({
   view3d,
   onToggle,
@@ -40,11 +39,9 @@ export function ViewToggle({
       <button type="button" className="btn btn-sm" onClick={onToggle}>
         {view3d ? t('industrial.cad_view') : '2D'}
       </button>
-      {view3d && (
-        <button type="button" className="btn btn-sm" onClick={onSnapshot}>
-          {t('industrial.cad_snapshot')}
-        </button>
-      )}
+      <button type="button" className="btn btn-sm" onClick={onSnapshot}>
+        {t('industrial.cad_snapshot')}
+      </button>
     </>
   );
 }
@@ -83,17 +80,32 @@ export function ViewPresetBar({
   );
 }
 
-/** Lightweight SVG mesh viewer with field colouring. */
+/** Lightweight SVG mesh viewer with field colouring. `snapshotRequest` is a
+ *  counter: each increment exports the current canvas as a PNG data URL, so
+ *  the 2-D mode offers the same 导出图片 action as the 3-D viewport. */
 export function MeshCanvas({
   mesh,
   field,
   height = 420,
+  snapshotRequest = 0,
+  onSnapshotReady,
 }: {
   mesh: EngineeringMesh;
   field?: EngineeringField | null;
   height?: number;
+  snapshotRequest?: number;
+  onSnapshotReady?: (url: string) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const readyRef = useRef(onSnapshotReady);
+  readyRef.current = onSnapshotReady;
+  useEffect(() => {
+    if (snapshotRequest === 0) return;
+    const canvas = ref.current;
+    const ready = readyRef.current;
+    if (!canvas || !ready) return;
+    ready(canvas.toDataURL('image/png'));
+  }, [snapshotRequest]);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;

@@ -18,10 +18,8 @@ import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
 import { ToolIcon } from '@/components/icons';
 import { getTool } from '@/pages/research/toolRegistry';
 import { useEngineeringStore } from '@/stores/engineeringStore';
-import { engineeringFingerprint } from '@/core/engineering/study';
 import { formatEngineering } from '@/core/engineering/materials';
-import { localizedMeshSummary, metricLabel } from '@/pages/industrial/labels';
-import { ensureCase } from '@/core/engineering/cases';
+import { metricLabel } from '@/pages/industrial/labels';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
@@ -86,10 +84,7 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
   const closeTab = useAppStore((s) => s.closeTab);
   const study = useEngineeringStore((s) => s.study);
   const result = useEngineeringStore((s) => s.result);
-  const solving = useEngineeringStore((s) => s.solving);
   const toolDef = getTool(toolId);
-  const fingerprint = study ? engineeringFingerprint(study) : null;
-  const steps = study ? ensureCase(study.cases)[0]!.steps : [];
   // Host for the active industrial page's action bars (import / solve /
   // export / view presets …). Pages portal into it so no action buttons sit
   // in the canvas; when this panel is collapsed the host unmounts and the
@@ -118,50 +113,22 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
       ) : (
         <>
           <section className="rp-engineering-section">
-            <div className="rp-engineering-section-title">{t('industrial.right.overview')}</div>
-            <dl className="suite-intro-facts">
-            <div className="suite-intro-fact">
-              <dt>{t('industrial.right.mesh')}</dt>
-              <dd>{localizedMeshSummary(t, study.mesh)}</dd>
-            </div>
-            <div className="suite-intro-fact">
-              <dt>{t('industrial.right.materials')}</dt>
-              <dd>{study.materials.map((m) => m.name).join(', ') || '—'}</dd>
-            </div>
-            <div className="suite-intro-fact">
-              <dt>{t('industrial.right.steps')}</dt>
-              <dd>{steps.map((step) => step.name).join(', ') || '—'}</dd>
-            </div>
-            <div className="suite-intro-fact">
-              <dt>{t('industrial.right.solve')}</dt>
-              <dd>
-                {solving
-                  ? '…'
-                  : result
-                    ? `${result.stepName} · ${t('industrial.iterations', { n: result.iterations })}`
-                    : '—'}
-              </dd>
-            </div>
-            {fingerprint && (
-              <div className="suite-intro-fact">
-                <dt>{t('industrial.right.fingerprint')}</dt>
-                <dd className="mono">{fingerprint.meshHash.slice(0, 12)}…</dd>
+            {/* Mesh / material / step / solve facts moved to the status bar
+                (StatusBar renders them as chips); only the solver result
+                metrics stay here. */}
+            {result && (
+              <div className="rp-engineering-metrics">
+                {Object.entries(result.metrics)
+                  .filter(([key]) => key !== 'nodeCount' && key !== 'elementCount')
+                  .slice(0, 6)
+                  .map(([key, value]) => (
+                    <div key={key}>
+                      <span>{metricLabel(t, key)}</span>
+                      <strong>{formatEngineering(value)}</strong>
+                    </div>
+                  ))}
               </div>
             )}
-          </dl>
-          {result && (
-            <div className="rp-engineering-metrics">
-              {Object.entries(result.metrics)
-                .filter(([key]) => key !== 'nodeCount' && key !== 'elementCount')
-                .slice(0, 6)
-                .map(([key, value]) => (
-                  <div key={key}>
-                    <span>{metricLabel(t, key)}</span>
-                    <strong>{formatEngineering(value)}</strong>
-                  </div>
-                ))}
-            </div>
-          )}
           </section>
           <div className="rp-engineering-footer">
             <button type="button" className="btn btn-sm" onClick={() => navigate('/studio/industrial-report')}>

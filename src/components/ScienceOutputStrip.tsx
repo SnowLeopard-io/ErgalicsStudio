@@ -10,6 +10,9 @@ import { stageLabHandoff } from '@/core/labHandoff';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+import { ensureCase } from '@/core/engineering/cases';
+import { localizedMeshSummary } from '@/pages/industrial/labels';
 import { useT } from '@/i18n';
 
 /** Research suites the staged data file can be deep-linked into. */
@@ -104,6 +107,47 @@ export function ScienceOutputStrip() {
 
   const entry = activeId ? outputs[activeId] : undefined;
 
+  // Industrial study facts (mesh / materials / steps / solve) ride the same
+  // strip: when an engineering study is loaded they appear as leading chips,
+  // even while no research plugin has published metrics (the strip used to
+  // hide entirely in that case).
+  const engStudy = useEngineeringStore((s) => s.study);
+  const engResult = useEngineeringStore((s) => s.result);
+  const engSolving = useEngineeringStore((s) => s.solving);
+  const engMetrics = useMemo(() => {
+    if (!engStudy) return [];
+    const fmt = (n: number) => n.toLocaleString();
+    const steps = ensureCase(engStudy.cases)[0]!.steps;
+    return [
+      {
+        key: 'eng-mesh',
+        label: t('industrial.right.mesh'),
+        value: `${fmt(engStudy.mesh.nodes.length)} n · ${fmt(engStudy.mesh.elements.length)} e · ${engStudy.mesh.groups.length} g`,
+        hint: localizedMeshSummary(t, engStudy.mesh),
+      },
+      {
+        key: 'eng-materials',
+        label: t('industrial.right.materials'),
+        value: engStudy.materials.map((m) => m.name).join(', ') || '—',
+      },
+      {
+        key: 'eng-steps',
+        label: t('industrial.right.steps'),
+        value: steps.map((step) => step.name).join(', ') || '—',
+      },
+      {
+        key: 'eng-solve',
+        label: t('industrial.right.solve'),
+        value: engSolving
+          ? '…'
+          : engResult
+            ? `${engResult.stepName} · ${t('industrial.iterations', { n: engResult.iterations })}`
+            : '—',
+        severity: engResult && !engSolving ? 'ok' : 'info',
+      },
+    ];
+  }, [engStudy, engResult, engSolving, t]);
+
   // Metrics row: mouse-wheel scrolls it horizontally (deltaY → scrollLeft) so
   // overflowing metrics stay reachable without a visible scrollbar or drag.
   // Native listener with passive:false — React's wheel handler can't
@@ -153,9 +197,9 @@ export function ScienceOutputStrip() {
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [hasEntry]);
+  }, [hasEntry, engMetrics.length]);
 
-  if (!entry || entry.metrics.length === 0) return null;
+  if ((!entry || entry.metrics.length === 0) && engMetrics.length === 0) return null;
 
   // Metrics row mouse-wheel binding lives above (hooks-before-return).
 
@@ -208,7 +252,20 @@ export function ScienceOutputStrip() {
       >
         <span className="science-strip-title">Σ</span>
         <div className="science-strip-items" ref={itemsRef}>
-          {entry.metrics.map((m, i) => (
+          {engMetrics.map((m, i) => (
+            <span
+              key={m.key}
+              className={`science-metric sev-${m.severity ?? 'info'}`}
+              title={m.hint ?? m.label}
+              style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
+            >
+              <span className="science-metric-label">{m.label}</span>
+              <span className="science-metric-value">
+                <AnimatedMetricValue text={String(m.value)} />
+              </span>
+            </span>
+          ))}
+          {entry?.metrics.map((m, i) => (
             <span
               key={m.key}
               className={`science-metric sev-${m.severity ?? 'info'}`}
