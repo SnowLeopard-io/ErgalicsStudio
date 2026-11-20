@@ -12120,6 +12120,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-bottom: var(--space-2, 8px);
 }
 
 .ind-export-group {
@@ -12135,9 +12136,11 @@
   text-transform: uppercase;
 }
 
+/* One equal column per button, whatever the group size. */
 .ind-export-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -12432,6 +12435,17 @@
 
 .rp-engineering-actions .ind-toolbar-spacer {
   display: none;
+}
+
+/* The material row (template picker + add button) keeps its own 50/50 split
+   inside the sidebar: the generic two-column toolbar rule would otherwise
+   push the primary "add" button onto a full-width row of its own. */
+.rp-engineering-actions .ind-add-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.rp-engineering-actions .ind-add-row > .btn-primary {
+  grid-column: auto;
 }
 
 .rp-engineering-actions .ind-toolbar .btn {

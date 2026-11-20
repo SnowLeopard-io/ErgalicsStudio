@@ -160,21 +160,21 @@ function mimeFor(filename: string): string {
 }
 
 /**
- * Export routing shared by the industrial pages. The right panel exposes an
- * "output to workspace directory" toggle: when it is on, exports are written
- * into the project workspace (results/ · figures/ · study/) and the file
- * explorer is notified; when it is off the exporter falls back to the browser
- * download. This is the single output-destination control — pages no longer
- * carry their own duplicate "save to workspace" buttons.
+ * Export routing shared by the industrial pages. Pages call these with an
+ * explicit target: 'download' writes through the browser, 'save' writes into
+ * the project workspace (results/ · figures/ · study/) and notifies the file
+ * explorer. When no target is passed the legacy panel toggle decides.
  */
+export type ExportTarget = 'download' | 'save';
+
 export function useIndustrialOutput() {
   const t = useT();
   const { saveText, saveBinary, notify } = useIndustrialArtifacts();
   const toWorkspace = useIndustrialChrome((s) => s.outputToWorkspace);
 
   const outputText = useCallback(
-    async (dir: 'results' | 'figures' | 'study', filename: string, content: string) => {
-      if (!toWorkspace) {
+    async (dir: 'results' | 'figures' | 'study', filename: string, content: string, target: ExportTarget = toWorkspace ? 'save' : 'download') => {
+      if (target === 'download') {
         downloadText(content, filename, mimeFor(filename));
         return null;
       }
@@ -184,8 +184,8 @@ export function useIndustrialOutput() {
   );
 
   const outputFigure = useCallback(
-    async (filename: string, svg: string) => {
-      if (!toWorkspace) {
+    async (filename: string, svg: string, target: ExportTarget = toWorkspace ? 'save' : 'download') => {
+      if (target === 'download') {
         exportSVG(svg, filename);
         return null;
       }
@@ -195,8 +195,8 @@ export function useIndustrialOutput() {
   );
 
   const outputPng = useCallback(
-    async (filename: string, svg: string) => {
-      if (!toWorkspace) {
+    async (filename: string, svg: string, target: ExportTarget = toWorkspace ? 'save' : 'download') => {
+      if (target === 'download') {
         exportPNG(svg, filename);
         return null;
       }
@@ -212,8 +212,8 @@ export function useIndustrialOutput() {
   );
 
   const outputPdf = useCallback(
-    async (filename: string, svg: string) => {
-      if (!toWorkspace) {
+    async (filename: string, svg: string, target: ExportTarget = toWorkspace ? 'save' : 'download') => {
+      if (target === 'download') {
         await exportPDF(svg, filename);
         return null;
       }

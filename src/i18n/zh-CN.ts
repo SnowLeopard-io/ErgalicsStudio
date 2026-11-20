@@ -776,6 +776,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.files.data': '数据',
   'workbench.files.manage': '管理',
   'workbench.files.load': '加载到插件',
+  'workbench.files.download': '下载到本地',
   'workbench.files.loaded': '已加载到「{plugin}」',
   'workbench.files.no_active_plugin': '请先在左侧激活一个插件',
   'workbench.files.load_hint': '点击文件旁的「加载到插件」可将其送入当前激活的插件（未激活时请先在左侧选择）',

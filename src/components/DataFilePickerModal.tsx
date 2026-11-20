@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
-import { Modal } from '@/components/Modal';
+import { FilesManagerModal } from './FilesManagerModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DownloadIcon, TableIcon, TrashIcon } from '@/components/icons';
 import {
@@ -23,6 +23,7 @@ import {
 } from '@/components/FilePicker';
 import { collectProjectFiles, listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { DATA_FILE_ACCEPT, isSupportedDataFileName } from '@/core/fileFormat';
+import { downloadText } from '@/core/plot/export';
 import { logger } from '@/core/logger';
 import { formatBytes } from '@/core/storage';
 import { useAppStore } from '@/stores/appStore';
@@ -95,6 +96,8 @@ interface ManagerColumnArgs {
   startIngest: (entry: FileEntry, chunkSize: number) => unknown;
   chunkRunning: boolean;
   hasActivePlugin: boolean;
+  /** Save a bundled example to disk (examples are not FileEntries). */
+  downloadExample: (name: string) => void | Promise<void>;
 }
 
 /** Manager rows = picker rows + per-file actions. */
@@ -109,6 +112,7 @@ function managerColumns({
   startIngest,
   chunkRunning,
   hasActivePlugin,
+  downloadExample,
 }: ManagerColumnArgs): FilePickerColumn[] {
   return [
     {
@@ -165,7 +169,36 @@ function managerColumns({
       key: 'examples',
       title: t('block.data_file.examples'),
       empty: t('block.data_file.empty_examples'),
-      items: examples.map((name) => ({ id: name, name, readonly: true })),
+      // Same action set as project files: load into the active plugin and
+      // download — examples resolve through the bundled data registry.
+      items: examples.map((name): FilePickerItem => ({
+        id: name,
+        name,
+        readonly: true,
+        actions: (
+          <>
+            <button
+              type="button"
+              className="icon-btn"
+              title={t('workbench.files.load')}
+              aria-label={t('workbench.files.load')}
+              disabled={!hasActivePlugin}
+              onClick={() => void loadIntoActive(name)}
+            >
+              <DownloadIcon size={13} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={t('workbench.files.download')}
+              aria-label={t('workbench.files.download')}
+              onClick={() => void downloadExample(name)}
+            >
+              <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1 }}>↓</span>
+            </button>
+          </>
+        ),
+      })),
     },
   ];
 }
@@ -260,20 +293,34 @@ function DataFilesManagerBody() {
     }
   };
 
+  /** Save a bundled example to disk (examples are not FileEntries). */
+  const downloadExample = async (name: string) => {
+    try {
+      const text = await resolveDataFile(name);
+      if (text === undefined) {
+        notify('error', t('workbench.files.load_failed', { reason: name }));
+        return;
+      }
+      downloadText(text, name, 'text/plain');
+    } catch (err) {
+      logger.warn('data', `example download failed ${name}`, err);
+      notify('error', t('workbench.files.load_failed', { reason: String(err) }));
+    }
+  };
+
   return (
     <>
-      <div className="project-files data-file-manager">
-        <div className="project-files-toolbar">
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {t('workbench.example.files_import')}
-          </button>
-          <span className="project-files-hint">{t('workbench.example.files_hint')}</span>
-        </div>
-        <div className="project-files-hint">{t('workbench.files.load_hint')}</div>
+      <div className="project-files-toolbar">
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {t('workbench.example.files_import')}
+        </button>
+        <span className="project-files-hint">{t('workbench.example.files_hint')}</span>
+      </div>
+      <div className="project-files-hint">{t('workbench.files.load_hint')}</div>
 
         {replacedNames.length > 0 && (
           <div className="project-files-warning">
@@ -294,6 +341,7 @@ function DataFilesManagerBody() {
             startIngest,
             chunkRunning: Boolean(chunkState?.running),
             hasActivePlugin: Boolean(activeEntry?.plugin),
+            downloadExample,
           })}
           onChoose={() => undefined}
         />
@@ -346,7 +394,6 @@ function DataFilesManagerBody() {
             <div className="chunk-panel-foot">{t('workbench.files.chunk_hash', { hash: chunkState.hash })}</div>
           </div>
         )}
-      </div>
 
       <input
         ref={fileInputRef}
@@ -398,19 +445,14 @@ export function DataFilePickerModal({
   const t = useT();
   if (!open) return null;
   const manage = mode === 'manage';
+  // Both modes share the FilesManagerModal shell with the industrial file
+  // window — same chrome, width and close footer for every file surface.
   return (
-    <Modal
+    <FilesManagerModal
       open={open}
       title={manage ? t('workbench.files.title') : t('block.data_file.title')}
       onClose={onClose}
-      width={680}
-      footer={
-        manage ? (
-          <button type="button" className="btn" onClick={onClose}>
-            {t('common.close')}
-          </button>
-        ) : undefined
-      }
+      bodyClassName={manage ? 'project-files data-file-manager' : ''}
     >
       {manage ? (
         <DataFilesManagerBody />
@@ -423,7 +465,7 @@ export function DataFilePickerModal({
           }}
         />
       )}
-    </Modal>
+    </FilesManagerModal>
   );
 }
 

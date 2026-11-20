@@ -10,7 +10,7 @@
 // ==========================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal } from '@/components/Modal';
+import { FilesManagerModal } from '@/components/FilesManagerModal';
 import {
   FilePickerPanel,
   fileIcon,
@@ -318,37 +318,31 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
         </button>
       </span>
 
-      <Modal
+      <FilesManagerModal
         open={open}
         title={t('industrial.import_title')}
         onClose={close}
-        width={980}
-        footer={
-          <button type="button" className="btn" onClick={close}>
-            {t('common.close')}
-          </button>
-        }
-      >
-        <div
-          className={`project-files${dragOver ? ' is-dragover' : ''}`}
-          onDragOver={(event) => {
+        bodyClassName={`project-files${dragOver ? ' is-dragover' : ''}`}
+        bodyProps={{
+          onDragOver: (event) => {
             if (!event.dataTransfer.types.includes('Files')) return;
             event.preventDefault();
             event.stopPropagation();
             setDragOver(true);
-          }}
-          onDragLeave={(event) => {
+          },
+          onDragLeave: (event) => {
             // Ignore bubbling from child rows; only clear when leaving the host.
             if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
             setDragOver(false);
-          }}
-          onDrop={(event) => {
+          },
+          onDrop: (event) => {
             event.preventDefault();
             event.stopPropagation();
             setDragOver(false);
             void handleImport(event.dataTransfer.files);
-          }}
-        >
+          },
+        }}
+      >
           <div className="project-files-toolbar">
             <button
               type="button"
@@ -376,7 +370,6 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
               else void loadProjectFile(item);
             }}
           />
-        </div>
 
         <input
           ref={inputRef}
@@ -389,7 +382,7 @@ export function EngineeringImportButton({ hint }: EngineeringImportButtonProps) 
             e.target.value = '';
           }}
         />
-      </Modal>
+      </FilesManagerModal>
     </>
   );
 }

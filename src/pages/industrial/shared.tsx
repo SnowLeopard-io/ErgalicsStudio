@@ -55,36 +55,72 @@ export function Page({ toolId, children }: { toolId: string; children: ReactNode
  * sidebar and keep the bars inline; a collapsed sidebar simply hides them.
  */
 export function IndustrialActions({ toolId, children }: { toolId: string; children: ReactNode }) {
-  const t = useT();
   const { pathname } = useLocation();
   const activeTab = useAppStore((s) => s.activeTab);
   const host = useIndustrialChrome((s) => s.host);
-  const outputToWorkspace = useIndustrialChrome((s) => s.outputToWorkspace);
-  const setOutputToWorkspace = useIndustrialChrome((s) => s.setOutputToWorkspace);
   if (pathname.startsWith('/studio')) {
-    // Standalone pages have no right sidebar; keep the single output
-    // destination control here so exports can still reach the workspace.
-    return (
-      <>
-        <div className="ind-toolbar analysis-row">
-          <label className="research-check">
-            <input
-              type="checkbox"
-              checked={outputToWorkspace}
-              onChange={(e) => setOutputToWorkspace(e.target.checked)}
-            />
-            {t('industrial.output_to_workspace')}
-          </label>
-        </div>
-        {children}
-      </>
-    );
+    // Standalone pages have no right sidebar; the toolbars render inline and
+    // every export carries its own explicit destination (download / save).
+    return <>{children}</>;
   }
   // Hidden canvas tabs stay mounted, so without this guard every open
   // industrial page would portal its bars into the same sidebar host and the
   // panel would mix several tools' actions together.
   if (activeTab !== toolTabKey(toolId)) return null;
   return host ? createPortal(children, host) : null;
+}
+
+export interface ExportItem {
+  label: string;
+  disabled?: boolean;
+  onDownload: () => void;
+  onSave: () => void;
+}
+
+/**
+ * The two export destinations every industrial suite offers: browser download
+ * and save-to-workspace, as explicit button rows instead of a checkbox that
+ * silently reroutes the same buttons.
+ */
+export function ExportGroups({ items }: { items: ExportItem[] }) {
+  const t = useT();
+  if (items.length === 0) return null;
+  return (
+    <div className="ind-export-groups">
+      <div className="ind-export-group">
+        <span className="ind-export-label">{t('industrial.download')}</span>
+        <div className="ind-export-row">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className="btn btn-sm"
+              disabled={item.disabled}
+              onClick={item.onDownload}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="ind-export-group">
+        <span className="ind-export-label">{t('industrial.save_to_workspace')}</span>
+        <div className="ind-export-row">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className="btn btn-sm"
+              disabled={item.disabled}
+              onClick={item.onSave}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Page title row: shared registry icon + title + live study summary. */

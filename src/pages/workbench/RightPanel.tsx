@@ -95,8 +95,6 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
   // in the canvas; when this panel is collapsed the host unmounts and the
   // bars disappear with it.
   const setActionsHost = useIndustrialChrome((s) => s.setHost);
-  const outputToWorkspace = useIndustrialChrome((s) => s.outputToWorkspace);
-  const setOutputToWorkspace = useIndustrialChrome((s) => s.setOutputToWorkspace);
   return (
     <div className="rp-engineering">
       <div className="suite-intro-head">
@@ -110,19 +108,9 @@ function EngineeringPanel({ toolId }: { toolId: string }) {
       </div>
       <section className="rp-engineering-section">
         <div className="rp-engineering-section-title">{t('workbench.right.actions')}</div>
-        {/* The report page ships explicit Download / Save groups (HTML,
-            Markdown, PDF), so the global destination toggle would only add
-            ambiguity there. */}
-        {toolId !== 'industrial-report' && (
-          <label className="rp-engineering-output">
-            <input
-              type="checkbox"
-              checked={outputToWorkspace}
-              onChange={(e) => setOutputToWorkspace(e.target.checked)}
-            />
-            {t('industrial.output_to_workspace')}
-          </label>
-        )}
+        {/* Every export button row carries its own explicit destination
+            (Download / Save to workspace), so there is no destination toggle
+            to keep in sync. */}
         <div className="rp-engineering-actions" ref={setActionsHost} />
       </section>
       {!study ? (

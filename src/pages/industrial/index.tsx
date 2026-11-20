@@ -56,6 +56,7 @@ import type {
   EngineeringStudy,
 } from '@/core/engineering/types';
 import {
+  ExportGroups,
   FieldPicker,
   IndustrialActions,
   NoStudy,
@@ -86,9 +87,9 @@ export function GeometryPage() {
   // the CadViewport content-rebuild effect and reset the camera.
   const layers = useMemo(() => (selected === 'all' ? undefined : [selected]), [selected]);
   const base = artifactBaseName(study);
-  const exportGeometryCsv = () => {
+  const exportGeometryCsv = (target: 'download' | 'save') => {
     if (!geometry) return;
-    void outputText('results', `${base}-geometry.csv`, geometryToCSV(geometry));
+    void outputText('results', `${base}-geometry.csv`, geometryToCSV(geometry), target);
   };
   return (
     <Page toolId="geometry-import">
@@ -118,10 +119,14 @@ export function GeometryPage() {
                   onToggle={() => setView3d((v) => !v)}
                   onSnapshot={() => setSnapshotTick((n) => n + 1)}
                 />
-                <button type="button" className="btn btn-sm" onClick={exportGeometryCsv}>
-                  {t('industrial.export_geometry_csv')}
-                </button>
               </div>
+              <ExportGroups
+                items={[{
+                  label: t('industrial.export_geometry_csv'),
+                  onDownload: () => exportGeometryCsv('download'),
+                  onSave: () => void exportGeometryCsv('save'),
+                }]}
+              />
               {view3d && (
                 <ViewPresetBar
                   preset={preset}
@@ -183,14 +188,14 @@ export function MeshViewerPage() {
   const fields = study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
   const base = artifactBaseName(study);
-  const exportMesh = () => {
+  const exportMesh = (target: 'download' | 'save') => {
     if (!study) return;
-    void outputText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh));
-    void outputText('results', `${base}-elements.csv`, elementsToCSV(study.mesh));
+    void outputText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh), target);
+    void outputText('results', `${base}-elements.csv`, elementsToCSV(study.mesh), target);
   };
-  const exportFigure = () => {
+  const exportFigure = (target: 'download' | 'save') => {
     if (!study) return;
-    void outputFigure(`${base}-mesh.svg`, meshToSVG(study, field, { title: study.name }));
+    void outputFigure(`${base}-mesh.svg`, meshToSVG(study, field, { title: study.name }), target);
   };
   return (
     <Page toolId="mesh-viewer">
@@ -213,13 +218,21 @@ export function MeshViewerPage() {
                   onToggle={() => setView3d((v) => !v)}
                   onSnapshot={() => setSnapshotTick((n) => n + 1)}
                 />
-                <button type="button" className="btn btn-sm" onClick={exportMesh}>
-                  {t('industrial.export_mesh_csv')}
-                </button>
-                <button type="button" className="btn btn-sm" onClick={exportFigure}>
-                  {t('industrial.export_mesh_svg')}
-                </button>
               </div>
+              <ExportGroups
+                items={[
+                  {
+                    label: t('industrial.export_mesh_csv'),
+                    onDownload: () => exportMesh('download'),
+                    onSave: () => void exportMesh('save'),
+                  },
+                  {
+                    label: t('industrial.export_mesh_svg'),
+                    onDownload: () => exportFigure('download'),
+                    onSave: () => void exportFigure('save'),
+                  },
+                ]}
+              />
               {view3d && (
                 <ViewPresetBar
                   preset={preset}
@@ -693,11 +706,11 @@ export function SolvePage() {
   const checklist = study ? solveChecklist(study, activeStep, t) : [];
   const readyCount = checklist.filter((item) => item.severity !== 'warn').length;
   const base = artifactBaseName(study);
-  const exportMetrics = () => {
-    if (result) void outputText('results', `${base}-metrics.csv`, resultToCSV(result));
+  const exportStudy = (target: 'download' | 'save') => {
+    if (study) void outputText('study', `${base}-study.json`, studyDocument(study), target);
   };
-  const exportStudy = () => {
-    if (study) void outputText('study', `${base}-study.json`, studyDocument(study));
+  const exportMetrics = (target: 'download' | 'save') => {
+    if (result) void outputText('results', `${base}-metrics.csv`, resultToCSV(result), target);
   };
   const checkWithSimulation = async () => {
     setSimBusy(true);
@@ -719,15 +732,6 @@ export function SolvePage() {
             <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
               {solving ? <span className="spinner" /> : t('industrial.solve')}
             </button>
-            <button type="button" className="btn btn-sm" onClick={() => runBenchmark()}>
-              {t('industrial.benchmark')}
-            </button>
-            <button type="button" className="btn btn-sm" disabled={simBusy || !study} onClick={() => void checkWithSimulation()}>
-              {simBusy ? <span className="spinner" /> : t('industrial.sim_plugin_run')}
-            </button>
-            <button type="button" className="btn btn-sm" onClick={clearBuildCache}>
-              {t('industrial.clear_build_cache')}
-            </button>
             {buildStats && (
               <span className={`tag${buildCached ? ' is-hit' : ''}`}>
                 {buildCached
@@ -735,14 +739,38 @@ export function SolvePage() {
                   : t('industrial.build_computed', { n: buildStats.computed })}
               </span>
             )}
-            <span className="ind-toolbar-spacer" />
-            <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>
-              {t('industrial.export_metrics_csv')}
-            </button>
-            <button type="button" className="btn btn-sm" onClick={exportStudy}>
-              {t('industrial.export_study_json')}
-            </button>
           </div>
+          {/* Benchmarks / verification / cache maintenance form their own
+              group — they are solver operations, not exports. */}
+          <div className="ind-export-group">
+            <span className="ind-export-label">{t('industrial.checks_group')}</span>
+            <div className="ind-export-row">
+              <button type="button" className="btn btn-sm" onClick={() => runBenchmark()}>
+                {t('industrial.benchmark')}
+              </button>
+              <button type="button" className="btn btn-sm" disabled={simBusy || !study} onClick={() => void checkWithSimulation()}>
+                {simBusy ? <span className="spinner" /> : t('industrial.sim_plugin_run')}
+              </button>
+              <button type="button" className="btn btn-sm" onClick={clearBuildCache}>
+                {t('industrial.clear_build_cache')}
+              </button>
+            </div>
+          </div>
+          <ExportGroups
+            items={[
+              {
+                label: t('industrial.export_metrics_csv'),
+                disabled: !result,
+                onDownload: () => exportMetrics('download'),
+                onSave: () => void exportMetrics('save'),
+              },
+              {
+                label: t('industrial.export_study_json'),
+                onDownload: () => exportStudy('download'),
+                onSave: () => void exportStudy('save'),
+              },
+            ]}
+          />
         </IndustrialActions>
         {!study ? (
           <NoStudy />
@@ -883,30 +911,35 @@ export function PostPage() {
   }, [study, is3d, field]);
   const figureSvg = () =>
     study ? meshToSVG(study, field, { title: `${study.name} · ${field?.name ?? ''}` }) : '';
-  const exportFieldCsv = () => {
+  type Target = 'download' | 'save';
+  const exportFieldCsv = (target: Target) => {
     if (!study || !field) return;
-    void outputText('results', `${stem}.csv`, fieldToCSV(study, field));
+    void outputText('results', `${stem}.csv`, fieldToCSV(study, field), target);
   };
-  const exportMeshCsv = () => {
+  const exportMeshCsv = (target: Target) => {
     if (!study) return;
-    void outputText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh));
-    void outputText('results', `${base}-elements.csv`, elementsToCSV(study.mesh));
+    void outputText('results', `${base}-nodes.csv`, nodesToCSV(study.mesh), target);
+    void outputText('results', `${base}-elements.csv`, elementsToCSV(study.mesh), target);
   };
-  const exportMetrics = () => {
+  const exportMetrics = (target: Target) => {
     if (!result) return;
-    void outputText('results', `${base}-metrics.csv`, resultToCSV(result));
+    void outputText('results', `${base}-metrics.csv`, resultToCSV(result), target);
   };
-  const exportFigure = () => {
+  const exportFigure = (target: Target) => {
     if (!study) return;
-    void outputFigure(`${stem}.svg`, figureSvg());
+    void outputFigure(`${stem}.svg`, figureSvg(), target);
   };
-  const exportFigurePng = () => {
+  const exportFigurePng = (target: Target) => {
     if (!study) return;
-    void outputPng(`${stem}.png`, figureSvg());
+    void outputPng(`${stem}.png`, figureSvg(), target);
   };
-  const exportFigurePdf = () => {
+  const exportFigurePdf = (target: Target) => {
     if (!study) return;
-    void outputPdf(`${stem}.pdf`, figureSvg());
+    void outputPdf(`${stem}.pdf`, figureSvg(), target);
+  };
+  const exportHistogram = (target: Target) => {
+    if (!histogram) return;
+    void outputFigure(`${stem}-histogram.svg`, renderSVG(histogram), target);
   };
   return (
     <Page toolId="post-processing">
@@ -917,16 +950,65 @@ export function PostPage() {
             <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
             {field && <span className="ind-hint">{locationLabel(t, field.location)} · {t('industrial.component_count', { n: field.components })} {field.unit ? `· ${field.unit}` : ''}</span>}
             <span className="ind-toolbar-spacer" />
-            <button type="button" className="btn btn-sm" onClick={exportFieldCsv} disabled={!field}>{t('industrial.export_field_csv')}</button>
-            <button type="button" className="btn btn-sm" onClick={exportMeshCsv}>{t('industrial.export_mesh_csv')}</button>
-            <button type="button" className="btn btn-sm" onClick={exportMetrics} disabled={!result}>{t('industrial.export_metrics_csv')}</button>
+            {/* Sending figures to the figure pipeline is not a file export —
+                it stays an action, outside the download/save groups. */}
+            {histogram && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                title={t('industrial.send_figure_hint')}
+                onClick={() => sendFigure(
+                  `${study?.name ?? 'Study'} · ${t('industrial.field_distribution')}`,
+                  histogram,
+                  field ? fieldLabel(t, field.name) : undefined,
+                )}
+              >
+                {t('industrial.send_figure')}
+              </button>
+            )}
           </div>
-          <div className="ind-toolbar analysis-row">
-            <span className="ind-hint">{t('industrial.export_figure')}</span>
-            <button type="button" className="btn btn-sm" onClick={exportFigure}>{t('industrial.export_svg')}</button>
-            <button type="button" className="btn btn-sm" onClick={exportFigurePng}>{t('industrial.export_png')}</button>
-            <button type="button" className="btn btn-sm" onClick={exportFigurePdf}>{t('industrial.export_pdf')}</button>
-          </div>
+          <ExportGroups
+            items={[
+              {
+                label: t('industrial.export_field_csv'),
+                disabled: !field,
+                onDownload: () => exportFieldCsv('download'),
+                onSave: () => void exportFieldCsv('save'),
+              },
+              {
+                label: t('industrial.export_mesh_csv'),
+                onDownload: () => exportMeshCsv('download'),
+                onSave: () => void exportMeshCsv('save'),
+              },
+              {
+                label: t('industrial.export_metrics_csv'),
+                disabled: !result,
+                onDownload: () => exportMetrics('download'),
+                onSave: () => void exportMetrics('save'),
+              },
+              {
+                label: t('industrial.export_svg'),
+                onDownload: () => exportFigure('download'),
+                onSave: () => void exportFigure('save'),
+              },
+              {
+                label: t('industrial.export_png'),
+                onDownload: () => exportFigurePng('download'),
+                onSave: () => void exportFigurePng('save'),
+              },
+              {
+                label: t('industrial.export_pdf'),
+                onDownload: () => exportFigurePdf('download'),
+                onSave: () => void exportFigurePdf('save'),
+              },
+              {
+                label: t('industrial.export_histogram_svg'),
+                disabled: !histogram,
+                onDownload: () => exportHistogram('download'),
+                onSave: () => void exportHistogram('save'),
+              },
+            ]}
+          />
           {is3d && (
             <div className="ind-toolbar analysis-row">
               <label className="ind-field">
@@ -940,26 +1022,6 @@ export function PostPage() {
                 <span className="mono">{isoLevel.toFixed(2)}</span>
               </label>
               <span className="ind-hint">{t('industrial.cad_hint')}</span>
-            </div>
-          )}
-          {histogram && (
-            <div className="ind-toolbar analysis-row">
-              <span className="ind-hint">{t('industrial.field_distribution')}</span>
-              <button type="button" className="btn btn-sm" onClick={() => void outputFigure(`${stem}-histogram.svg`, renderSVG(histogram))}>
-                {t('industrial.export_histogram_svg')}
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                title={t('industrial.send_figure_hint')}
-                onClick={() => sendFigure(
-                  `${study?.name ?? 'Study'} · ${t('industrial.field_distribution')}`,
-                  histogram,
-                  field ? fieldLabel(t, field.name) : undefined,
-                )}
-              >
-                {t('industrial.send_figure')}
-              </button>
             </div>
           )}
         </IndustrialActions>
@@ -1208,9 +1270,9 @@ export function DesignScanPage() {
   );
   const base = artifactBaseName(study);
   const { outputText, outputFigure } = useIndustrialOutput();
-  const exportCsv = () => {
+  const exportCsv = (target: 'download' | 'save') => {
     if (scan.length === 0) return;
-    void outputText('results', `${base}-design-scan.csv`, scanToCSV(scan));
+    void outputText('results', `${base}-design-scan.csv`, scanToCSV(scan), target);
   };
   return (
     <Page toolId="design-scan">
@@ -1224,10 +1286,16 @@ export function DesignScanPage() {
                 {busy ? <span className="spinner" /> : t('industrial.run_scan')}
               </button>
               <span className="ind-hint">{t('industrial.scan_summary', { p: design.parameters.length, n: scan.length })}</span>
-              <span className="ind-toolbar-spacer" />
-              <button type="button" className="btn btn-sm" onClick={exportCsv} disabled={scan.length === 0}>
-                {t('industrial.export_scan_csv')}
-              </button>
+              {spec && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  title={t('industrial.send_figure_hint')}
+                  onClick={() => sendFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'))}
+                >
+                  {t('industrial.send_figure')}
+                </button>
+              )}
             </div>
           )}
           {scan.length > 0 && keys.length > 0 && (
@@ -1238,23 +1306,24 @@ export function DesignScanPage() {
                   {keys.map((key) => <option key={key} value={key}>{metricLabel(t, key)}</option>)}
                 </select>
               </label>
-              <button type="button" className="btn btn-sm" onClick={() => spec && void outputFigure(`${base}-design-scan-${safeName(activeMetric)}.svg`, renderSVG(spec))}>
-                {t('industrial.export_svg')}
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                disabled={!spec}
-                title={t('industrial.send_figure_hint')}
-                onClick={() => {
-                  if (!spec) return;
-                  sendFigure(`${study?.name ?? 'Study'} · ${metricLabel(t, activeMetric)}`, spec, t('industrial.design_scan'));
-                }}
-              >
-                {t('industrial.send_figure')}
-              </button>
             </div>
           )}
+          <ExportGroups
+            items={[
+              {
+                label: t('industrial.export_scan_csv'),
+                disabled: scan.length === 0,
+                onDownload: () => exportCsv('download'),
+                onSave: () => void exportCsv('save'),
+              },
+              {
+                label: t('industrial.export_svg'),
+                disabled: !spec,
+                onDownload: () => { if (spec) void outputFigure(`${base}-design-scan-${safeName(activeMetric)}.svg`, renderSVG(spec), 'download'); },
+                onSave: () => { if (spec) void outputFigure(`${base}-design-scan-${safeName(activeMetric)}.svg`, renderSVG(spec), 'save'); },
+              },
+            ]}
+          />
         </IndustrialActions>
         {!study || !design ? (
           <NoStudy />
@@ -1470,39 +1539,31 @@ export function IndustrialReportPage() {
       <div className="ind-page analysis-body">
         <PageHead toolId="industrial-report" title={t('industrial.report')} />
         <IndustrialActions toolId="industrial-report">
-          <div className="ind-export-groups">
-            <div className="ind-export-group">
-              <span className="ind-export-label">{t('industrial.download')}</span>
-              <div className="ind-export-row">
-                <button type="button" className="btn btn-sm btn-primary" onClick={downloadHtml}>
-                  {t('industrial.export_html')}
-                </button>
-                <button type="button" className="btn btn-sm" onClick={downloadMarkdown}>
-                  {t('industrial.export_markdown')}
-                </button>
-                <button type="button" className="btn btn-sm" disabled={pdfBusy} onClick={() => void exportPdf('download')}>
-                  {t('industrial.export_pdf')}
-                </button>
-              </div>
-            </div>
-            <div className="ind-export-group">
-              <span className="ind-export-label">{t('industrial.save_to_workspace')}</span>
-              <div className="ind-export-row">
-                <button type="button" className="btn btn-sm" onClick={saveHtml}>
-                  {t('industrial.export_html')}
-                </button>
-                <button type="button" className="btn btn-sm" onClick={saveMarkdown}>
-                  {t('industrial.export_markdown')}
-                </button>
-                <button type="button" className="btn btn-sm" disabled={pdfBusy} onClick={() => void exportPdf('save')}>
-                  {t('industrial.export_pdf')}
-                </button>
-              </div>
-            </div>
-            {report && (
+          <ExportGroups
+            items={[
+              {
+                label: t('industrial.export_html'),
+                onDownload: downloadHtml,
+                onSave: saveHtml,
+              },
+              {
+                label: t('industrial.export_markdown'),
+                onDownload: downloadMarkdown,
+                onSave: saveMarkdown,
+              },
+              {
+                label: t('industrial.export_pdf'),
+                disabled: pdfBusy,
+                onDownload: () => void exportPdf('download'),
+                onSave: () => void exportPdf('save'),
+              },
+            ]}
+          />
+          {report && (
+            <div className="ind-toolbar analysis-row">
               <span className="ind-hint">{t('industrial.report_fingerprint', { hash: report.fingerprint.meshHash.slice(0, 12) })}</span>
-            )}
-          </div>
+            </div>
+          )}
         </IndustrialActions>
         {!study || !report ? (
           <NoStudy />

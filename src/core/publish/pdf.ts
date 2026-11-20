@@ -789,7 +789,9 @@ export async function buildTextPdf(
     sizePt: number,
     style: 'normal' | 'bold' | 'italic' = 'normal',
     indentMm = 0,
-    family = 'times',
+    // Sans-serif to match the embedded CJK font (DroidSansFallback) and the
+    // HTML paper preview — Times made every CJK↔Latin switch change typeface.
+    family = 'helvetica',
   ) => {
     const text = cleanText(value);
     if (!text) return;
@@ -916,7 +918,7 @@ export async function buildTextPdf(
       let width = 8;
       for (const row of rows) {
         for (const run of scriptRuns(row[c] ?? '')) {
-          doc.setFont(run.cjk ? CJK_FONT_FAMILY : 'times', 'normal');
+          doc.setFont(run.cjk ? CJK_FONT_FAMILY : 'helvetica', 'normal');
           width = Math.max(width, doc.getTextWidth(run.text));
         }
       }
@@ -929,7 +931,7 @@ export async function buildTextPdf(
     const rowHeights = rows.map((row) => {
       let maxLines = 1;
       for (let c = 0; c < cols; c += 1) {
-        maxLines = Math.max(maxLines, flowCell(row[c] ?? '', widths[c]! - pad * 2, 'times').length);
+        maxLines = Math.max(maxLines, flowCell(row[c] ?? '', widths[c]! - pad * 2, 'helvetica').length);
       }
       return maxLines * lineHeight + pad * 2;
     });
@@ -945,12 +947,12 @@ export async function buildTextPdf(
       doc.setFontSize(size);
       for (let c = 0; c < cols; c += 1) {
         doc.rect(x, top, widths[c]!, rowHeights[index]!, 'S');
-        const lines = flowCell(row[c] ?? '', widths[c]! - pad * 2, 'times');
+        const lines = flowCell(row[c] ?? '', widths[c]! - pad * 2, 'helvetica');
         let ty = top + pad + size * PT_TO_MM * 1.05;
         for (const line of lines) {
           let tx = x + pad;
           for (const seg of line) {
-            doc.setFont(seg.cjk ? CJK_FONT_FAMILY : 'times', 'normal');
+            doc.setFont(seg.cjk ? CJK_FONT_FAMILY : 'helvetica', 'normal');
             doc.setFontSize(size);
             doc.setTextColor(28, 30, 34);
             doc.text(seg.text, tx, ty);

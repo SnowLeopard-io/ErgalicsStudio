@@ -774,6 +774,7 @@ export const enUS: LocaleDictionary = {
   'workbench.files.data': 'Data',
   'workbench.files.manage': 'Manage',
   'workbench.files.load': 'Load into plugin',
+  'workbench.files.download': 'Download to disk',
   'workbench.files.loaded': 'Loaded into {plugin}',
   'workbench.files.no_active_plugin': 'Activate a plugin in the sidebar first',
   'workbench.files.load_hint': 'Press "Load into plugin" next to a file to feed it to the active plugin (activate one in the sidebar first if none is)',
