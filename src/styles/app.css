@@ -12253,6 +12253,23 @@
   font-weight: 600;
 }
 
+/* Calculator algorithm list — rendered both in the sidebar action bar and
+   inside the canvas empty state. */
+.ind-calc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ind-calc-nav .btn {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.ind-calc-empty .ind-calc-nav {
+  width: min(360px, 100%);
+}
+
 .ind-card.is-active {
   border-color: var(--color-accent, #3b82f6);
   box-shadow: 0 0 0 1px var(--color-accent, #3b82f6) inset;

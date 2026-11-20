@@ -7,8 +7,9 @@
 // step, no study required. Kernels live in core/engineering/calc.ts.
 // ==========================================================================
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
 import {
   beamQuick,
   fatigueLife,
@@ -25,7 +26,7 @@ import {
 import { materialProperty } from '@/core/engineering/materials';
 import { artifactBaseName, useIndustrialOutput } from './artifacts';
 import { useEngineeringStore } from '@/stores/engineeringStore';
-import { ExportGroups, Page, PageHead } from './shared';
+import { ExportGroups, IndustrialActions, Page, PageHead } from './shared';
 
 /** One numeric input of a calculator form. */
 function NumField({ label, unit, value, onChange, step = 'any' }: {
@@ -136,18 +137,58 @@ function PipeSection() {
   );
 }
 
+// Registry of calculator sections. The sidebar (portal action bar) and the
+// canvas empty state both render this list; picking an entry swaps the
+// canvas to that calculator.
+const CALCULATORS: { id: string; titleKey: string; Section: ComponentType }[] = [
+  { id: 'pipe', titleKey: 'industrial.calc.pipe.title', Section: PipeSection },
+  { id: 'thermal', titleKey: 'industrial.calc.thermal.title', Section: ThermalSection },
+  { id: 'beam', titleKey: 'industrial.calc.beam.title', Section: BeamSection },
+  { id: 'fatigue', titleKey: 'industrial.calc.fatigue.title', Section: FatigueSection },
+  { id: 'tolerance', titleKey: 'industrial.calc.tol.title', Section: ToleranceSection },
+  { id: 'safety', titleKey: 'industrial.calc.safety.title', Section: SafetySection },
+];
+
+function CalculatorList({ active, onPick }: { active: string | null; onPick: (id: string) => void }) {
+  const t = useT();
+  return (
+    <div className="ind-calc-nav">
+      {CALCULATORS.map(({ id, titleKey }) => (
+        <button
+          key={id}
+          type="button"
+          className={`btn btn-sm${active === id ? ' btn-primary' : ''}`}
+          onClick={() => onPick(id)}
+        >
+          {t(titleKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CalculatorsPage() {
   const t = useT();
+  const [active, setActive] = useState<string | null>(null);
+  const current = CALCULATORS.find((c) => c.id === active) ?? null;
   return (
     <Page toolId="engineering-calc">
       <div className="ind-page analysis-body">
         <PageHead toolId="engineering-calc" title={t('tool.engineering-calc.title')} />
-        <PipeSection />
-        <ThermalSection />
-        <BeamSection />
-        <FatigueSection />
-        <ToleranceSection />
-        <SafetySection />
+        <IndustrialActions toolId="engineering-calc">
+          <CalculatorList active={active} onPick={setActive} />
+        </IndustrialActions>
+        {current ? (
+          <current.Section />
+        ) : (
+          <div className="ind-empty ind-calc-empty">
+            <EmptyState
+              title={t('industrial.calc.empty.title')}
+              description={t('industrial.calc.empty.desc')}
+            />
+            <CalculatorList active={active} onPick={setActive} />
+          </div>
+        )}
       </div>
     </Page>
   );
