@@ -160,7 +160,19 @@ export function StudyMeta() {
   );
 }
 
-export function NoStudy({ children }: { children?: ReactNode }) {
+export function NoStudy({
+  children,
+  toolId,
+  title,
+  description,
+}: {
+  children?: ReactNode;
+  /** Prefer an example built for this tool (e.g. DXF/STEP for geometry). */
+  toolId?: string;
+  /** Override the empty-state copy (e.g. study loaded but no geometry). */
+  title?: string;
+  description?: string;
+}) {
   const t = useT();
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
@@ -169,16 +181,25 @@ export function NoStudy({ children }: { children?: ReactNode }) {
   // a way into the mesh viewer instead of only telling the user something is
   // missing.
   const loadExample = () => {
-    const example = INDUSTRIAL_EXAMPLES[0];
+    const example =
+      INDUSTRIAL_EXAMPLES.find((candidate) => candidate.toolId === toolId) ??
+      INDUSTRIAL_EXAMPLES[0];
     if (!example) return;
     setStudy(example.build());
     notify('success', t('industrial.example_loaded', {
       name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
     }));
+    // Geometry examples only make sense in the geometry viewer — open that
+    // tool so the freshly loaded study is actually visible. Otherwise the
+    // user stays on the same empty page and the button looks dead.
+    if (example.toolId) useAppStore.getState().setEmbeddedTool(example.toolId);
   };
   return (
     <div className="ind-empty">
-      <EmptyState title={t('industrial.no_study')} description={t('industrial.no_study_desc')} />
+      <EmptyState
+        title={title ?? t('industrial.no_study')}
+        description={description ?? t('industrial.no_study_desc')}
+      />
       {children ?? (
         <div className="ind-toolbar analysis-row ind-empty-actions">
           <button type="button" className="btn btn-sm btn-primary" onClick={loadExample}>

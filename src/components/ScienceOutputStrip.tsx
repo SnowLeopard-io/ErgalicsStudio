@@ -11,8 +11,8 @@ import { openToolEmbedded } from '@/pages/research/toolRegistry';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEngineeringStore } from '@/stores/engineeringStore';
-import { ensureCase } from '@/core/engineering/cases';
-import { localizedMeshSummary } from '@/pages/industrial/labels';
+import { useAppStore } from '@/stores/appStore';
+import { industrialStripMetrics } from '@/pages/industrial/labels';
 import { useT } from '@/i18n';
 
 /** Research suites the staged data file can be deep-linked into. */
@@ -107,46 +107,20 @@ export function ScienceOutputStrip() {
 
   const entry = activeId ? outputs[activeId] : undefined;
 
-  // Industrial study facts (mesh / materials / steps / solve) ride the same
-  // strip: when an engineering study is loaded they appear as leading chips,
-  // even while no research plugin has published metrics (the strip used to
-  // hide entirely in that case).
+  // Industrial study facts switch with the active canvas tab: each industrial
+  // suite publishes the parameters that matter to it (geometry → entities /
+  // layers, solver → step / iterations, fingerprint → hash …). Non-industrial
+  // tabs (research plugins, files) contribute no facts and the strip falls
+  // back to the active plugin's metrics only.
+  const activeTab = useAppStore((s) => s.activeTab);
+  const industrialToolId = activeTab?.startsWith('tool:') ? activeTab.slice(5) : null;
   const engStudy = useEngineeringStore((s) => s.study);
   const engResult = useEngineeringStore((s) => s.result);
   const engSolving = useEngineeringStore((s) => s.solving);
-  const engMetrics = useMemo(() => {
-    if (!engStudy) return [];
-    const fmt = (n: number) => n.toLocaleString();
-    const steps = ensureCase(engStudy.cases)[0]!.steps;
-    return [
-      {
-        key: 'eng-mesh',
-        label: t('industrial.right.mesh'),
-        value: `${fmt(engStudy.mesh.nodes.length)} n · ${fmt(engStudy.mesh.elements.length)} e · ${engStudy.mesh.groups.length} g`,
-        hint: localizedMeshSummary(t, engStudy.mesh),
-      },
-      {
-        key: 'eng-materials',
-        label: t('industrial.right.materials'),
-        value: engStudy.materials.map((m) => m.name).join(', ') || '—',
-      },
-      {
-        key: 'eng-steps',
-        label: t('industrial.right.steps'),
-        value: steps.map((step) => step.name).join(', ') || '—',
-      },
-      {
-        key: 'eng-solve',
-        label: t('industrial.right.solve'),
-        value: engSolving
-          ? '…'
-          : engResult
-            ? `${engResult.stepName} · ${t('industrial.iterations', { n: engResult.iterations })}`
-            : '—',
-        severity: engResult && !engSolving ? 'ok' : 'info',
-      },
-    ];
-  }, [engStudy, engResult, engSolving, t]);
+  const engMetrics = useMemo(
+    () => industrialStripMetrics(t, industrialToolId, engStudy, engResult, engSolving),
+    [t, industrialToolId, engStudy, engResult, engSolving],
+  );
 
   // Metrics row: mouse-wheel scrolls it horizontally (deltaY → scrollLeft) so
   // overflowing metrics stay reachable without a visible scrollbar or drag.
