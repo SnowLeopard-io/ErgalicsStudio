@@ -476,7 +476,11 @@ export function parseGeometryFile(text: string, name: string): EngineeringGeomet
   throw new GeometryParseError(`unsupported geometry file: ${name}`);
 }
 
-/** Flatten geometry entities into a line/point mesh for the viewer + solver. */
+/** Flatten geometry entities into a line/point mesh for the viewer + solver.
+ *  Closed planar loops (DXF outlines, holes, circles …) are additionally
+ *  triangulated into tri3 face elements so a sketched plate becomes an actual
+ *  surface mesh — wireframe-only meshes made the solver and the mesh viewer
+ *  look empty ("only the outline was drawn"). */
 export function geometryToMesh(geometry: EngineeringGeometry): EngineeringMesh {
   const nodes: EngineeringMesh['nodes'] = [];
   const elements: EngineeringMesh['elements'] = [];
@@ -492,12 +496,68 @@ export function geometryToMesh(geometry: EngineeringGeometry): EngineeringMesh {
     return index;
   };
   let elementId = 0;
+  // Closed planar loops kept aside for surface triangulation, grouped by
+  // plane height so faces on different z-levels never leak into each other.
+  const planarLoops = new Map<string, { ring: [number, number, number][]; layer: string }[]>();
+  // Real CAD outlines are rarely single closed polylines — they arrive as a
+  // pile of open lines/arcs on one layer. Stitch chains by matching endpoints
+  // (1 µm tolerance) and promote them to loops once they close.
+  const chains = new Map<string, { pts: [number, number, number][]; layer: string }[]>();
+  const pointKey = (p: [number, number, number]) =>
+    `${Math.round(p[0] * 1e6)},${Math.round(p[1] * 1e6)},${Math.round(p[2] * 1e6)}`;
+  const addLoop = (pts: [number, number, number][], layer: string) => {
+    const key = pts[0]![2].toFixed(9);
+    const list = planarLoops.get(key) ?? [];
+    list.push({ ring: pts, layer });
+    planarLoops.set(key, list);
+  };
   for (const entity of geometry.entities) {
     const indices = entity.points.map(nodeIndex);
     const tag = entity.layer ? layerTag(entity.layer, groups) : 0;
     if (entity.kind === 'point') {
       elements.push({ id: ++elementId, type: 'point', nodes: [indices[0]!], group: tag });
       continue;
+    }
+    const planar = entity.points.length >= 2 &&
+      entity.points.every((p) => Math.abs(p[2] - entity.points[0]![2]) < 1e-9) &&
+      entity.points.every((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+    if (entity.closed && planar) {
+      addLoop(entity.points, entity.layer || 'default');
+    } else if (planar) {
+      const key = `${entity.points[0]![2].toFixed(9)}|${entity.layer || 'default'}`;
+      const list = chains.get(key) ?? [];
+      let pts = entity.points.slice();
+      let merged = true;
+      while (merged && list.length > 0) {
+        merged = false;
+        for (let idx = 0; idx < list.length; idx += 1) {
+          const chain = list[idx]!;
+          const cEnd = chain.pts[chain.pts.length - 1]!;
+          const cStart = chain.pts[0]!;
+          const pStart = pts[0]!;
+          const pEnd = pts[pts.length - 1]!;
+          if (pointKey(cEnd) === pointKey(pStart)) {
+            pts = [...chain.pts, ...pts.slice(1)];
+          } else if (pointKey(cStart) === pointKey(pEnd)) {
+            pts = [...pts.slice(0, -1), ...chain.pts];
+          } else if (pointKey(cEnd) === pointKey(pEnd)) {
+            pts = [...chain.pts, ...pts.slice(0, -1).reverse()];
+          } else if (pointKey(cStart) === pointKey(pStart)) {
+            pts = [...[...chain.pts].reverse().slice(0, -1), ...pts];
+          } else {
+            continue;
+          }
+          list.splice(idx, 1);
+          merged = true;
+          break;
+        }
+      }
+      if (pts.length > 2 && pointKey(pts[0]!) === pointKey(pts[pts.length - 1]!)) {
+        addLoop(pts, entity.layer || 'default');
+      } else {
+        list.push({ pts, layer: entity.layer || 'default' });
+      }
+      chains.set(key, list);
     }
     const limit = entity.closed && indices.length > 2 ? indices.length : indices.length - 1;
     for (let i = 0; i < limit; i += 1) {
@@ -507,8 +567,51 @@ export function geometryToMesh(geometry: EngineeringGeometry): EngineeringMesh {
       elements.push({ id: ++elementId, type: 'line2', nodes: [a, b], group: tag });
     }
   }
+  // Surface triangulation: classify outer rings vs holes by containment, then
+  // ear-clip each outer (holes bridged in first). Faces join a derived
+  // "<layer>-surface" group so boundary lines and face mesh stay separable.
+  const lineElementCount = elements.length;
+  for (const loops of planarLoops.values()) {
+    const areaByKey = new Map(
+      loops.map((loop, i) => [i, planarArea(loop.ring.map((p) => [p[0], p[1]] as const))] as const),
+    );
+    const order = [...loops.keys()].sort(
+      (a, b) => Math.abs(areaByKey.get(b)!) - Math.abs(areaByKey.get(a)!),
+    );
+    const claimed = new Set<number>();
+    for (const outerIdx of order) {
+      if (claimed.has(outerIdx)) continue;
+      const outerLoop = loops[outerIdx]!;
+      if (Math.abs(areaByKey.get(outerIdx)!) < 1e-12) continue;
+      claimed.add(outerIdx);
+      const holes: number[] = [];
+      for (const holeIdx of order) {
+        if (claimed.has(holeIdx)) continue;
+        const holeLoop = loops[holeIdx]!;
+        const probe = holeLoop.ring[0]!;
+        if (
+          Math.abs(areaByKey.get(holeIdx)!) >= 1e-12 &&
+          planarContains(outerLoop.ring.map((p) => [p[0], p[1]] as const), probe[0], probe[1])
+        ) {
+          claimed.add(holeIdx);
+          holes.push(holeIdx);
+        }
+      }
+      const { tris, points } = triangulateLoopWithHoles(outerLoop.ring, holes.map((h) => loops[h]!.ring));
+      if (tris.length === 0) continue;
+      const faceTag = layerTag(`${outerLoop.layer}-surface`, groups);
+      for (const [i, j, k] of tris) {
+        elements.push({
+          id: ++elementId,
+          type: 'tri3',
+          nodes: [nodeIndex(points[i]!), nodeIndex(points[j]!), nodeIndex(points[k]!)],
+          group: faceTag,
+        });
+      }
+    }
+  }
   const groupList = [...groups.entries()].map(([name, tag]) => ({
-    dimension: 1,
+    dimension: name.endsWith('-surface') && elements.length > lineElementCount ? 2 : 1,
     tag,
     name,
     members: elements
@@ -521,6 +624,136 @@ export function geometryToMesh(geometry: EngineeringGeometry): EngineeringMesh {
     groups: groupList,
     bounds: meshBounds(nodes),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Planar triangulation helpers (shoelace area, containment, ear clipping with
+// hole bridging). Kept here — geometry.ts is the only consumer.
+// ---------------------------------------------------------------------------
+
+type RingPt = readonly [number, number];
+
+function planarArea(ring: RingPt[]): number {
+  let sum = 0;
+  for (let i = 0; i < ring.length; i += 1) {
+    const [x1, y1] = ring[i]!;
+    const [x2, y2] = ring[(i + 1) % ring.length]!;
+    sum += x1 * y2 - x2 * y1;
+  }
+  return sum / 2;
+}
+
+function planarContains(ring: RingPt[], px: number, py: number): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]!;
+    const [xj, yj] = ring[j]!;
+    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function segCross(o: RingPt, p: RingPt, q: RingPt): number {
+  return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+}
+
+/** Proper-intersection test between segment (a,b) and (c,d). */
+function segmentsCross(a: RingPt, b: RingPt, c: RingPt, d: RingPt): boolean {
+  const d1 = segCross(c, d, a);
+  const d2 = segCross(c, d, b);
+  const d3 = segCross(a, b, c);
+  const d4 = segCross(a, b, d);
+  return d1 * d2 < 0 && d3 * d4 < 0;
+}
+
+function pointInTriangle(p: RingPt, a: RingPt, b: RingPt, c: RingPt): boolean {
+  const d1 = segCross(a, p, b);
+  const d2 = segCross(b, p, c);
+  const d3 = segCross(c, p, a);
+  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
+  const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(hasNeg && hasPos);
+}
+
+/** Splice hole rings into the outer ring through mutually visible vertex
+ *  pairs, then ear-clip the merged polygon. Returns the merged point list and
+ *  triangle index triples into it. */
+function triangulateLoopWithHoles(
+  outer: [number, number, number][],
+  holes: [number, number, number][][],
+): { points: [number, number, number][]; tris: [number, number, number][] } {
+  const o2 = (p: [number, number, number]): RingPt => [p[0], p[1]] as const;
+  // Unified ring: outer points first, each bridged hole appended after —
+  // polygon indices always reference this single array.
+  const ring = outer.slice();
+  let poly = outer.map((_, i) => i);
+  if (planarArea(outer.map(o2)) < 0) poly.reverse();
+  for (const hole of holes) {
+    const base = ring.length;
+    ring.push(...hole);
+    const holeIdx = hole.map((_, i) => base + i);
+    if (planarArea(hole.map(o2)) < 0) holeIdx.reverse(); // same winding as outer
+    let bridged = false;
+    outer:
+    for (let i = 0; i < poly.length; i += 1) {
+      for (let j = 0; j < holeIdx.length; j += 1) {
+        const a = o2(ring[poly[i]!]!);
+        const b = o2(ring[holeIdx[j]!]!);
+        let visible = true;
+        for (let k = 0; k < poly.length && visible; k += 1) {
+          if (k === i || (k + 1) % poly.length === i || k === (i - 1 + poly.length) % poly.length) continue;
+          if (segmentsCross(a, b, o2(ring[poly[k]!]!), o2(ring[poly[(k + 1) % poly.length]!]!))) visible = false;
+        }
+        for (let k = 0; k < holeIdx.length && visible; k += 1) {
+          if (k === j || (k + 1) % holeIdx.length === j || k === (j - 1 + holeIdx.length) % holeIdx.length) continue;
+          if (segmentsCross(a, b, o2(ring[holeIdx[k]!]!), o2(ring[holeIdx[(k + 1) % holeIdx.length]!]!))) visible = false;
+        }
+        if (visible) {
+          const rotated = [...holeIdx.slice(j), ...holeIdx.slice(0, j), holeIdx[j]!];
+          poly = [...poly.slice(0, i + 1), ...rotated, ...poly.slice(i + 1)];
+          bridged = true;
+          break outer;
+        }
+      }
+    }
+    if (!bridged) {
+      // Unreachable hole — drop its points again rather than corrupt the face.
+      for (let i = ring.length - 1; i >= base; i -= 1) ring.splice(i, 1);
+      poly = poly.filter((v) => v < base);
+      continue;
+    }
+  }
+  const tris: [number, number, number][] = [];
+  const rest = poly.filter((v, i) => i === 0 || v !== poly[i - 1]);
+  let guard = 0;
+  while (rest.length > 2 && guard < 100_000) {
+    guard += 1;
+    let clipped = false;
+    for (let i = 0; i < rest.length; i += 1) {
+      const a = rest[(i - 1 + rest.length) % rest.length]!;
+      const b = rest[i]!;
+      const c = rest[(i + 1) % rest.length]!;
+      const pa = o2(ring[a]!);
+      const pb = o2(ring[b]!);
+      const pc = o2(ring[c]!);
+      if (segCross(pa, pb, pc) <= 0) continue; // reflex or collinear
+      let empty = true;
+      for (const v of rest) {
+        if (v === a || v === b || v === c) continue;
+        if (pointInTriangle(o2(ring[v]!), pa, pb, pc)) {
+          empty = false;
+          break;
+        }
+      }
+      if (!empty) continue;
+      tris.push([a, b, c]);
+      rest.splice(i, 1);
+      clipped = true;
+      break;
+    }
+    if (!clipped) break; // degenerate ring — keep whatever was clipped
+  }
+  return { points: ring, tris };
 }
 
 function layerTag(layer: string, groups: Map<string, number>): number {

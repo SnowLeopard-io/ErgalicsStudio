@@ -294,7 +294,7 @@ export function MeshViewerPage() {
           )}
         </IndustrialActions>
         {!study ? (
-          <NoStudy />
+          <NoStudy toolId="mesh-viewer" />
         ) : (
           <>
             {view3d ? (
@@ -374,13 +374,20 @@ export function MaterialsPage() {
                 </option>
               ))}
             </select>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => addMaterial(template)}>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              // Store actions silently no-op without a study — make that
+              // visible instead of leaving a button that does nothing.
+              disabled={!study}
+              onClick={() => addMaterial(template)}
+            >
               {t('industrial.material_add')}
             </button>
           </div>
         </IndustrialActions>
         {!study ? (
-          <NoStudy />
+          <NoStudy toolId="material-library" />
         ) : (
           <>
             {study.materials.length === 0 && (
@@ -471,11 +478,11 @@ export function CasesPage() {
             <select className="input input-sm" value={kind} onChange={(e) => setKind(e.target.value as EngineeringStepKind)}>
               {STEP_KINDS.map((item) => <option key={item} value={item}>{stepKindLabel(t, item)}</option>)}
             </select>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => addStep(kind)}>{t('industrial.step_add')}</button>
+            <button type="button" className="btn btn-sm btn-primary" disabled={!study} onClick={() => addStep(kind)}>{t('industrial.step_add')}</button>
           </div>
         </IndustrialActions>
         {!study || !studyCase ? (
-          <NoStudy />
+          <NoStudy toolId="load-cases" />
         ) : (
           <>
             <div className="ind-cards">
@@ -547,6 +554,19 @@ function BoundaryEditor() {
   if (!study) return null;
   const groups = study.mesh.groups;
   const kinds: BoundaryKind[] = ['displacement', 'force', 'traction', 'temperature', 'heat-flux', 'pressure', 'other'];
+  // Physical symbols for the two value inputs, so "0 / 0" fields say what
+  // they mean (ux·uy vs fx·fy vs T…) instead of relying on hover titles.
+  const componentHint: Record<BoundaryKind, [string, string]> = {
+    displacement: ['ux', 'uy'],
+    force: ['fx', 'fy'],
+    traction: ['tx', 'ty'],
+    temperature: ['T', '—'],
+    'heat-flux': ['qx', 'qy'],
+    pressure: ['p', '—'],
+    'electric-potential': ['V', '—'],
+    other: ['c0', 'c1'],
+  };
+  const hints = componentHint[kind];
   return (
     <section className="ind-card">
       <header className="ind-card-head"><strong>{t('industrial.boundary')}</strong></header>
@@ -563,9 +583,13 @@ function BoundaryEditor() {
             <option key={g.tag} value={g.tag}>{g.name} ({g.tag})</option>
           ))}
         </select>
-        <input className="input input-sm" type="number" step="any" value={c0} onChange={(e) => setC0(Number(e.target.value))} title={t('industrial.component_n', { n: 0 })} />
-        <input className="input input-sm" type="number" step="any" value={c1} onChange={(e) => setC1(Number(e.target.value))} title={t('industrial.component_n', { n: 1 })} />
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => add({
+        <input className="input input-sm" type="number" step="any" value={c0} placeholder={hints[0]} onChange={(e) => setC0(Number(e.target.value))} title={t('industrial.component_n', { n: 0 })} />
+        <input className="input input-sm" type="number" step="any" value={c1} placeholder={hints[1]} onChange={(e) => setC1(Number(e.target.value))} title={t('industrial.component_n', { n: 1 })} />
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          disabled={!study}
+          onClick={() => add({
           name: `${kind} ${study.boundaryConditions.length + 1}`,
           kind,
           target: { dimension, tag },
@@ -783,7 +807,12 @@ export function SolvePage() {
             <select className="input input-sm" value={activeStepId ?? ''} onChange={(e) => selectStep(e.target.value)}>
               {steps.map((step) => <option key={step.id} value={step.id}>{step.name} ({stepKindLabel(t, step.kind)})</option>)}
             </select>
-            <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              disabled={solving || !activeStep}
+              onClick={() => void solve()}
+            >
               {solving ? <span className="spinner" /> : t('industrial.solve')}
             </button>
             {buildStats && (
@@ -1080,7 +1109,7 @@ export function PostPage() {
           )}
         </IndustrialActions>
         {!study ? (
-          <NoStudy />
+          <NoStudy toolId="post-processing" />
         ) : (
           <>
             {is3d ? (
@@ -1380,7 +1409,7 @@ export function DesignScanPage() {
           />
         </IndustrialActions>
         {!study || !design ? (
-          <NoStudy />
+          <NoStudy toolId="design-scan" />
         ) : (
           <>
             <ScanParameterEditor study={study} design={design} onChange={updateDesign} />
@@ -1431,11 +1460,17 @@ export function FluidPage() {
   const solve = useEngineeringStore((s) => s.solve);
   const solving = useEngineeringStore((s) => s.solving);
   const [fieldName, setFieldName] = useState('');
+  const notify = useAppStore((s) => s.notify);
+  const { locale } = useLocale();
   const fields = result?.fields ?? study?.fields ?? [];
   const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
   const makeChannel = () => {
     const example = industrialExampleById('industrial-channel-flow');
-    if (example) setStudy(example.build());
+    if (!example) return;
+    setStudy(example.build());
+    notify('success', t('industrial.example_loaded', {
+      name: example.nameI18n[locale.startsWith('zh') ? 'zh-CN' : 'en-US'],
+    }));
   };
   return (
     <Page toolId="quick-fluid">
@@ -1444,12 +1479,12 @@ export function FluidPage() {
         <IndustrialActions toolId="quick-fluid">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
-            <button type="button" className="btn btn-sm btn-primary" disabled={solving} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
+            <button type="button" className="btn btn-sm btn-primary" disabled={solving || !study} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
             <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
           </div>
           <EngineeringImportButton />
         </IndustrialActions>
-        {!study ? <NoStudy /> : (
+        {!study ? <NoStudy toolId="quick-fluid" /> : (
           <>
             <MeshCanvas mesh={study.mesh} field={field} height={380} />
             <div className="ind-hint">
@@ -1495,15 +1530,20 @@ export function FingerprintPage() {
         <PageHead toolId="repro-fingerprint" title={t('industrial.fingerprint')} />
         <IndustrialActions toolId="repro-fingerprint">
           <div className="ind-toolbar analysis-row">
-            <button type="button" className="btn btn-sm" onClick={() => void copy()}>{t('industrial.copy')}</button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => void saveStudyJson()}>
+            <button type="button" className="btn btn-sm" disabled={!fingerprint} onClick={() => void copy()}>{t('industrial.copy')}</button>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              disabled={!study}
+              onClick={() => void saveStudyJson()}
+            >
               {t('industrial.save_study')}
             </button>
             <span className="ind-hint">{t('industrial.project')} {project?.name ?? '—'} · {t('industrial.lock_v3')}</span>
           </div>
         </IndustrialActions>
         {!study || !fingerprint ? (
-          <NoStudy />
+          <NoStudy toolId="repro-fingerprint" />
         ) : (
           <>
             <div className="ind-card">
@@ -1597,17 +1637,19 @@ export function IndustrialReportPage() {
             items={[
               {
                 label: t('industrial.export_html'),
+                disabled: !report,
                 onDownload: downloadHtml,
                 onSave: saveHtml,
               },
               {
                 label: t('industrial.export_markdown'),
+                disabled: !report,
                 onDownload: downloadMarkdown,
                 onSave: saveMarkdown,
               },
               {
                 label: t('industrial.export_pdf'),
-                disabled: pdfBusy,
+                disabled: !report || pdfBusy,
                 onDownload: () => void exportPdf('download'),
                 onSave: () => void exportPdf('save'),
               },
@@ -1620,7 +1662,7 @@ export function IndustrialReportPage() {
           )}
         </IndustrialActions>
         {!study || !report ? (
-          <NoStudy />
+          <NoStudy toolId="industrial-report" />
         ) : (
           <>
             {/* Print-style preview: the report renders as a white A4 sheet, the

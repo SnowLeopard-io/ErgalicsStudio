@@ -205,13 +205,16 @@ export function NoStudy({
           <button type="button" className="btn btn-sm btn-primary" onClick={loadExample}>
             {t('industrial.load_example')}
           </button>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() => useAppStore.getState().setEmbeddedTool('mesh-viewer')}
-          >
-            {t('industrial.open_mesh_viewer')}
-          </button>
+          {/* On the mesh viewer itself this button would be a no-op. */}
+          {toolId !== 'mesh-viewer' && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => useAppStore.getState().setEmbeddedTool('mesh-viewer')}
+            >
+              {t('industrial.open_mesh_viewer')}
+            </button>
+          )}
         </div>
       )}
     </div>
