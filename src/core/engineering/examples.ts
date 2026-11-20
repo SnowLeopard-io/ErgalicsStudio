@@ -270,6 +270,145 @@ const block3dHeat = (): EngineeringStudy => {
   });
 };
 
+/**
+ * Structured tetrahedral mesh for a solid region described by a per-cell
+ * inclusion test. Every included hex cell splits into the same six
+ * 0–6-diagonal tets used by the imported decks, so neighbouring cells share
+ * conforming faces. Grid nodes outside the solid are compacted away, which
+ * keeps bounds tight and makes plane-based face groups describe the real
+ * solid (e.g. the L-bracket's hot face is the actual L footprint).
+ */
+function shapeTetMesh(options: {
+  nx: number;
+  ny: number;
+  nz: number;
+  size: [number, number, number];
+  include: (x: number, y: number, z: number) => boolean;
+}): EngineeringMesh {
+  const { nx, ny, nz, size, include } = options;
+  const [sx, sy, sz] = size;
+  const id = (i: number, j: number, k: number) => (k * (ny + 1) + j) * (nx + 1) + i;
+  const gridNodes: Array<{ id: number; x: number; y: number; z: number }> = [];
+  for (let k = 0; k <= nz; k += 1) {
+    for (let j = 0; j <= ny; j += 1) {
+      for (let i = 0; i <= nx; i += 1) {
+        gridNodes.push({ id: id(i, j, k), x: (i * sx) / nx, y: (j * sy) / ny, z: (k * sz) / nz });
+      }
+    }
+  }
+  const rawTets: Array<[number, number, number, number]> = [];
+  for (let k = 0; k < nz; k += 1) {
+    for (let j = 0; j < ny; j += 1) {
+      for (let i = 0; i < nx; i += 1) {
+        if (!include(((i + 0.5) * sx) / nx, ((j + 0.5) * sy) / ny, ((k + 0.5) * sz) / nz)) continue;
+        const v = [
+          id(i, j, k), id(i + 1, j, k), id(i + 1, j + 1, k), id(i, j + 1, k),
+          id(i, j, k + 1), id(i + 1, j, k + 1), id(i + 1, j + 1, k + 1), id(i, j + 1, k + 1),
+        ] as const;
+        rawTets.push(
+          [v[0], v[1], v[2], v[6]],
+          [v[0], v[2], v[3], v[6]],
+          [v[0], v[3], v[7], v[6]],
+          [v[0], v[7], v[4], v[6]],
+          [v[0], v[4], v[5], v[6]],
+          [v[0], v[5], v[1], v[6]],
+        );
+      }
+    }
+  }
+  const used = new Set<number>();
+  for (const tet of rawTets) for (const node of tet) used.add(node);
+  const remap = new Map<number, number>();
+  const nodes: EngineeringMesh['nodes'] = [];
+  for (const gn of gridNodes) {
+    if (!used.has(gn.id)) continue;
+    remap.set(gn.id, nodes.length);
+    nodes.push({ id: nodes.length + 1, x: gn.x, y: gn.y, z: gn.z });
+  }
+  const elements = rawTets.map((tet, index) => ({
+    id: index + 1,
+    type: 'tet4' as const,
+    nodes: tet.map((node) => remap.get(node)!),
+  }));
+  const xs = nodes.map((node) => node.x);
+  const ys = nodes.map((node) => node.y);
+  const zs = nodes.map((node) => node.z);
+  return {
+    nodes,
+    elements,
+    groups: [],
+    bounds: [Math.min(...xs), Math.min(...ys), Math.min(...zs), Math.max(...xs), Math.max(...ys), Math.max(...zs)],
+  };
+}
+
+/** Wire a generated solid into a solvable 3-D steady-heat study. */
+function solidHeatStudy(
+  name: string,
+  mesh: EngineeringMesh,
+  material: EngineeringMaterial,
+  axis: 'x' | 'z',
+): EngineeringStudy {
+  const hot = addGroup(mesh, 'Hot face', 0, nodeMembersOn(mesh, axis, 'min'));
+  const cold = addGroup(mesh, 'Cold face', 0, nodeMembersOn(mesh, axis, 'max'));
+  return makeStudy(name, 'gmsh', mesh, {
+    materials: [material],
+    boundaryConditions: [
+      { name: 'Hot face', kind: 'temperature', target: { dimension: 0, tag: hot }, components: { 0: 373.15 } },
+      { name: 'Cold face', kind: 'temperature', target: { dimension: 0, tag: cold }, components: { 0: 293.15 } },
+    ],
+    cases: [{
+      name: 'Steady heat 3-D',
+      steps: [makeStep('Steady heat (3-D)', 'steady-heat')],
+      design: { parameters: [], points: [] },
+    }],
+    metadata: { example: 'industrial', analysis: '3d-volume' },
+  });
+}
+
+const beam3dHeat = (): EngineeringStudy =>
+  solidHeatStudy(
+    '3-D beam conduction',
+    shapeTetMesh({ nx: 16, ny: 4, nz: 4, size: [2, 0.5, 0.5], include: () => true }),
+    materialFromTemplate('steel-q235')!,
+    'x',
+  );
+
+const lBracket3dHeat = (): EngineeringStudy =>
+  solidHeatStudy(
+    'L-bracket conduction',
+    shapeTetMesh({
+      nx: 12, ny: 12, nz: 4, size: [1, 1, 0.4],
+      include: (x, y) => x <= 0.45 || y <= 0.45,
+    }),
+    materialFromTemplate('steel-q235')!,
+    'z',
+  );
+
+const perforatedPlate3dHeat = (): EngineeringStudy =>
+  solidHeatStudy(
+    'Perforated plate conduction',
+    shapeTetMesh({
+      nx: 16, ny: 16, nz: 3, size: [1.6, 1.6, 0.3],
+      include: (x, y) => Math.hypot(x - 0.8, y - 0.8) > 0.2,
+    }),
+    materialFromTemplate('copper')!,
+    'x',
+  );
+
+const hollowTube3dHeat = (): EngineeringStudy =>
+  solidHeatStudy(
+    'Hollow cylinder conduction',
+    shapeTetMesh({
+      nx: 16, ny: 16, nz: 6, size: [1, 1, 1],
+      include: (x, y) => {
+        const r = Math.hypot(x - 0.5, y - 0.5);
+        return r > 0.22 && r < 0.45;
+      },
+    }),
+    materialFromTemplate('steel-q235')!,
+    'z',
+  );
+
 // --------------------------------------------------------------------------
 // Imported-format samples
 //
@@ -766,6 +905,46 @@ export const INDUSTRIAL_EXAMPLES: IndustrialExample[] = [
     },
     format: 'gmsh',
     build: block3dHeat,
+  },
+  {
+    id: 'industrial-beam-3d',
+    nameI18n: { 'zh-CN': '三维悬臂梁（实体导热）', 'en-US': '3-D beam conduction' },
+    descriptionI18n: {
+      'zh-CN': '2×0.5×0.5 m 实体梁剖分为 1536 个四面体，两端定温，载入即可求解体积温度场。',
+      'en-US': 'A 2×0.5×0.5 m solid beam split into 1536 tets with fixed end temperatures — solvable as loaded.',
+    },
+    format: 'gmsh',
+    build: beam3dHeat,
+  },
+  {
+    id: 'industrial-l-bracket-3d',
+    nameI18n: { 'zh-CN': 'L 形支架（实体导热）', 'en-US': 'L-bracket conduction' },
+    descriptionI18n: {
+      'zh-CN': 'L 形截面支架的四面体实体网格，底面加热、顶面散热，展示非矩形立体模型。',
+      'en-US': 'A tetrahedral solid of an L-shaped bracket heated from below — a non-rectangular 3-D body.',
+    },
+    format: 'gmsh',
+    build: lBracket3dHeat,
+  },
+  {
+    id: 'industrial-perforated-plate-3d',
+    nameI18n: { 'zh-CN': '带孔平板（实体导热）', 'en-US': 'Perforated plate conduction' },
+    descriptionI18n: {
+      'zh-CN': '中心开孔的铜板实体网格，左右端定温，孔边可以看到温度场的绕流式分布。',
+      'en-US': 'A copper plate with a central hole held at hot/cold ends — the field bends around the bore.',
+    },
+    format: 'gmsh',
+    build: perforatedPlate3dHeat,
+  },
+  {
+    id: 'industrial-tube-3d',
+    nameI18n: { 'zh-CN': '空心圆筒（实体导热）', 'en-US': 'Hollow cylinder conduction' },
+    descriptionI18n: {
+      'zh-CN': '环形截面的空心圆筒实体网格，底面定温加热，是典型的轴/套筒类零件形态。',
+      'en-US': 'A hollow cylinder (annulus section) heated at the base — a typical shaft/sleeve part shape.',
+    },
+    format: 'gmsh',
+    build: hollowTube3dHeat,
   },
   {
     id: 'industrial-abaqus-quad-plate',
