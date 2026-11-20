@@ -1,7 +1,7 @@
 // Tests for the mesh-free engineering calculators (core/engineering/calc.ts).
 
 import { describe, expect, it } from 'vitest';
-import { beamQuick, pipePressureDrop, thermalStack } from '@/core/engineering/calc';
+import { beamQuick, fatigueLife, pipePressureDrop, thermalStack } from '@/core/engineering/calc';
 
 describe('pipePressureDrop', () => {
   // Water, 6 m³/h in a DN40 (40 mm) pipe: v ≈ 1.326 m/s, Re ≈ 5.28e4.
@@ -118,5 +118,43 @@ describe('beamQuick', () => {
 
   it('rejects non-physical spans', () => {
     expect(beamQuick({ ...base, spanMm: 0 })).toBeNull();
+  });
+});
+
+describe('fatigueLife', () => {
+  // Su = 400 MPa, knock-down 0.8 → Se = 160 MPa.
+  // Anchors: (1e3, 360 MPa), (1e6, 160 MPa).
+  it('gives finite life above and run-out below the endurance limit', () => {
+    const r = fatigueLife({
+      ultimateMPa: 400, knockDown: 0.8,
+      rows: [{ stressMPa: 300, cycles: 1e5 }, { stressMPa: 100, cycles: 1e7 }],
+    })!;
+    expect(r.enduranceMPa).toBeCloseTo(160, 3);
+    const above = r.rows[0]!;
+    expect(above.lifeCycles).toBeGreaterThan(1e3);
+    expect(above.lifeCycles).toBeLessThan(1e6);
+    expect(above.damage).toBeGreaterThan(0);
+    // 100 MPa < Se — run-out contributes zero damage.
+    expect(r.rows[1]!.lifeCycles).toBe(Infinity);
+    expect(r.rows[1]!.damage).toBe(0);
+  });
+
+  it('sums Miner damage and flags failure above 1', () => {
+    const failing = fatigueLife({
+      ultimateMPa: 400, knockDown: 0.8,
+      rows: [{ stressMPa: 300, cycles: 1e7 }],
+    })!;
+    expect(failing.totalDamage).toBeGreaterThan(1);
+    expect(failing.safe).toBe(false);
+    const safe = fatigueLife({
+      ultimateMPa: 400, knockDown: 0.8,
+      rows: [{ stressMPa: 100, cycles: 1e9 }],
+    })!;
+    expect(safe.safe).toBe(true);
+  });
+
+  it('rejects invalid knock-down factors', () => {
+    expect(fatigueLife({ ultimateMPa: 400, knockDown: 0, rows: [] })).toBeNull();
+    expect(fatigueLife({ ultimateMPa: 400, knockDown: 1.5, rows: [] })).toBeNull();
   });
 });

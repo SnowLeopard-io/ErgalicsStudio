@@ -196,3 +196,70 @@ export function beamQuick(input: BeamInput): BeamResult | null {
     maxDeflectionMm: deflection,
   };
 }
+
+// --- fatigue life (Basquin S-N + Miner cumulative damage) ---------------------
+
+export interface FatigueRow {
+  /** Alternating stress amplitude [MPa]. */
+  stressMPa: number;
+  /** Applied cycle count at this amplitude. */
+  cycles: number;
+}
+
+export interface FatigueInput {
+  /** Ultimate tensile strength [MPa]. */
+  ultimateMPa: number;
+  /** Endurance-limit knock-down (surface × size × load, 0–1]. */
+  knockDown: number;
+  rows: FatigueRow[];
+}
+
+export interface FatigueRowResult {
+  stressMPa: number;
+  cycles: number;
+  /** Life at this amplitude; Infinity below the endurance limit (run-out). */
+  lifeCycles: number;
+  /** Miner damage contribution n/N. */
+  damage: number;
+}
+
+export interface FatigueResult {
+  /** Corrected endurance limit [MPa]. */
+  enduranceMPa: number;
+  rows: FatigueRowResult[];
+  /** Σ n/N — predicts failure when it reaches 1. */
+  totalDamage: number;
+  /** Estimated total life at the dominant amplitude for reference. */
+  safe: boolean;
+}
+
+/**
+ * Basquin S-N anchored at (10³, 0.9·Su) and (10⁶, Se) — the standard steel
+ * approximation. Amplitudes at or below the corrected endurance limit never
+ * fail (run-out, life = ∞). Miner damage sums n/N across the spectrum.
+ */
+export function fatigueLife(input: FatigueInput): FatigueResult | null {
+  const { ultimateMPa, knockDown, rows } = input;
+  if (!(ultimateMPa > 0) || !(knockDown > 0) || knockDown > 1) return null;
+  const endurance = 0.5 * ultimateMPa * knockDown;
+  // Basquin exponent from the two anchor points.
+  const b = Math.log10(endurance / (0.9 * ultimateMPa)) / 3;
+  const rowResults = rows.map((row) => {
+    const life = row.stressMPa <= endurance
+      ? Infinity
+      : 1e3 * Math.pow(row.stressMPa / (0.9 * ultimateMPa), 1 / b);
+    return {
+      stressMPa: row.stressMPa,
+      cycles: row.cycles,
+      lifeCycles: life,
+      damage: row.cycles / life,
+    };
+  });
+  const totalDamage = rowResults.reduce((a, r) => a + r.damage, 0);
+  return {
+    enduranceMPa: endurance,
+    rows: rowResults,
+    totalDamage,
+    safe: totalDamage < 1,
+  };
+}

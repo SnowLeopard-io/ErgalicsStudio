@@ -11,9 +11,11 @@ import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import {
   beamQuick,
+  fatigueLife,
   pipePressureDrop,
   thermalStack,
   type BeamInput,
+  type FatigueRow,
   type PipeInput,
   type ThermalLayer,
 } from '@/core/engineering/calc';
@@ -140,6 +142,7 @@ export function CalculatorsPage() {
         <PipeSection />
         <ThermalSection />
         <BeamSection />
+        <FatigueSection />
       </div>
     </Page>
   );
@@ -198,7 +201,7 @@ function ThermalSection() {
             <button
               type="button"
               className="btn btn-sm"
-              title={t('industrial.delete')}
+              title={t('common.delete')}
               disabled={layers.length <= 1}
               onClick={() => setLayers((ls) => ls.filter((_, j) => j !== i))}
             >
@@ -258,7 +261,111 @@ function ThermalSection() {
   );
 }
 
-// --- beam quick check ---------------------------------------------------------
+// --- fatigue life (Basquin S-N + Miner) ----------------------------------------
+
+const FATIGUE_ROW_DEFAULT: FatigueRow = { stressMPa: 150, cycles: 1e5 };
+
+function FatigueSection() {
+  const t = useT();
+  const study = useEngineeringStore((s) => s.study);
+  const { outputText } = useIndustrialOutput();
+  const [ultimateMPa, setUltimateMPa] = useState(400);
+  const [knockDown, setKnockDown] = useState(0.8);
+  const [rows, setRows] = useState<FatigueRow[]>([{ ...FATIGUE_ROW_DEFAULT }]);
+  const setRow = (index: number, patch: Partial<FatigueRow>) =>
+    setRows((rs) => rs.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  const result = useMemo(() => fatigueLife({ ultimateMPa, knockDown, rows }), [ultimateMPa, knockDown, rows]);
+  const exportCsv = (target: 'download' | 'save') => {
+    const rowsCsv = [['stress_MPa', 'cycles', 'life_cycles', 'damage']];
+    for (let i = 0; i < rows.length; i += 1) {
+      const r = result?.rows[i];
+      rowsCsv.push([
+        String(rows[i]!.stressMPa),
+        String(rows[i]!.cycles),
+        r ? String(r.lifeCycles) : '',
+        r ? String(r.damage) : '',
+      ]);
+    }
+    rowsCsv.push(['endurance_MPa', result ? String(result.enduranceMPa) : '', '', '']);
+    rowsCsv.push(['total_damage', result ? String(result.totalDamage) : '', '', '']);
+    void outputText('results', `${artifactBaseName(study)}-fatigue.csv`, rowsCsv.map((r) => r.join(',')).join('\n'), target);
+  };
+  return (
+    <section className="ind-card">
+      <h3 className="ind-card-title">{t('industrial.calc.fatigue.title')}</h3>
+      <p className="ind-hint">{t('industrial.calc.fatigue.desc')}</p>
+      <div className="ind-toolbar analysis-row">
+        <NumField label={t('industrial.calc.fatigue.ultimate')} unit="MPa" value={ultimateMPa} onChange={setUltimateMPa} />
+        <NumField label={t('industrial.calc.fatigue.knockdown')} unit="×" value={knockDown} onChange={setKnockDown} step={0.05} />
+      </div>
+      <div className="ind-geometry-list">
+        {rows.map((row, i) => (
+          <div key={i} className="ind-row">
+            <span className="tag">#{i + 1}</span>
+            <NumField label={t('industrial.calc.fatigue.stress')} unit="MPa" value={row.stressMPa} onChange={(v) => setRow(i, { stressMPa: v })} />
+            <NumField label={t('industrial.calc.fatigue.cycles')} unit="—" value={row.cycles} onChange={(v) => setRow(i, { cycles: v })} />
+            <button
+              type="button"
+              className="btn btn-sm"
+              title={t('common.delete')}
+              disabled={rows.length <= 1}
+              onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="ind-toolbar analysis-row">
+        <button type="button" className="btn btn-sm" onClick={() => setRows((rs) => [...rs, { ...FATIGUE_ROW_DEFAULT }])}>
+          {t('industrial.calc.fatigue.add_row')}
+        </button>
+        {study && study.materials.length > 0 && (
+          <label className="ind-field">
+            <span>{t('industrial.calc.fatigue.from_material')}</span>
+            <select
+              className="input input-sm"
+              value=""
+              onChange={(e) => {
+                const material = study.materials.find((m) => m.name === e.target.value);
+                const sy = material ? materialProperty(material, 'sy', NaN) : NaN;
+                // The library has no ultimate strength; σy is a conservative proxy.
+                if (Number.isFinite(sy)) setUltimateMPa(sy / 1e6);
+              }}
+            >
+              <option value="">{t('industrial.calc.fatigue.pick_material')}</option>
+              {study.materials.map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="ind-calc-results">
+        <ResultRow label={t('industrial.calc.fatigue.endurance')} value={result?.enduranceMPa ?? null} unit="MPa" />
+        {result?.rows.map((row, i) => (
+          <ResultRow
+            key={i}
+            label={`${t('industrial.calc.fatigue.life')} · #${i + 1}`}
+            value={Number.isFinite(row.lifeCycles) ? row.lifeCycles.toPrecision(3) : t('industrial.calc.fatigue.runout')}
+          />
+        ))}
+        <ResultRow label={t('industrial.calc.fatigue.damage')} value={result?.totalDamage ?? null} />
+        <ResultRow
+          label={t('industrial.calc.fatigue.verdict')}
+          value={result ? (result.safe ? t('industrial.calc.fatigue.safe') : t('industrial.calc.fatigue.fail')) : null}
+        />
+      </div>
+      <ExportGroups
+        items={[{
+          label: t('industrial.calc.export_csv'),
+          onDownload: () => exportCsv('download'),
+          onSave: () => exportCsv('save'),
+        }]}
+      />
+    </section>
+  );
+}
 
 const BEAM_DEFAULT: BeamInput = {
   support: 'cantilever', load: 'point', spanMm: 200, pointLoadN: 100,
