@@ -7,7 +7,7 @@
 // solver. These are UI shells over the pure engineering core.
 // ==========================================================================
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { ToolIcon } from '@/components/icons';
@@ -1422,6 +1422,19 @@ export function IndustrialReportPage() {
     [buildReport, study, result, benchmark, locale],
   );
   const [paperHeight, setPaperHeight] = useState(1120);
+  const [zoom, setZoom] = useState(100);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  /** Shrink the sheet to the panel width (never enlarge beyond 100%) so a
+   *  narrow dock cannot hide the right-hand columns. */
+  const fitWidth = () => {
+    const shell = shellRef.current;
+    const frame = frameRef.current;
+    if (!shell || !frame || frame.offsetWidth === 0) return;
+    const available = shell.clientWidth - 32;
+    const ratio = available / frame.offsetWidth;
+    setZoom(Math.max(50, Math.min(100, Math.floor(ratio * 100))));
+  };
   const { outputText } = useIndustrialOutput();
   const download = () => {
     if (!report) return;
@@ -1449,18 +1462,44 @@ export function IndustrialReportPage() {
         ) : (
           <>
             {/* Print-style preview: the report renders as a white A4 sheet, the
-                same markup the downloaded HTML uses — WYSIWYG by construction. */}
-            <div className="ind-paper-shell">
-              <iframe
-                title={report.title}
-                className="ind-paper-frame"
-                srcDoc={report.html}
-                style={{ height: paperHeight }}
-                onLoad={(event) => {
-                  const doc = event.currentTarget.contentDocument;
-                  if (doc) setPaperHeight(Math.max(640, doc.documentElement.scrollHeight));
-                }}
+                same markup the downloaded HTML uses — WYSIWYG by construction.
+                The zoom slider scales the sheet without reflowing it, so the
+                paper can never be squeezed or hidden by a narrow dock. */}
+            <div className="ind-paper-toolbar">
+              <span className="ind-hint">{t('industrial.report_zoom')}</span>
+              <input
+                type="range"
+                className="ind-zoom"
+                min={50}
+                max={150}
+                step={5}
+                value={zoom}
+                aria-label={t('industrial.report_zoom')}
+                onChange={(event) => setZoom(Number(event.target.value))}
               />
+              <span className="ind-hint mono">{zoom}%</span>
+              <button type="button" className="btn btn-sm" onClick={fitWidth}>
+                {t('industrial.report_fit')}
+              </button>
+            </div>
+            <div className="ind-paper-shell" ref={shellRef}>
+              <div
+                className="ind-paper-stage"
+                style={{ width: `${(210 * zoom) / 100}mm`, height: paperHeight * (zoom / 100) }}
+              >
+                <iframe
+                  ref={frameRef}
+                  title={report.title}
+                  className="ind-paper-frame"
+                  srcDoc={report.html}
+                  style={{ height: paperHeight, transform: `scale(${zoom / 100})` }}
+                  onLoad={(event) => {
+                    const doc = event.currentTarget.contentDocument;
+                    if (doc) setPaperHeight(Math.max(640, doc.documentElement.scrollHeight));
+                    fitWidth();
+                  }}
+                />
+              </div>
             </div>
           </>
         )}

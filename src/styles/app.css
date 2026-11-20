@@ -12096,6 +12096,18 @@
 }
 
 /* Report preview: a printable A4 sheet on a neutral desktop backdrop. */
+.ind-paper-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ind-zoom {
+  width: 160px;
+  accent-color: var(--color-accent, #2dd4bf);
+}
+
 .ind-paper-shell {
   display: flex;
   /* `safe` keeps the sheet's left edge reachable once it overflows; without
@@ -12107,16 +12119,26 @@
   overflow-x: auto;
 }
 
+/* Reserves the scaled footprint so the zoomed sheet never overlaps siblings
+   or leaves phantom gaps (transform alone would keep the unscaled layout). */
+.ind-paper-stage {
+  position: relative;
+  flex: 0 0 auto;
+}
+
 .ind-paper-frame {
   /* The sheet must never be squeezed sideways: keep the true 210 mm A4 width
      and let the shell scroll horizontally on narrow panels instead. */
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 210mm;
   min-width: 210mm;
-  flex: 0 0 auto;
   border: 0;
   border-radius: 2px;
   background: #fff;
   box-shadow: 0 12px 32px rgb(15 23 42 / 28%);
+  transform-origin: top left;
 }
 
 .ind-cards {
