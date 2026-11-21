@@ -8,8 +8,9 @@
 // ==========================================================================
 
 import { useT } from '@/i18n';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
-import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon, ToolIcon, KeyboardIcon } from '@/components/icons';
+import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon, ToolIcon, KeyboardIcon, SparklesIcon } from '@/components/icons';
 import { toggleTouchKeypad } from '@/components/TouchKeypad';
 
 /** Industrial workbench entry glyph (factories are the domain's shorthand). */
@@ -25,6 +26,7 @@ interface ActivityItem {
 
 export function ActivityBar() {
   const t = useT();
+  const navigate = useNavigate();
   const sidebarView = useAppStore((s) => s.sidebarView);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarView = useAppStore((s) => s.setSidebarView);
@@ -44,6 +46,22 @@ export function ActivityBar() {
 
   return (
     <nav className="activity-bar" aria-label={t('workbench.activity.label')}>
+      {/* Agent 置顶：它是产品的核心入口，不是第七个侧栏视图。
+          点它直接进整页 Agent（工作台 + 对话 + 能力），而不是先让你配一遍。 */}
+      <div className="activity-bar-views">
+        <button
+          type="button"
+          className="activity-item activity-item-agent"
+          data-activity="agent"
+          aria-label={t('agent.entry')}
+          title={t('agent.entry')}
+          onClick={() => navigate('/agent')}
+        >
+          <SparklesIcon size={20} />
+        </button>
+      </div>
+      <div className="activity-bar-sep" role="separator" />
+
       <div className="activity-bar-views">
         {items.map(({ view, label, Icon }) => {
           const active = sidebarOpen && sidebarView === view;

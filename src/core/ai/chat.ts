@@ -30,6 +30,7 @@ import { chatCompletion } from './provider';
 import { runAgent, type AgentEvent, type AgentRunResult } from './agent';
 import { ensureHostToolsRegistered, toolRegistry } from './tools';
 import { MUTATING_TOOLS } from './tools/registry';
+import { isToolEnabled } from '@/stores/aiToolPolicyStore';
 
 export interface AgentChatOptions {
   prompt: string;
@@ -62,6 +63,9 @@ export function availableTools(): { name: string; description: string }[] {
   const vision = isVisionEnabled();
   return toolRegistry
     .list()
+    // 用户逐项关掉的工具不进清单：模型看不见就不会去调，
+    // 比"能调但被拒"少一轮浪费的往返。
+    .filter((t) => isToolEnabled(t.name))
     .filter((t) => (canOperate || !MUTATING_TOOLS.has(t.name)))
     .filter((t) => vision || t.name !== 'get_canvas_snapshot')
     .map((t) => ({ name: t.name, description: t.description }));
@@ -114,8 +118,8 @@ export async function runAgentChat(options: AgentChatOptions): Promise<AgentChat
           // already hid mutating tools, but a hallucinated name must also fail
           // here rather than in a handler.
           allowed: canOperate
-            ? undefined
-            : new Set(toolRegistry.list().map((t) => t.name).filter((n) => !MUTATING_TOOLS.has(n))),
+            ? new Set(toolRegistry.list().map((t) => t.name).filter((n) => isToolEnabled(n)))
+            : new Set(toolRegistry.list().map((t) => t.name).filter((n) => isToolEnabled(n) && !MUTATING_TOOLS.has(n))),
         }),
       callModel: (messages, tools) =>
         chatCompletion(config, {

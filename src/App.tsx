@@ -25,6 +25,7 @@ const PluginViewPage = lazyRetry(() => import('@/pages/plugin/PluginViewPage'));
 const ShareLinkPage = lazyRetry(() => import('@/pages/share/ShareLinkPage'));
 // All research tools resolve through one /studio/:toolId route + registry.
 const StudioToolPage = lazyRetry(() => import('@/pages/studio/StudioToolPage'));
+const AgentPage = lazyRetry(() => import('@/pages/agent/AgentPage'));
 
 initProjectStore();
 initExperimentStore();
@@ -93,6 +94,7 @@ function AppShell() {
           <Routes location={loc}>
             <Route path="/" element={<WelcomePage />} />
             <Route path="/workbench" element={<WorkbenchPage />} />
+            <Route path="/agent" element={<AgentPage />} />
             <Route path="/studio/:toolId" element={<StudioToolPage />} />
             {LegacyToolRedirects}
             <Route path="/settings" element={<SettingsPage />} />
