@@ -44,9 +44,9 @@ import {
   stepKindLabel,
 } from './labels';
 import { industrialExampleById } from '@/core/engineering/examples';
-import { targetNodeIndices } from '@/core/engineering/solve';
+import { targetNodeIndices, findBoundaryConflicts } from '@/core/engineering/solve';
 import { MATERIAL_LIBRARY, MATERIAL_PROPERTY_META, materialSummary, formatEngineering } from '@/core/engineering/materials';
-import { defaultCase, ensureCase } from '@/core/engineering/cases';
+import { defaultCase, ensureCase, validateDesignParameters } from '@/core/engineering/cases';
 import { engineeringFingerprint } from '@/core/engineering/study';
 import type {
   BoundaryKind,
@@ -722,6 +722,44 @@ function solveChecklist(study: EngineeringStudy, step: EngineeringStep | undefin
       ? t('industrial.check_step_missing')
       : stepOk ? step.name : t('industrial.check_step_mismatch'),
   });
+
+  // Contradictory BCs are caught by the solver; surface them before the
+  // solve so the user can fix the model instead of reading a failure toast.
+  const conflict = findBoundaryConflicts(
+    study.boundaryConditions,
+    step?.kind ?? 'static-structural',
+  )[0];
+  if (conflict) {
+    items.push({
+      key: 'conflict',
+      label: t('industrial.check_conflict'),
+      severity: 'warn',
+      detail: t('industrial.check_conflict_detail', {
+        fix: conflict.prescribed.name,
+        load: conflict.load.name,
+      }),
+    });
+  }
+
+  // Dangling design paths would make every scan row identical.
+  const studyCase = ensureCase(study.cases)[0]!;
+  const designIssues = validateDesignParameters({
+    parameters: studyCase.design.parameters,
+    materials: study.materials,
+    steps: studyCase.steps,
+    boundaryConditions: study.boundaryConditions,
+  });
+  if (designIssues.length > 0) {
+    items.push({
+      key: 'design',
+      label: t('industrial.check_design'),
+      severity: 'warn',
+      detail: t('industrial.check_design_detail', {
+        n: designIssues.length,
+        name: designIssues[0]!.parameter,
+      }),
+    });
+  }
   return items;
 }
 
@@ -843,7 +881,9 @@ export function SolvePage() {
                         className="ind-check-fix"
                         onClick={() => useAppStore.getState().setEmbeddedTool(
                           item.key === 'material' ? 'material-library'
-                            : item.key === 'mesh' ? 'mesh-viewer' : 'load-cases',
+                            : item.key === 'mesh' ? 'mesh-viewer'
+                            : item.key === 'design' ? 'design-scan'
+                            : 'load-cases',
                         )}
                       >
                         {t('industrial.check_fix')}
@@ -1190,11 +1230,16 @@ function ScanParameterEditor({
   const add = () => {
     const name = path.trim();
     if (!name) return;
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return;
+    // A reversed or absurd level count would otherwise produce a scan the
+    // validator then rejects; normalise here so Add always makes a usable row.
+    const low = Math.min(min, max);
+    const high = Math.max(min, max);
     onChange({
       ...design,
       parameters: [
         ...design.parameters,
-        { name, min, max, levels: Math.max(2, Math.round(levels) || 2) },
+        { name, min: low, max: high, levels: Math.min(12, Math.max(2, Math.round(levels) || 2)) },
       ],
     });
   };
@@ -1402,10 +1447,10 @@ export function DesignScanPage() {
                 </table>
               </div>
             )}
-            {scan.length === 0 && design.parameters.length > 0 && (
+            {scan.length === 0 && design.parameters.length > 0 && !scanError && (
               <div className="ind-hint">{t('industrial.scan_ready')}</div>
             )}
-            {scan.length === 0 && scanError && (
+            {scanError && (
               <div className="ind-hint ind-scan-error">
                 {t(`industrial.scan_issue_${scanError.reason.replace(/-/g, '_')}`, {
                   name: scanError.parameter,
@@ -1431,11 +1476,55 @@ export function FluidPage() {
   const result = useEngineeringStore((s) => s.result);
   const solve = useEngineeringStore((s) => s.solve);
   const solving = useEngineeringStore((s) => s.solving);
+  const activeStepId = useEngineeringStore((s) => s.activeStepId);
   const [fieldName, setFieldName] = useState('');
+  const [inletSpeed, setInletSpeed] = useState('1');
   const notify = useAppStore((s) => s.notify);
   const { locale } = useLocale();
+  // This page only solves potential flow. Another study's heat/structural
+  // result must not be presented as a flow field.
+  const step = study
+    ? ensureCase(study.cases)[0]?.steps.find((item) => item.id === activeStepId) ??
+      ensureCase(study.cases)[0]?.steps[0] ??
+      null
+    : null;
+  const isFlow = step?.kind === 'potential-flow';
   const fields = result?.fields ?? study?.fields ?? [];
-  const field = fields.find((item) => item.name === fieldName) ?? fields[0] ?? null;
+  const velocityField = isFlow ? fields.find((item) => item.name === 'velocity') ?? null : null;
+  // Potential flow returns a normalised velocity field, so speed is the
+  // meaningful colour map rather than the first field in the list.
+  const preferredField = isFlow ? 'speed' : fields[0]?.name ?? '';
+  const field =
+    fields.find((item) => item.name === (fieldName || preferredField)) ?? fields[0] ?? null;
+  // Mean speed on the inlet group (pressure BC with a non-zero potential):
+  // converts the normalised ∇φ field into physical m/s.
+  const inletMean = useMemo(() => {
+    if (!isFlow || !study || !velocityField) return null;
+    const inlet = study.boundaryConditions.find(
+      (bc) => bc.kind === 'pressure' && Object.values(bc.components).some((value) => value !== 0),
+    );
+    if (!inlet) return null;
+    const nodes = new Set(targetNodeIndices(study.mesh, inlet.target));
+    if (nodes.size === 0) return null;
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < study.mesh.elements.length; i += 1) {
+      const element = study.mesh.elements[i]!;
+      if (!element.nodes.every((node) => nodes.has(node))) continue;
+      sum += Math.hypot(
+        velocityField.values[i * velocityField.components] ?? 0,
+        velocityField.values[i * velocityField.components + 1] ?? 0,
+      );
+      count += 1;
+    }
+    return count > 0 ? sum / count : null;
+  }, [isFlow, study, velocityField]);
+  const referenceSpeed = Number(inletSpeed);
+  const speedScale =
+    inletMean && inletMean > 0 && Number.isFinite(referenceSpeed) && referenceSpeed > 0
+      ? referenceSpeed / inletMean
+      : null;
+  const maxSpeed = result?.metrics.max_speed ?? null;
   const { guard, dialog } = useStudyReplaceGuard();
   const makeChannel = () => {
     guard(() => {
@@ -1454,23 +1543,54 @@ export function FluidPage() {
         <IndustrialActions toolId="quick-fluid">
           <div className="ind-toolbar analysis-row">
             <button type="button" className="btn btn-sm" onClick={makeChannel}>{t('industrial.generate_channel')}</button>
-            <button type="button" className="btn btn-sm btn-primary" disabled={solving || !study} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
+            <button type="button" className="btn btn-sm btn-primary" disabled={solving || !study || !isFlow} onClick={() => void solve()}>{t('industrial.solve_flow')}</button>
+            {isFlow && (
+              <label className="ind-field">
+                <span>{t('industrial.inlet_speed')}</span>
+                <input
+                  className="input input-sm ind-num"
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={inletSpeed}
+                  onChange={(e) => setInletSpeed(e.target.value)}
+                />
+              </label>
+            )}
             <FieldPicker fields={fields} value={field?.name ?? ''} onChange={setFieldName} />
           </div>
           <EngineeringImportButton />
           {dialog}
         </IndustrialActions>
-        {!study ? <NoStudy toolId="quick-fluid" /> : (
+        {!study ? <NoStudy toolId="quick-fluid" /> : !isFlow ? (
+          <div className="ind-empty">
+            <EmptyState
+              title={t('industrial.potential_flow')}
+              description={t('industrial.potential_flow_desc')}
+            />
+            <div className="ind-toolbar analysis-row ind-empty-actions">
+              <button type="button" className="btn btn-sm btn-primary" onClick={makeChannel}>
+                {t('industrial.generate_channel')}
+              </button>
+            </div>
+          </div>
+        ) : (
           <>
-            <MeshCanvas mesh={study.mesh} field={field} height={380} />
+            <MeshCanvas mesh={study.mesh} field={field} vectors={velocityField} height={380} />
             <div className="ind-hint">
               {typeof navigator !== 'undefined' && 'gpu' in navigator ? t('industrial.gpu_available') : t('industrial.gpu_unavailable')} · {t('industrial.fluid_hint')}
             </div>
             {result && (
               <div className="ind-metrics">
-                {Object.entries(result.metrics).slice(0, 8).map(([key, value]) => (
+                {Object.entries(result.metrics).slice(0, 6).map(([key, value]) => (
                   <div key={key}><span>{metricLabel(t, key)}</span><strong>{formatEngineering(value)}</strong></div>
                 ))}
+                {inletMean !== null && speedScale !== null && (
+                  <div>
+                    <span>{t('industrial.max_speed_calibrated')}</span>
+                    <strong>{formatEngineering((maxSpeed ?? 0) * speedScale)}</strong>
+                  </div>
+                )}
               </div>
             )}
           </>

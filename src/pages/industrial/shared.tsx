@@ -61,9 +61,20 @@ export function useStudyReplaceGuard() {
   const t = useT();
   const study = useEngineeringStore((s) => s.study);
   const [pending, setPending] = useState<{ run: () => void } | null>(null);
+  // Enter/space key repeat and fast double clicks can fire onConfirm twice
+  // before React clears `pending`; the ref makes the action run exactly once.
+  const consumed = useRef(false);
   const guard = (action: () => void) => {
-    if (study) setPending({ run: action });
-    else action();
+    if (study) {
+      consumed.current = false;
+      setPending({ run: action });
+    } else {
+      action();
+    }
+  };
+  const close = () => {
+    consumed.current = true;
+    setPending(null);
   };
   const dialog = (
     <ConfirmDialog
@@ -74,10 +85,13 @@ export function useStudyReplaceGuard() {
       danger
       confirmLabel={t('industrial.replace_confirm')}
       onConfirm={() => {
-        pending?.run();
+        if (consumed.current) return;
+        consumed.current = true;
+        const action = pending?.run;
         setPending(null);
+        action?.();
       }}
-      onClose={() => setPending(null)}
+      onClose={close}
     />
   );
   return { guard, dialog };

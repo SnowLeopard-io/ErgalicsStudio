@@ -372,6 +372,10 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         set({ error: `unsupported engineering file: ${name}` });
         return null;
       }
+      if (!parsedStudy && text.trim() === '') {
+        set({ error: t('industrial.empty_file', { name }) });
+        return null;
+      }
       const parsed = parsedStudy ?? parseEngineeringFile(text, name);
       const study = ensureDefaults(parsed);
       const step = ensureCase(study.cases)[0]!.steps[0]!;
@@ -469,6 +473,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
         study: null,
         result: null,
         scan: [],
+        scanError: null,
         activeStepId: null,
         error: null,
         solving: false,
@@ -495,6 +500,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       study: normalized,
       result: restoredResult,
       scan: stored?.scan ?? [],
+      scanError: null,
       activeStepId: stepId,
       error: null,
       solving: false,
@@ -508,6 +514,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
       study: null,
       result: null,
       scan: [],
+      scanError: null,
       activeStepId: null,
       error: null,
       benchmark: null,
@@ -539,7 +546,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     next.materials.push(material);
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -559,7 +566,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const next: EngineeringStudy = { ...study, materials };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -575,7 +582,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     }
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -586,7 +593,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     next.materialAssignment = { ...(next.materialAssignment ?? {}), [String(tag)]: materialName };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -597,7 +604,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     next.boundaryConditions.push(condition);
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -610,7 +617,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const next: EngineeringStudy = { ...study, boundaryConditions };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -621,7 +628,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     next.boundaryConditions.splice(index, 1);
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -639,7 +646,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const step = makeStep(name ?? defaultStepName(kind), kind);
     cases[0]!.steps.push(step);
     next.cases = cases;
-    set({ study: next, activeStepId: step.id, result: null, scan: [] });
+    set({ study: next, activeStepId: step.id, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], step.id);
   },
 
@@ -665,7 +672,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     const next: EngineeringStudy = { ...study, cases };
     // Any study mutation invalidates results/scan: keeping solve metrics
     // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 
@@ -680,7 +687,7 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     next.cases = ensureCase(next.cases);
     const active =
       get().activeStepId === stepId ? next.cases[0]!.steps[0]!.id : get().activeStepId;
-    set({ study: next, activeStepId: active, result: null, scan: [] });
+    set({ study: next, activeStepId: active, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], active);
   },
 
@@ -698,8 +705,9 @@ export const useEngineeringStore = create<EngineeringStore>((set, get) => ({
     cases[0]!.design = design;
     next.cases = cases;
     // Any study mutation invalidates results/scan: keeping solve metrics
-    // computed from an older model would be silently misleading.
-    set({ study: next, result: null, scan: [] });
+    // computed from an older model would be silently misleading. The scan
+    // validation message is stale as soon as the design space changes.
+    set({ study: next, result: null, scan: [], scanError: null });
     persistStudy(next, null, [], get().activeStepId);
   },
 

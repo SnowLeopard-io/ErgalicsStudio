@@ -84,6 +84,20 @@ async function listProjectEngineeringFiles(root: string): Promise<ProjectEnginee
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
+async function projectEngineeringFileExists(path: string): Promise<boolean> {
+  const project = useProjectStore.getState().project;
+  if (!project) return false;
+  const slash = path.lastIndexOf('/');
+  const dir = slash >= 0 ? path.slice(0, slash) : '';
+  const name = slash >= 0 ? path.slice(slash + 1) : path;
+  try {
+    const entries = await getVfs().readDir(getProjectRepoPath(project), dir);
+    return entries.some((entry) => !entry.isDir && entry.name === name);
+  } catch {
+    return false;
+  }
+}
+
 interface EngineeringImportButtonProps {
   /** Optional format hint shown next to the import button. */
   hint?: string;
@@ -133,12 +147,38 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
     setError(null);
   };
 
+  // A window left open while the user switches projects must not keep the
+  // previous project's context (and its stale rows) on screen.
+  const projectId = project?.id ?? null;
+  const lastProjectId = useRef(projectId);
+  useEffect(() => {
+    const previous = lastProjectId.current;
+    lastProjectId.current = projectId;
+    if (open && previous != null && projectId != null && previous !== projectId) {
+      setOpen(false);
+      setReplaced(null);
+      setError(null);
+    }
+  }, [projectId, open]);
+
   const handleImport = async (picked: FileList | null) => {
     const file = picked?.[0];
     if (!file) return;
     if (!isEngineeringExtension(file.name)) {
       notify('error', t('industrial.unsupported', { name: file.name }));
       return;
+    }
+    if (file.size === 0) {
+      const reason = t('industrial.empty_file', { name: file.name });
+      setError(reason);
+      notify('error', reason);
+      return;
+    }
+    if (file.size > 32 * 1024 * 1024) {
+      notify('warning', t('industrial.large_file', {
+        name: file.name,
+        mb: Math.round(file.size / 1024 / 1024),
+      }));
     }
     const duplicate = files.some((item) => item.name === file.name);
     setBusy(true);
@@ -181,6 +221,16 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
   const loadProjectFile = async (item: FilePickerItem) => {
     const entry = files.find((file) => file.path === item.id);
     if (!entry || !useProjectStore.getState().project) return;
+    // The picker list can be stale (another tab / external delete). Check the
+    // VFS right before opening so the failure is a clear message plus a
+    // refreshed list, not a silent no-op or a generic read error.
+    if (!(await projectEngineeringFileExists(entry.path))) {
+      const reason = t('industrial.file_missing', { name: entry.name });
+      setError(reason);
+      notify('error', reason);
+      await refresh();
+      return;
+    }
     close();
     const before = useEngineeringStore.getState().study;
     try {
@@ -190,7 +240,9 @@ export function EngineeringImportButton({ hint, label }: EngineeringImportButton
         notify('success', t('industrial.imported', { name: entry.name }));
       }
     } catch (err) {
-      notify('error', t('workbench.files.load_failed', { reason: String(err) }));
+      const reason = err instanceof Error ? err.message : String(err);
+      notify('error', t('workbench.files.load_failed', { reason }));
+      await refresh();
     }
   };
 

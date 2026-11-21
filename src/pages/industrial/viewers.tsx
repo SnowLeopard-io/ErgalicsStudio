@@ -86,12 +86,16 @@ export function ViewPresetBar({
 export function MeshCanvas({
   mesh,
   field,
+  vectors,
   height = 420,
   snapshotRequest = 0,
   onSnapshotReady,
 }: {
   mesh: EngineeringMesh;
   field?: EngineeringField | null;
+  /** Optional element-centred vector field (e.g. potential-flow velocity).
+   *  Drawn as arrows on top of the colour map. */
+  vectors?: EngineeringField | null;
   height?: number;
   snapshotRequest?: number;
   onSnapshotReady?: (url: string) => void;
@@ -195,6 +199,7 @@ export function MeshCanvas({
           ctx.fill();
         }
       }
+      drawVectors(ctx, mesh, vectors, positions);
     };
 
     draw();
@@ -204,8 +209,84 @@ export function MeshCanvas({
     const observer = new ResizeObserver(() => draw());
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [mesh, field, height]);
+  }, [mesh, field, vectors, height]);
   return <canvas ref={ref} className="ind-mesh-canvas" style={{ height }} />;
+}
+
+/**
+ * Element-centred arrows over the colour map. Length is proportional to the
+ * magnitude (with a floor so slow regions are still visible), direction is
+ * drawn from the vector components. Capped at a few hundred arrows so large
+ * meshes stay readable and cheap to paint.
+ */
+function drawVectors(
+  ctx: CanvasRenderingContext2D,
+  mesh: EngineeringMesh,
+  vectors: EngineeringField | null | undefined,
+  positions: Float64Array,
+): void {
+  if (!vectors || vectors.location !== 'element' || vectors.components < 2) return;
+  const components = vectors.components;
+  const count = mesh.elements.length;
+  if (count === 0) return;
+  let maxMagnitude = 0;
+  for (let i = 0; i < count; i += 1) {
+    const magnitude = Math.hypot(
+      vectors.values[i * components] ?? 0,
+      vectors.values[i * components + 1] ?? 0,
+    );
+    if (Number.isFinite(magnitude) && magnitude > maxMagnitude) maxMagnitude = magnitude;
+  }
+  if (!(maxMagnitude > 0)) return;
+  const stride = Math.max(1, Math.ceil(count / 420));
+  const baseLength = 18;
+  ctx.lineCap = 'round';
+  for (let index = 0; index < count; index += stride) {
+    const vx = vectors.values[index * components] ?? 0;
+    const vy = vectors.values[index * components + 1] ?? 0;
+    const magnitude = Math.hypot(vx, vy);
+    if (!(magnitude > 0)) continue;
+    const element = mesh.elements[index]!;
+    let cx = 0;
+    let cy = 0;
+    let hits = 0;
+    for (const nodeIndex of element.nodes) {
+      const ox = positions[nodeIndex * 2];
+      const oy = positions[nodeIndex * 2 + 1];
+      if (ox === undefined || oy === undefined) continue;
+      cx += ox;
+      cy += oy;
+      hits += 1;
+    }
+    if (hits === 0) continue;
+    cx /= hits;
+    cy /= hits;
+    // Canvas y grows downwards, so the vertical component is negated.
+    const ux = vx / magnitude;
+    const uy = -vy / magnitude;
+    const length = baseLength * (0.4 + 0.6 * Math.min(1, magnitude / maxMagnitude));
+    const half = length / 2;
+    const x0 = cx - ux * half;
+    const y0 = cy - uy * half;
+    const x1 = cx + ux * half;
+    const y1 = cy + uy * half;
+    const head = Math.min(5, half);
+    for (const [stroke, width] of [['rgba(15,23,42,0.35)', 2.6], ['rgba(248,250,252,0.95)', 1.1]] as const) {
+      ctx.strokeStyle = stroke;
+      ctx.fillStyle = stroke;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 - ux * head - uy * head * 0.55, y1 - uy * head + ux * head * 0.55);
+      ctx.lineTo(x1 - ux * head + uy * head * 0.55, y1 - uy * head - ux * head * 0.55);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
 }
 
 function averageElement(field: EngineeringField, mesh: EngineeringMesh, elementIndex: number): number {

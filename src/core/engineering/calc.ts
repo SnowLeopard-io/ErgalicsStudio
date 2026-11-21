@@ -39,7 +39,19 @@ export interface PipeResult {
 /** Darcy-Weisbach pressure drop with Swamee-Jain friction for turbulent flow. */
 export function pipePressureDrop(input: PipeInput): PipeResult | null {
   const { flowM3h, diameterMm, lengthM, roughnessUm, densityKgM3, viscosityPaS, fittingsK } = input;
-  if (!(diameterMm > 0) || !(flowM3h >= 0) || !(densityKgM3 > 0) || !(viscosityPaS > 0)) return null;
+  // Reject NaN / Infinity explicitly: a NaN that slips through would make
+  // every downstream result NaN while still looking like a valid number.
+  if (
+    !Number.isFinite(flowM3h) || !Number.isFinite(diameterMm) ||
+    !Number.isFinite(lengthM) || !Number.isFinite(roughnessUm) ||
+    !Number.isFinite(densityKgM3) || !Number.isFinite(viscosityPaS) ||
+    !Number.isFinite(fittingsK)
+  ) return null;
+  if (
+    !(diameterMm > 0) || !(flowM3h >= 0) || !(lengthM >= 0) ||
+    !(roughnessUm >= 0) || !(densityKgM3 > 0) || !(viscosityPaS > 0) ||
+    !(fittingsK >= 0)
+  ) return null;
   const d = diameterMm / 1000;
   const area = Math.PI * d * d / 4;
   const v = (flowM3h / 3600) / area;
@@ -107,7 +119,8 @@ export interface ThermalStackResult {
  */
 export function thermalStack(input: ThermalStackInput): ThermalStackResult | null {
   const { powerW, ambientC, hExternal, layers } = input;
-  if (!(powerW >= 0) || !Number.isFinite(ambientC)) return null;
+  if (!Number.isFinite(powerW) || !(powerW >= 0) || !Number.isFinite(ambientC)) return null;
+  if (hExternal !== 0 && (!Number.isFinite(hExternal) || hExternal < 0)) return null;
   const layerR: number[] = [];
   for (const layer of layers) {
     const a = layer.areaCm2 * 1e-4;
@@ -166,6 +179,10 @@ export function beamQuick(input: BeamInput): BeamResult | null {
   const { support, load, spanMm, pointLoadN, udlNMm, section, widthMm, heightMm, elasticGPa } = input;
   if (!(spanMm > 0) || !(elasticGPa > 0) || !(heightMm > 0)) return null;
   if (section === 'rect' && !(widthMm > 0)) return null;
+  const loadValue = load === 'point' ? pointLoadN : udlNMm;
+  if (!Number.isFinite(spanMm) || !Number.isFinite(elasticGPa) ||
+      !Number.isFinite(widthMm) || !Number.isFinite(heightMm) ||
+      !Number.isFinite(loadValue)) return null;
 
   const areaMm2 = section === 'rect'
     ? widthMm * heightMm
@@ -241,6 +258,7 @@ export interface FatigueResult {
 export function fatigueLife(input: FatigueInput): FatigueResult | null {
   const { ultimateMPa, knockDown, rows } = input;
   if (!(ultimateMPa > 0) || !(knockDown > 0) || knockDown > 1) return null;
+  if (!Number.isFinite(ultimateMPa) || !Number.isFinite(knockDown)) return null;
   const endurance = 0.5 * ultimateMPa * knockDown;
   // Basquin exponent from the two anchor points.
   const b = Math.log10(endurance / (0.9 * ultimateMPa)) / 3;
@@ -341,6 +359,7 @@ export interface SafetyFactorResult {
 export function safetyFactor(input: SafetyFactorInput): SafetyFactorResult | null {
   const { appliedMPa, allowableMPa, requiredSf } = input;
   if (!(appliedMPa > 0) || !(allowableMPa > 0) || !(requiredSf > 0)) return null;
+  if (!Number.isFinite(appliedMPa) || !Number.isFinite(allowableMPa) || !Number.isFinite(requiredSf)) return null;
   const factor = allowableMPa / appliedMPa;
   return {
     factor,

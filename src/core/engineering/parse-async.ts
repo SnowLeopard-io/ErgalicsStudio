@@ -34,7 +34,15 @@ function ensureWorker(): Worker {
     else job.reject(new Error(msg.error));
   };
   worker.onerror = (event) => {
-    const error = new Error(event.message || 'parse worker crashed');
+    const error = new Error(event.message || 'parse worker crashed') as Error & {
+      workerCrash?: boolean;
+    };
+    // Mark infrastructure failures so the caller falls back to a main-thread
+    // parse instead of reporting a bogus "invalid deck" error.
+    error.workerCrash = true;
+    // A crashed worker cannot serve later imports: drop it so the next call
+    // constructs a fresh one instead of posting into the void.
+    worker = null;
     for (const job of pending.values()) job.reject(error);
     pending.clear();
   };
@@ -56,8 +64,21 @@ function parseInWorker(text: string, name: string): Promise<EngineeringStudy> {
  * worker. Errors surface the same way as the sync parser.
  */
 export async function parseEngineeringFileAsync(text: string, name: string): Promise<EngineeringStudy> {
-  if (text.length >= WORKER_THRESHOLD_BYTES) {
-    return parseInWorker(text, name);
+  if (text.length >= WORKER_THRESHOLD_BYTES && typeof Worker !== 'undefined') {
+    try {
+      return await parseInWorker(text, name);
+    } catch (err) {
+      // Worker startup can fail under a strict CSP, and a crashed worker
+      // rejects its in-flight job. Fall back to the main thread rather than
+      // losing the import; the user still gets their model (but may see a
+      // brief pause on a very large deck). Genuine parse errors (bad deck)
+      // propagate unchanged.
+      const infrastructureFailure =
+        (err instanceof Error && (err as Error & { workerCrash?: boolean }).workerCrash === true) ||
+        (err instanceof Error && /worker/i.test(err.message));
+      if (infrastructureFailure) return parseEngineeringFile(text, name);
+      throw err;
+    }
   }
   return Promise.resolve(parseEngineeringFile(text, name));
 }

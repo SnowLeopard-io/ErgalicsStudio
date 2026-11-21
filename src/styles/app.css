@@ -11873,8 +11873,34 @@
   min-width: 96px;
 }
 
+.ind-field .input.ind-num {
+  min-width: 0;
+  width: 82px;
+}
+
 .ind-empty {
   padding: 24px 0;
+}
+
+/* Narrow panels and 200% browser zoom: let cards and action rows reflow
+   instead of overflowing horizontally. */
+@media (max-width: 720px) {
+  .ind-card-head {
+    flex-wrap: wrap;
+  }
+
+  .ind-export-row .btn {
+    flex-basis: 100%;
+  }
+
+  .ind-toolbar .input-sm,
+  .ind-page .ind-field .input {
+    min-width: 0;
+  }
+
+  .ind-calc-field .input-sm {
+    width: 70px;
+  }
 }
 
 /* Touch-first targets: 44px hit areas, thumb-sized inputs and native
@@ -12205,7 +12231,9 @@
 
 .ind-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  /* `min(…, 100%)` keeps the grid from overflowing a very narrow panel /
+     200% zoom; a bare 300px minimum would force a horizontal scrollbar. */
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -12352,7 +12380,7 @@
 
 .ind-prop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
   gap: 8px;
 }
 
@@ -12397,7 +12425,7 @@
 
 .ind-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
   gap: 8px;
 }
 
