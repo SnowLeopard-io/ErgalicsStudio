@@ -32,8 +32,10 @@ export function AgentCapabilityPanel() {
   return (
     <div className="agent-capabilities" data-testid="agent-capability-panel">
       <div className="agent-cap-head">
-        <span className="agent-cap-title">能力</span>
-        <span className="agent-cap-count">{enabled}/{tools.length} 已启用</span>
+        <span className="agent-cap-title">{t('agent.cap.title')}</span>
+        <span className="agent-cap-count">
+          {t('agent.cap.enabled', { enabled, total: tools.length })}
+        </span>
       </div>
 
       <ul className="agent-cap-list">
@@ -53,7 +55,11 @@ export function AgentCapabilityPanel() {
                   <span className="agent-cap-desc">{tool.description}</span>
                 </span>
                 <span className={`agent-cap-tag${readOnly ? ' is-safe' : mutating ? ' is-write' : ''}`}>
-                  {readOnly ? '只读' : mutating ? '写入' : '工具'}
+                  {readOnly
+                    ? t('agent.cap.readonly')
+                    : mutating
+                      ? t('agent.cap.write')
+                      : t('agent.cap.tool')}
                 </span>
               </label>
             </li>
@@ -63,17 +69,12 @@ export function AgentCapabilityPanel() {
 
       <div className="agent-cap-foot">
         <button type="button" className="btn btn-sm" onClick={enableAll} disabled={disabledTools.length === 0}>
-          全部启用
+          {t('agent.cap.enable_all')}
         </button>
       </div>
 
-      <p className="agent-cap-note">
-        MCP：工具注册表已按来源区分 host / mcp，并支持整批替换；但浏览器侧的 MCP 客户端尚未接入，
-        这里不显示"未连接"的假条目。接入后工具会直接出现在上面的列表里。
-      </p>
-      <p className="agent-cap-note">
-        关闭的工具不会出现在模型的可调用清单里——不是调用时再拒绝，而是让它根本看不见。
-      </p>
+      <p className="agent-cap-note">{t('agent.cap.mcp_note')}</p>
+      <p className="agent-cap-note">{t('agent.cap.hidden_note')}</p>
       <p className="agent-cap-note">{t('ai.tools_available', { n: enabled })}</p>
     </div>
   );

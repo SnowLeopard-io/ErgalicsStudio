@@ -42,6 +42,7 @@ import {
 } from '@/core/ai/provider';
 import { matchIntent, synthesizeCode, type IntentKind, type IntentSlots } from '@/core/ai/intents';
 import { availableTools, runAgentChat, type AgentToolCallLog } from '@/core/ai/chat';
+import { AgentCapabilityPanel } from './AgentCapabilityPanel';
 
 interface AiAssistantPanelProps {
   /** Host editor's insert-and-run hook (Pyodide / IR interpreter). */
@@ -114,6 +115,12 @@ function summarizeArgs(args: Record<string, unknown>): string {
 
 export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {  const t = useT();
   const { locale } = useLocale();
+
+  /** 对话 / 能力: the same two surfaces the old /agent dock offered, now in
+   *  the original right-hand popup. Keeping this local means the conversation
+   *  state survives tab switches and panel close/open (the overlay stays
+   *  mounted while hidden). */
+  const [tab, setTab] = useState<'chat' | 'capabilities'>('chat');
 
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -318,6 +325,29 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
         </span>
       </div>
 
+      <div className="ai-panel-tabs" role="tablist" aria-label={t('agent.title')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'chat'}
+          className={`ai-panel-tab${tab === 'chat' ? ' is-active' : ''}`}
+          onClick={() => setTab('chat')}
+        >
+          {t('agent.tab_chat')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'capabilities'}
+          className={`ai-panel-tab${tab === 'capabilities' ? ' is-active' : ''}`}
+          onClick={() => setTab('capabilities')}
+        >
+          {t('agent.tab_capabilities')}
+        </button>
+      </div>
+
+      {tab === 'chat' && (
+        <>
       <div className="ai-panel-policy">
         <div className="ai-mode-seg" role="group" aria-label={t('ai.title')}>
           <button
@@ -509,7 +539,8 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
       <div className="ai-panel-input">
         <input
           type="text"
-          className="input"          value={prompt}
+          className="input"
+          value={prompt}
           placeholder={t('ai.placeholder')}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
@@ -523,6 +554,10 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
           {busy ? '…' : t('ai.send')}
         </button>
       </div>
+        </>
+      )}
+
+      {tab === 'capabilities' && <AgentCapabilityPanel />}
     </aside>
   );
 }

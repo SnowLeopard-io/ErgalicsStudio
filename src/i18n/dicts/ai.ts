@@ -6,11 +6,18 @@ import type { LocaleDictionary } from '../types';
 export const aiZh: LocaleDictionary = {
   // ---- FR-07 assistant panel ----
   'agent.title': 'Agent',
-  'agent.subtitle': '接管工作台：对话下指令，能力页签决定它能动什么',
-  'agent.entry': '打开 Agent',
-  'agent.back': '返回工作台',
   'agent.tab_chat': '对话',
   'agent.tab_capabilities': '能力',
+  'agent.cap.title': '能力',
+  'agent.cap.enabled': '{enabled}/{total} 已启用',
+  'agent.cap.readonly': '只读',
+  'agent.cap.write': '写入',
+  'agent.cap.tool': '工具',
+  'agent.cap.enable_all': '全部启用',
+  'agent.cap.mcp_note':
+    'MCP：工具注册表已按来源区分 host / mcp，并支持整批替换；但浏览器侧的 MCP 客户端尚未接入，这里不显示"未连接"的假条目。接入后工具会直接出现在上面的列表里。',
+  'agent.cap.hidden_note':
+    '关闭的工具不会出现在模型的可调用清单里——不是调用时再拒绝，而是让它根本看不见。',
   'ai.title': 'AI 分析助手',
   'ai.toggle': 'AI 助手',
   'ai.close': '关闭 AI 助手',
@@ -94,11 +101,18 @@ export const aiZh: LocaleDictionary = {
 export const aiEn: LocaleDictionary = {
   // ---- FR-07 assistant panel ----
   'agent.title': 'Agent',
-  'agent.subtitle': 'Take over the workbench: chat to instruct, capabilities decide what it may touch',
-  'agent.entry': 'Open Agent',
-  'agent.back': 'Back to workbench',
   'agent.tab_chat': 'Chat',
   'agent.tab_capabilities': 'Capabilities',
+  'agent.cap.title': 'Capabilities',
+  'agent.cap.enabled': '{enabled}/{total} enabled',
+  'agent.cap.readonly': 'Read-only',
+  'agent.cap.write': 'Writes',
+  'agent.cap.tool': 'Tool',
+  'agent.cap.enable_all': 'Enable all',
+  'agent.cap.mcp_note':
+    'MCP: the tool registry already distinguishes host / mcp sources and supports whole-set replacement, but the browser-side MCP client is not wired up yet — fake "disconnected" entries are deliberately omitted. Once connected, tools will appear in the list above.',
+  'agent.cap.hidden_note':
+    'Disabled tools disappear from the model’s callable list — they are hidden up front, not rejected at call time.',
   'ai.title': 'AI Analysis Assistant',
   'ai.toggle': 'AI Assistant',
   'ai.close': 'Close AI assistant',

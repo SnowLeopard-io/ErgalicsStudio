@@ -50,8 +50,18 @@ npm run dist                           # NSIS 安装器
 ### 本地开发
 
 ```powershell
-npm run dev                            # Web 版 dev server
-# Electron 主进程改动后重新 build:main 并重启应用
+npm run dev                            # Web 版 dev server（另开一个终端）
+npm run dev:desktop                    # Electron 窗口连到这个 dev server（支持 HMR）
+```
+
+`scripts/desktop-dev.mjs` 会按需重建 Electron 主进程 / preload 包，然后用
+`ERGALICS_DEV=1` 载入 `ERGALICS_DEV_URL`（默认 `http://127.0.0.1:5173/`）。
+首次运行需要先在 `deploy/windows` 下 `npm install`（Electron 33 独立依赖）。
+脚本会剥掉 `ELECTRON_RUN_AS_NODE`——该变量会让 Electron 退化成纯 Node 进程、
+不创建窗口。要调主进程时加 `--remote-debugging-port=9222` 之类的 Chromium 参数：
+
+```powershell
+node scripts/desktop-dev.mjs -- --remote-debugging-port=9222
 ```
 
 ## Web 版（所有端共用的基础）

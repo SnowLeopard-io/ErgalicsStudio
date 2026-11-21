@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "dev": "vite",
+    "dev:desktop": "node scripts/desktop-dev.mjs",
     "build": "npm run build:wasm && tsc --noEmit && vite build && node scripts/build-docs.mjs",
     "build:web": "node scripts/make-wasm-stub.mjs && tsc --noEmit && vite build && node scripts/build-docs.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",

@@ -12790,65 +12790,9 @@ input[data-keypad-active] {
   letter-spacing: 0.01em;
 }
 
-/* ---------------------------------------------------------------- Agent 工作页 */
-.agent-shell {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg-primary);
-}
-
-.agent-shell-head {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.agent-shell-back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.agent-shell-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text-primary);
-  font-size: 13px;
-}
-
-.agent-shell-sub {
-  color: var(--color-text-secondary);
-  font-size: 11.5px;
-}
-
-.agent-shell-body { flex: 1; min-height: 0; display: flex; }
-.agent-shell-stage { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
-
-.agent-shell-dock {
-  width: 420px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-  overflow: hidden;
-}
-
-.agent-dock-tabs {
+/* ---------------------------------------------------------------- Agent 弹窗页签 */
+/* 原来 /agent 整页停靠面板的"对话 / 能力"切换，现在放进右下角原本的 AI 弹窗。 */
+.ai-panel-tabs {
   flex: none;
   display: flex;
   gap: 4px;
@@ -12858,7 +12802,7 @@ input[data-keypad-active] {
   background: var(--color-bg-primary);
 }
 
-.agent-dock-tab {
+.ai-panel-tab {
   flex: 1;
   padding: 6px 0;
   font-size: 12px;
@@ -12870,9 +12814,7 @@ input[data-keypad-active] {
   cursor: pointer;
 }
 
-.agent-dock-tab.is-active { color: #fff; background: var(--color-accent); }
-.agent-dock-chat { flex: 1; min-height: 0; display: flex; }
-.agent-dock-chat .ai-panel { width: 100%; height: 100%; }
+.ai-panel-tab.is-active { color: #fff; background: var(--color-accent); }
 
 /* 能力面板 */
 .agent-capabilities {
