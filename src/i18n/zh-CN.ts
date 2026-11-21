@@ -91,6 +91,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.activity.tools': '工具箱',
   'workbench.activity.research': '科研套件',
   'workbench.activity.search': '搜索',
+  'workbench.activity.keypad': '浮动数字键盘',
   // ---- 工作区搜索 ----
   'search.placeholder': '在工作区中搜索',
   'search.options': '搜索选项',

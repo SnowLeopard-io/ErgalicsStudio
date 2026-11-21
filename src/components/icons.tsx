@@ -311,6 +311,15 @@ export const TerminalIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Keyboard — toggles the floating numeric/formula pad. */
+export const KeyboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <path d="M6 9.5h.01M9.5 9.5h.01M13 9.5h.01M16.5 9.5h.01M6 12.5h.01M9.5 12.5h.01M13 12.5h.01M16.5 12.5h.01" />
+    <path d="M7.5 15.5h9" />
+  </Svg>
+);
+
 /** Enter key — REPL submit action. */
 export const CornerDownLeftIcon = (p: IconProps) => (
   <Svg {...p}>

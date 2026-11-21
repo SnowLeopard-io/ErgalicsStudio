@@ -306,6 +306,7 @@ export default function CalcPage() {
               value={expr}
               placeholder={t('calc.empty')}
               spellCheck={false}
+              data-touch-keypad="formula"
               onChange={(e) => setExpr(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) evaluate(); }}
               aria-label={t('calc.result')}

@@ -87,6 +87,7 @@ export const enUS: LocaleDictionary = {
   'workbench.activity.tools': 'Toolkit',
   'workbench.activity.research': 'Research suite',
   'workbench.activity.search': 'Search',
+  'workbench.activity.keypad': 'Floating keypad',
   // ---- workspace search ----
   'search.placeholder': 'Search the workspace',
   'search.options': 'Search options',

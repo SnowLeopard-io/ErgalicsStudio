@@ -12657,3 +12657,134 @@
   color: var(--text);
   font-size: var(--font-size-sm);
 }
+
+/* ---- floating touch keypad (keyboard-less touch screens) ---- */
+.touch-keypad {
+  position: fixed;
+  z-index: 3000;
+  width: 248px;
+  padding: 6px 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  touch-action: none;
+}
+
+.touch-keypad-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 8px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.touch-keypad-head:active {
+  cursor: grabbing;
+}
+
+.touch-keypad-grip {
+  width: 34px;
+  height: 4px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.touch-keypad-done {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.touch-keypad-grid {
+  display: grid;
+  gap: 6px;
+  touch-action: none;
+}
+
+.touch-keypad-key {
+  appearance: none;
+  height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-primary);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.touch-keypad-key:active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.touch-keypad-key.is-op {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.touch-keypad-key.is-util {
+  color: var(--color-text-secondary);
+}
+/* Field currently driven by the floating pad: read-only while the pad is up,
+   so mark it so the user knows which box the keys write into. */
+input[data-keypad-active] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.touch-keypad.is-docked {
+  right: 16px;
+  bottom: 72px;
+}
+
+.touch-keypad-label {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.touch-keypad-key:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* While dragging, the pad is positioned by left/top written straight to the
+   DOM each animation frame; contain layout work to the panel itself. */
+.touch-keypad.is-dragging {
+  will-change: left, top;
+  contain: layout style;
+}
+.touch-keypad-modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.touch-keypad-mode {
+  appearance: none;
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 9px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.touch-keypad-mode.is-active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
