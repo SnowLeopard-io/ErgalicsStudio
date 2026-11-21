@@ -138,6 +138,15 @@ export default defineConfig({
   build: {
     target: 'esnext',
     chunkSizeWarningLimit: 1500,
+    // Vite 8 / rolldown hoists every import.meta.glob() chunk into index.html
+    // as a <link rel=modulepreload> (200+ entries, ~1.7 MB gzip), which blows
+    // the FR-06 first-screen budget. Keep the runtime preload polyfill for
+    // dynamic imports, but stop emitting static preload links so lazy chunks
+    // stay lazy. This restores the pre-Vite-8 first-screen measurement.
+    modulePreload: {
+      polyfill: true,
+      resolveDependencies: () => [],
+    },
     rollupOptions: {
       output: {
         // B2: every large dependency gets a named chunk, via *function* form.
