@@ -5,6 +5,12 @@ import type { LocaleDictionary } from '../types';
 
 export const aiZh: LocaleDictionary = {
   // ---- FR-07 assistant panel ----
+  'agent.title': 'Agent',
+  'agent.subtitle': '接管工作台：对话下指令，能力页签决定它能动什么',
+  'agent.entry': '打开 Agent',
+  'agent.back': '返回工作台',
+  'agent.tab_chat': '对话',
+  'agent.tab_capabilities': '能力',
   'ai.title': 'AI 分析助手',
   'ai.toggle': 'AI 助手',
   'ai.close': '关闭 AI 助手',
@@ -87,6 +93,12 @@ export const aiZh: LocaleDictionary = {
 
 export const aiEn: LocaleDictionary = {
   // ---- FR-07 assistant panel ----
+  'agent.title': 'Agent',
+  'agent.subtitle': 'Take over the workbench: chat to instruct, capabilities decide what it may touch',
+  'agent.entry': 'Open Agent',
+  'agent.back': 'Back to workbench',
+  'agent.tab_chat': 'Chat',
+  'agent.tab_capabilities': 'Capabilities',
   'ai.title': 'AI Analysis Assistant',
   'ai.toggle': 'AI Assistant',
   'ai.close': 'Close AI assistant',
