@@ -85,4 +85,14 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // CommonJS 文件（Electron builder 钩子等）只能通过 require 加载依赖
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 );
