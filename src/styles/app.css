@@ -1888,16 +1888,8 @@
   width: auto;
   min-width: 5.5em;
 }
-/* Number params are pure text-entry boxes �?hide the native spin buttons. */
-.param-panel input[type='number'] {
-  appearance: textfield;
-  -moz-appearance: textfield;
-}
-.param-panel input[type='number']::-webkit-outer-spin-button,
-.param-panel input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
+/* Number params are pure text-entry boxes — the native spin buttons are
+   hidden globally in global.css. */
 .param-group .field.field-inline .input {
   width: 100%;
 }

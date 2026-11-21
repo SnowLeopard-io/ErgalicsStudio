@@ -396,6 +396,19 @@ button {
   box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
+/* Numeric fields are plain text boxes everywhere: the native spinner
+   steppers are hidden so every number input matches a regular input. */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Textareas do not resize by default. The native grip is painted in a fixed
    light colour that clashes with the dark surfaces, and most fields already
    sit in layouts that size them. Large source editors opt back in with
