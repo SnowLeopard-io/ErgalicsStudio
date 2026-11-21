@@ -237,15 +237,15 @@ key = H(kind, 执行器源码哈希, params, {端口 → 上游内容键}, 环�
 
 | 层级    | 选型                                                       |
 | ------- | --------------------------------------------------------- |
-| UI      | React 18, react-router-dom 7, Zustand 5                   |
+| UI      | React 19, react-router-dom 7, Zustand 5                   |
 | 语言    | TypeScript 5.7 (strict)                                   |
-| 构建    | Vite 6                                                     |
-| 3D      | Three.js r185 (+ @types/three)，GLTF / STL / OBJ / PLY 加载器与 Draco、meshopt 解码 |
+| 构建    | Vite 8 (Rolldown)                                          |
+| 3D      | Three.js r187 (+ @types/three)，GLTF / STL / OBJ / PLY 加载器与 Draco、meshopt 解码 |
 | 原生    | Rust crate `native/ergalics-core`（源码交付；发行构建使用生成的 WASM stub） |
 | GPU     | WebGPU / WGSL via web-sys                                  |
 | SQL     | DuckDB-WASM（懒加载）+ Apache Arrow                        |
 | 版本控制 | isomorphic-git 1 + LightningFS（浏览器）· simple-git（Node，回退 isomorphic-git） |
-| 测试    | Vitest (单元) + Playwright-core (E2E, headless Edge)       |
+| 测试    | Vitest 5 (单元) + Playwright-core (E2E, headless Edge)     |
 | 文档    | VitePress (独立的 `docs/` workspace)                       |
 | 打包    | fflate (cspkg ZIP), lz-string (项目压缩)                   |
 

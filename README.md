@@ -261,15 +261,15 @@ Acceptance covered by `tests/build/` (10 files): a **10,000-node DAG** computes 
 
 | Layer    | Choice                                                        |
 | -------- | ------------------------------------------------------------ |
-| UI       | React 18, react-router-dom 7, Zustand 5                      |
+| UI       | React 19, react-router-dom 7, Zustand 5                      |
 | Language | TypeScript 5.7 (strict)                                      |
-| Build    | Vite 6                                                       |
-| 3D       | Three.js r185 (+ @types/three), GLTF / STL / OBJ / PLY loaders with Draco & meshopt decoding |
+| Build    | Vite 8 (Rolldown)                                            |
+| 3D       | Three.js r187 (+ @types/three), GLTF / STL / OBJ / PLY loaders with Draco & meshopt decoding |
 | Native   | Rust crate `native/ergalics-core` (source-delivered; shipped builds run a generated WASM stub) |
 | GPU      | WebGPU / WGSL via web-sys                                    |
 | SQL      | DuckDB-WASM (lazy) + Apache Arrow                            |
 | VCS      | isomorphic-git 1 + LightningFS (browser) · simple-git (Node, isomorphic fallback) |
-| Testing  | Vitest (unit) + Playwright-core (E2E, headless Edge)          |
+| Testing  | Vitest 5 (unit) + Playwright-core (E2E, headless Edge)        |
 | Docs     | VitePress (separate `docs/` workspace)                       |
 | Packaging| fflate (cspkg ZIP), lz-string (project compression)          |
 
