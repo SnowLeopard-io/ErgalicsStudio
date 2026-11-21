@@ -27,6 +27,7 @@ export default tseslint.config(
       'scripts/', // 一次性 mjs 脚本，不做 lint
       '**/*.min.*',
       'tmp/', // 临时实验产物（py/json/cjs 抓取物），非源码
+      'industrial-capability-benchmark/', // 生成的工业能力对标报告（gitignored 产物）
       'desktop/app-dist/', // Desktop 打包产物（vite build 复制物）
       'desktop/dist-electron/', // Electron main bundle（esbuild 产物）
       'desktop/release/', // electron-builder 输出
