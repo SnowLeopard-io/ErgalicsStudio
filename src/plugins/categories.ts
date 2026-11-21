@@ -103,6 +103,7 @@ const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.physics-diffusion': 'physics',
   'example.physics-diffraction': 'physics',
   'example.physics-trajectory': 'physics',
+  'example.physics-pinn': 'physics',
 
   // Astronomy (research CCD pipeline + research-grade kernels)
   'astro.pipeline': 'astro',
@@ -216,6 +217,7 @@ const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.stats-survival': 'math',
   'example.stats-meta': 'math',
   'example.stats-bayes': 'math',
+  'example.stats-conformal': 'math',
 
   // Economics & psychology (research-grade kernels)
   'example.econ-blackscholes': 'econ',

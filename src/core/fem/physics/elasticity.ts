@@ -10,9 +10,9 @@
 // ==========================================================================
 
 import { CsrBuilder, CsrMatrix, Coefficient, coefficientAt } from '../assemble/stiffness';
-import { assembleEdgeLoad, EdgeSelector, selectBoundaryEdges } from '../assemble/load';
-import { DofValue, applyDirichlet } from '../bc/dirichlet';
-import { PlanarMesh, nodeCount, nodeX, nodeY } from '../mesh/types';
+import { assembleEdgeLoad, assemblePressureLoad, EdgeSelector, selectBoundaryEdges } from '../assemble/load';
+import { DofValue, applyDirichlet, enforceDirichletValues } from '../bc/dirichlet';
+import { PlanarMesh, elementArea, nodeCount, nodeX, nodeY } from '../mesh/types';
 import { CgOptions } from '../solve/cg';
 import { solveStationarySystem } from '../solve/stationary';
 import { FemElasticityResult } from './types';
@@ -57,6 +57,13 @@ export interface TractionSpec {
   ty?: number | ((x: number, y: number) => number);
 }
 
+export interface PressureSpec {
+  edges: EdgeSelector;
+  /** Scalar pressure (force per unit area). Positive is compressive: it acts
+   *  inward, along −n_outward (Nastran PLOAD2 / Ansys SF/SFE convention). */
+  p: number;
+}
+
 export interface ElasticityProblem {
   mesh: PlanarMesh;
   /** Young's modulus (constant | per-tag record | tag → E). */
@@ -70,11 +77,46 @@ export interface ElasticityProblem {
   constraints?: DisplacementConstraint[];
   /** Surface tractions on boundary edge tags. */
   tractions?: TractionSpec[];
+  /** Normal pressure on boundary edge tags. */
+  pressures?: PressureSpec[];
   /** Constant body force per unit volume. */
   bodyForce?: { fx?: number; fy?: number };
   /** Point loads applied at nodes. */
   pointLoads?: Array<{ node: number; fx: number; fy: number }>;
   cg?: CgOptions;
+}
+
+/**
+ * Reject physically invalid elastic constants before assembly. A negative E
+ * or ν outside (−1, ½) makes D indefinite, so CG can still "converge" to a
+ * sign-flipped field; a zero/negative thickness silently zeroes the stiffness.
+ */
+function validateElasticInputs(
+  mesh: PlanarMesh,
+  E: Coefficient,
+  nu: Coefficient,
+  thickness: number,
+  state: PlaneState,
+): void {
+  if (!Number.isFinite(thickness) || thickness <= 0) {
+    throw new Error('fem: thickness must be a positive finite number');
+  }
+  if (state !== 'plane-stress' && state !== 'plane-strain') {
+    throw new Error(`fem: unknown plane state "${String(state)}"`);
+  }
+  const checked = new Set<number>();
+  for (const el of mesh.elements) {
+    if (checked.has(el.tag)) continue;
+    checked.add(el.tag);
+    const e = coefficientAt(E, el.tag);
+    if (!Number.isFinite(e) || e <= 0) {
+      throw new Error(`fem: Young's modulus must be positive and finite (element tag ${el.tag})`);
+    }
+    const v = coefficientAt(nu, el.tag);
+    if (!Number.isFinite(v) || v <= -1 || v >= 0.5) {
+      throw new Error(`fem: Poisson ratio must lie in (-1, 0.5) (element tag ${el.tag})`);
+    }
+  }
 }
 
 /**
@@ -89,6 +131,16 @@ export function solveElasticity(problem: ElasticityProblem): FemElasticityResult
   const thickness = problem.thickness ?? 1;
   const E = problem.E ?? 1;
   const nu = problem.nu ?? 0.3;
+  validateElasticInputs(mesh, E, nu, thickness, state);
+  // A zero/NaN-area triangle assembles a NaN stiffness row. With an all-zero
+  // load vector CG would otherwise declare "converged" without ever touching
+  // the matrix, returning a plausible zero field for a broken mesh.
+  for (let e = 0; e < mesh.elements.length; e += 1) {
+    const area = elementArea(mesh, mesh.elements[e]!);
+    if (!Number.isFinite(area) || area <= 0) {
+      throw new Error(`fem: degenerate element ${e}: zero or non-finite area`);
+    }
+  }
 
   const builder = new CsrBuilder(ndof, ndof);
   addElasticityStiffness(mesh, E, nu, state, thickness, builder);
@@ -116,9 +168,18 @@ export function solveElasticity(problem: ElasticityProblem): FemElasticityResult
   if (problem.tractions) {
     for (const tr of problem.tractions) {
       const selected = selectBoundaryEdges(mesh, tr.edges);
-      const lx = assembleEdgeLoad(mesh, selected, tr.tx ?? 0, 2, 0);
-      const ly = assembleEdgeLoad(mesh, selected, tr.ty ?? 0, 2, 1);
+      // Edge tractions are force per unit area on the edge surface, so the
+      // integrated load scales with the out-of-plane thickness like K does.
+      const lx = assembleEdgeLoad(mesh, selected, tr.tx ?? 0, 2, 0, thickness);
+      const ly = assembleEdgeLoad(mesh, selected, tr.ty ?? 0, 2, 1, thickness);
       for (let i = 0; i < ndof; i += 1) load[i] = load[i]! + lx[i]! + ly[i]!;
+    }
+  }
+  if (problem.pressures) {
+    for (const pr of problem.pressures) {
+      const selected = selectBoundaryEdges(mesh, pr.edges);
+      const contribution = assemblePressureLoad(mesh, selected, pr.p, thickness);
+      for (let i = 0; i < ndof; i += 1) load[i] = load[i]! + contribution[i]!;
     }
   }
   if (problem.pointLoads) {
@@ -140,6 +201,7 @@ export function solveElasticity(problem: ElasticityProblem): FemElasticityResult
   const K = builder.toCsr();
   applyDirichlet(K, load, dofs);
   const solved = solveStationarySystem(K, load, problem.cg);
+  enforceDirichletValues(solved.solution, dofs);
 
   const displacement = solved.solution;
   const elementStrain = recoverElementStrain(mesh, displacement);

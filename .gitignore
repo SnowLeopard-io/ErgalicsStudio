@@ -55,15 +55,16 @@ dist-verify*
 
 .workbuddy/
 
-# Local npm mirror registry (npmmirror) — a machine-local preference that
-# must not be committed: every contributor and CI would be forced onto the
-# mirror. Configure it in ~/.npmrc instead.
-.npmrc
+# Machine-local npm preferences (mirror registry, tokens) belong in ~/.npmrc,
+# never in the repo. The committed .npmrc is token-free and only carries the
+# workspace install policy (legacy-peer-deps), so a source-only checkout can
+# run `npm install` on any npm version without ERESOLVE aborts.
 
 # Docs workspace (VitePress): dependencies and build artifacts.
 docs/node_modules/
 docs/.vitepress/*
 !docs/.vitepress/config.mts
+!docs/.vitepress/research-blocks.mjs
 # The hand-written VitePress custom theme (Layout.vue, cross-site.css, ...) is
 # source code — it implements the cross-site nav switcher and must be tracked.
 # Only the generated build output under dist/ stays ignored.
@@ -93,13 +94,16 @@ promo/
 # Jarvis agent workspace artifacts
 .jarvis/
 
-# Desktop (Electron) edition build artifacts — produced by the desktop build
-# toolchain (not tracked in this repo). Only desktop/src, desktop/resources
-# and the packaging config are tracked.
-desktop/node_modules/
-desktop/dist-electron/
-desktop/app-dist/
-desktop/release/
-desktop/build-dist.log
+# Desktop (Electron) Windows edition build artifacts — produced by the
+# windows build toolchain (not tracked in this repo). Only deploy/windows/src,
+# deploy/windows/resources and the packaging config are tracked.
+deploy/windows/node_modules/
+deploy/windows/dist-electron/
+deploy/windows/app-dist/
+deploy/windows/release/
+deploy/windows/build-dist.log
 # Portable CPython bundled into the installer (downloaded on demand).
-desktop/resources/python/
+deploy/windows/resources/python/
+
+
+industrial-capability-benchmark/

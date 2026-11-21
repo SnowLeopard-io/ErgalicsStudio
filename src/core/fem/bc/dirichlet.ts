@@ -115,6 +115,21 @@ export function applyDirichlet(A: CsrMatrix, f: Float64Array, dofValues: DofValu
 }
 
 /**
+ * Overwrite the solved values at constrained DOFs with their prescribed
+ * values. Exact elimination makes u_d = g part of the solution, but the
+ * relative CG tolerance is measured against ‖f‖, and the Dirichlet RHS
+ * correction (Σ K_id·g_d) can be many orders larger than g itself. The
+ * prescribed values are then negligible in that norm and CG may legally
+ * stop with u_d still unsatisfied. Re-imposing them costs nothing and
+ * restores the strong-boundary-condition guarantee.
+ */
+export function enforceDirichletValues(solution: Float64Array, dofValues: DofValue[]): void {
+  for (const { dof, value } of dofValues) {
+    if (dof >= 0 && dof < solution.length) solution[dof] = value;
+  }
+}
+
+/**
  * Big-number (penalty) imposition: add `penalty` to the diagonal and
  * `penalty·g` to the RHS so the solve drives u_d → g. The matrix stays
  * symmetric; `penalty` should be ~1e10 × the largest diagonal entry.

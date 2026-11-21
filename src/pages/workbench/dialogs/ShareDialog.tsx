@@ -5,6 +5,7 @@ import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAnalysisStore } from '@/stores/analysisStore';
 import { useExperimentStore } from '@/stores/experimentStore';
+import { formatBytes } from '@/core/storage';
 import { useAppStore } from '@/stores/appStore';
 import { serializeProject, DEFAULT_PROJECT_NAME } from '@/types/project';
 import { compressToEncodedURIComponent } from 'lz-string';
@@ -480,14 +481,4 @@ function CheckOption({ checked, label, onChange }: { checked: boolean; label: st
   );
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB'];
-  let v = bytes;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i += 1;
-  }
-  return `${v.toFixed(1)} ${units[i]}`;
-}
+

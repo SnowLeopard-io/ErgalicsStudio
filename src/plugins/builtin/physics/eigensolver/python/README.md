@@ -4,7 +4,7 @@
 
 FEM/MoM 离散后的算子 `A` 规模可达 **十万阶**，稀疏、厄密（实对称或复厄密），且因材料色散、PML 边界、高频/低频效应而**非正定**——目标频率对应的位移 `σ` 可能落在谱内部，`A − σI` 接近奇异。这正是本方案与常规"只处理正定矩阵"工具的差别所在。
 
-本包既是 Ergalics Studio 插件 `src/plugins/builtin/physics/eigensolver/` 的 Python 核心（浏览器内经 Pyodide 执行），也是可独立运行的本地 CLI。完整的算法推导与工程细节见仓库文档 `docs/technical/09-电磁谐振特征值求解器.md`。
+本包既是 Ergalics Studio 插件 `src/plugins/builtin/physics/eigensolver/` 的 Python 核心（浏览器内经 Pyodide 执行），也是可独立运行的本地 CLI。完整的算法推导与工程细节见仓库文档 `docs/zh-CN/technical/09-电磁谐振特征值求解器.md`。
 
 ## 快速开始
 

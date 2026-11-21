@@ -8,7 +8,8 @@
 
 import { memo } from 'react';
 import type { BlockInstance, BlockMeta } from '@/types/block';
-import type { NodeStatus } from '@/stores/blockStore';
+import type { FlowBuildStepInfo, NodeStatus } from '@/stores/blockStore';
+import type { PreviewStepStatus } from '@/core/build/engine';
 import { useLocale, useT } from '@/i18n';
 import { blockName } from '@/blocks/l10n';
 import { CloseIcon } from '@/components/icons';
@@ -27,6 +28,10 @@ interface BlockNodeProps {
   meta: BlockMeta;
   selected: boolean;
   status: NodeStatus;
+  /** Last run's cache decision for this node (absent before the first run). */
+  build?: FlowBuildStepInfo;
+  /** Dry-run verdict shown before the first run of the current graph. */
+  preview?: PreviewStepStatus;
   screenPos: Point;
   height: number;
   onNodePointerDown: (e: React.PointerEvent, id: string) => void;
@@ -56,12 +61,24 @@ function portTop(index: number, paramRows: number): number {
   );
 }
 
+function formatBuildDuration(ms: number): string {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${Math.round(ms)} ms`;
+}
+
 function BlockNodeImpl(props: BlockNodeProps) {
-  const { instance, meta, selected, status, screenPos, height } = props;
+  const { instance, meta, selected, status, build, preview, screenPos, height } = props;
   const { locale } = useLocale();
   const t = useT();
   const paramEntries = Object.entries(instance.params).slice(0, MAX_PARAM_ROWS);
   const paramRows = paramEntries.length;
+  const buildLabel = build ? t(`blocks.build.node_${build.status}`) : '';
+  const buildTitle = build
+    ? [
+        `${buildLabel} · ${formatBuildDuration(build.durationMs)}`,
+        build.reason,
+        ...(build.fromPersistence ? [t('blocks.build.node_persisted')] : []),
+      ].join(' · ')
+    : '';
 
   return (
     <div
@@ -76,6 +93,22 @@ function BlockNodeImpl(props: BlockNodeProps) {
       <div className="block-node-header" style={{ borderTopColor: meta.color }}>
         <span className="block-node-dot" style={{ background: meta.color }} />
         <span className="block-node-name">{blockName(meta, locale)}</span>
+        {!build && preview && (
+          <span
+            className={`block-node-build is-preview is-${preview}`}
+            title={t('blocks.build.preview_node_hint')}
+          >
+            {t(`blocks.build.node_${preview}`)}
+          </span>
+        )}
+        {build && (
+          <span
+            className={`block-node-build is-${build.status}`}
+            title={buildTitle}
+          >
+            {buildLabel}
+          </span>
+        )}
         {status !== 'idle' && <span className={`block-node-state is-${status}`} />}
         <button
           type="button"
@@ -144,6 +177,8 @@ export const BlockNode = memo(
     a.meta === b.meta &&
     a.selected === b.selected &&
     a.status === b.status &&
+    a.build === b.build &&
+    a.preview === b.preview &&
     a.height === b.height &&
     a.screenPos.x === b.screenPos.x &&
     a.screenPos.y === b.screenPos.y &&

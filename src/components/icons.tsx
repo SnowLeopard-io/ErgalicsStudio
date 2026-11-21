@@ -311,6 +311,15 @@ export const TerminalIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Keyboard — toggles the floating numeric/formula pad. */
+export const KeyboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <path d="M6 9.5h.01M9.5 9.5h.01M13 9.5h.01M16.5 9.5h.01M6 12.5h.01M9.5 12.5h.01M13 12.5h.01M16.5 12.5h.01" />
+    <path d="M7.5 15.5h9" />
+  </Svg>
+);
+
 /** Enter key — REPL submit action. */
 export const CornerDownLeftIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -458,6 +467,8 @@ export type ToolIconKind =
   | 'notebook'
   | 'supplement'
   | 'model-inference'
+  | 'causal'
+  | 'performance'
   | 'course'
   | 'cleaning'
   | 'gallery'
@@ -471,7 +482,18 @@ export type ToolIconKind =
   | 'latex'
   | 'citation'
   | 'collab'
-  | 'preprint';
+  | 'preprint'
+  | 'industrial'
+  | 'geometry'
+  | 'mesh'
+  | 'material'
+  | 'cases'
+  | 'solver'
+  | 'post'
+  | 'doe'
+  | 'fluid'
+  | 'fingerprint'
+  | 'industrial-report';
 
 export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) {
   switch (kind) {
@@ -719,6 +741,107 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
           <path d="M4 5.5 20 3l-4 12-5-3.5z" />
           <path d="m11 11.5 4-4" />
           <path d="M6 15v5h12v-4" />
+        </Svg>
+      );
+    case 'causal': // three nodes joined by directed arrows
+      return (
+        <Svg {...rest}>
+          <circle cx="5" cy="6" r="2" />
+          <circle cx="19" cy="6" r="2" />
+          <circle cx="12" cy="18" r="2" />
+          <path d="M7 6h10M6 8l5 8M18 8l-5 8" />
+          <path d="m14.5 4.5 2.5 1.5-2.5 1.5M10 15.5 7.8 13l2.9-.8M14 14.2l2.2-1.2-2.9-.8" />
+        </Svg>
+      );
+    case 'performance': // stopwatch with a rising bar
+      return (
+        <Svg {...rest}>
+          <circle cx="12" cy="13" r="7.5" />
+          <path d="M9 3h6M12 5.5V3M12 9v4.5l3 2" />
+          <path d="M6 19 4 21M18 19l2 2" />
+        </Svg>
+      );
+    case 'industrial': // factory with a chimney
+      return (
+        <Svg {...rest}>
+          <path d="M3 20h18M5 20V9l5 3V9l5 3V6h4v14" />
+          <path d="M8 20v-3h2v3M14 20v-3h2v3" />
+        </Svg>
+      );
+    case 'geometry': // compass over a line
+      return (
+        <Svg {...rest}>
+          <path d="M12 4v3M5 20l7-13 7 13" />
+          <circle cx="12" cy="3.5" r="1.3" />
+          <path d="M8.5 15h7" />
+        </Svg>
+      );
+    case 'mesh': // triangulated patch
+      return (
+        <Svg {...rest}>
+          <path d="M3 18 8 5l7 12zM8 5l9 3-2 9M15 8l4 2-2 7M13 20H3M17 10l3 3-2 5" />
+        </Svg>
+      );
+    case 'material': // layered specimen
+      return (
+        <Svg {...rest}>
+          <path d="M12 3 21 8l-9 5-9-5z" />
+          <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
+        </Svg>
+      );
+    case 'cases': // clipboard with a slider
+      return (
+        <Svg {...rest}>
+          <rect x="5" y="4" width="14" height="17" rx="2" />
+          <path d="M9 4V3h6v1M8 10h8M8 14h8M8 18h5" />
+          <circle cx="14" cy="18" r="1.4" />
+        </Svg>
+      );
+    case 'solver': // play with a gear
+      return (
+        <Svg {...rest}>
+          <path d="M4 5.5v9l7-4.5z" />
+          <circle cx="16" cy="15" r="3.2" />
+          <path d="M16 9.8v1.4M16 18.8v1.4M20.2 15h1.2M10.6 15h1.2M19 12l.9-.9M12.1 18.9l.9-.9M19 18l.9.9M12.1 11.1l.9.9" />
+        </Svg>
+      );
+    case 'post': // contour plot
+      return (
+        <Svg {...rest}>
+          <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+          <path d="M4 15c3 0 3-5 6-5s3 6 6 6 4-3 4-3M4 10c3 0 3-3 6-3s3 4 6 4 4-2 4-2" />
+        </Svg>
+      );
+    case 'doe': // design-point grid
+      return (
+        <Svg {...rest}>
+          <path d="M4 20V4M4 20h16" />
+          <circle cx="8" cy="16" r="1.2" />
+          <circle cx="12" cy="12" r="1.2" />
+          <circle cx="16" cy="8" r="1.2" />
+          <path d="m6 18 4-4M10 14l4-4" strokeDasharray="2 2" />
+        </Svg>
+      );
+    case 'fluid': // droplet with flow lines
+      return (
+        <Svg {...rest}>
+          <path d="M12 3c3.5 4.2 5.5 7 5.5 9.6A5.5 5.5 0 0 1 12 18a5.5 5.5 0 0 1-5.5-5.4C6.5 10 8.5 7.2 12 3z" />
+          <path d="M4 21c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0" />
+        </Svg>
+      );
+    case 'fingerprint': // concentric ridges
+      return (
+        <Svg {...rest}>
+          <path d="M12 3a9 9 0 0 0-9 9M21 12a9 9 0 0 0-9-9" />
+          <path d="M6 12a6 6 0 0 1 12 0v4M9 12a3 3 0 0 1 6 0v6M12 12v9M6 16v3M18 18v2" />
+        </Svg>
+      );
+    case 'industrial-report': // document with a factory mark
+      return (
+        <Svg {...rest}>
+          <path d="M6 3h8.5L19 7.5V21H6z" />
+          <path d="M14.5 3v4.5H19" />
+          <path d="M9 17v-4l2.5 1.5V13l2.5 1.5V11h2v6" />
         </Svg>
       );
   }

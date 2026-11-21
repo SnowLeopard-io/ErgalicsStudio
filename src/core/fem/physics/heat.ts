@@ -9,9 +9,9 @@
 // ==========================================================================
 
 import { CsrBuilder, Coefficient, coefficientAt } from '../assemble/stiffness';
-import { assembleSourceVector } from '../assemble/load';
+import { assembleEdgeLoad, assembleSourceVector, selectBoundaryEdges } from '../assemble/load';
 import { DofValue } from '../bc/dirichlet';
-import { addPoissonStiffness, dirichletDofs, DirichletSpec } from './poisson';
+import { addPoissonStiffness, dirichletDofs, DirichletSpec, NeumannSpec } from './poisson';
 import { PlanarMesh, nodeCount } from '../mesh/types';
 import { CgOptions } from '../solve/cg';
 import { thetaOperators, thetaTimeStep } from '../solve/transient';
@@ -29,6 +29,8 @@ export interface HeatProblem {
   initial: (x: number, y: number) => number;
   /** Dirichlet (fixed temperature) boundaries. */
   dirichlet?: DirichletSpec;
+  /** Prescribed boundary heat flux (Neumann) groups. */
+  neumann?: NeumannSpec | NeumannSpec[];
   /** Time step, number of steps, θ (1 = implicit, 0.5 = CN). */
   dt: number;
   steps: number;
@@ -57,10 +59,28 @@ export function totalHeatEnergy(mesh: PlanarMesh, values: ArrayLike<number>): nu
 /** Solve the transient heat equation; returns the final field + history. */
 export function solveHeat(problem: HeatProblem): FemHeatResult {
   const { mesh, dt, steps } = problem;
-  if (!(dt > 0)) throw new Error('fem: heat dt must be positive');
-  if (steps < 1) throw new Error('fem: heat steps must be ≥ 1');
+  if (!Number.isFinite(dt) || dt <= 0) throw new Error('fem: heat dt must be a positive finite number');
+  if (!Number.isInteger(steps) || steps < 1) throw new Error('fem: heat steps must be an integer ≥ 1');
   const theta = problem.theta ?? 1;
+  if (!Number.isFinite(theta) || theta < 0 || theta > 1) {
+    throw new Error('fem: heat theta must lie in [0, 1]');
+  }
   const n = nodeCount(mesh);
+  // Positive finite conductivity / heat capacity per element tag. Zero or
+  // non-finite values silently remove M or K from the scheme.
+  const tags = new Set<number>();
+  for (const el of mesh.elements) tags.add(el.tag);
+  if (tags.size === 0) tags.add(0);
+  for (const tag of tags) {
+    const k = coefficientAt(problem.k ?? 1, tag);
+    if (!Number.isFinite(k) || k <= 0) {
+      throw new Error(`fem: heat conductivity must be positive and finite (element tag ${tag})`);
+    }
+    const capacity = coefficientAt(problem.heatCapacity ?? 1, tag);
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      throw new Error(`fem: heat capacity ρc must be positive and finite (element tag ${tag})`);
+    }
+  }
 
   // Assemble M and K on a shared sparsity pattern.
   const massBuilder = new CsrBuilder(n, n);
@@ -71,10 +91,33 @@ export function solveHeat(problem: HeatProblem): FemHeatResult {
   const K = kBuilder.toCsr();
   const { lhs, rhsOp } = thetaOperators(M, K, dt, theta);
 
-  // Source vector at time t.
-  const sourceAt = problem.source
-    ? (t: number): Float64Array => assembleSourceVector(mesh, (x, y, tag) => problem.source!(x, y, t, tag))
-    : (): Float64Array | null => null;
+  // Time-independent boundary flux load ∫ g·N ds (Neumann), added to the
+  // source vector at every step.
+  const neumann = problem.neumann
+    ? (Array.isArray(problem.neumann) ? problem.neumann : [problem.neumann])
+    : [];
+  let fluxLoad: Float64Array | null = null;
+  if (neumann.length > 0) {
+    fluxLoad = new Float64Array(n);
+    for (const spec of neumann) {
+      const selected = selectBoundaryEdges(mesh, spec.edges);
+      const contribution = assembleEdgeLoad(mesh, selected, spec.flux);
+      for (let i = 0; i < n; i += 1) fluxLoad[i] = fluxLoad[i]! + contribution[i]!;
+    }
+  }
+
+  // Source vector at time t (volume source plus any boundary flux).
+  const sourceAt = (problem.source || fluxLoad)
+    ? (t: number): Float64Array => {
+        const vector = problem.source
+          ? assembleSourceVector(mesh, (x, y, tag) => problem.source!(x, y, t, tag))
+          : new Float64Array(n);
+        if (fluxLoad) {
+          for (let i = 0; i < n; i += 1) vector[i] = vector[i]! + fluxLoad[i]!;
+        }
+        return vector;
+      }
+    : undefined;
 
   // Dirichlet DOFs (values may be prescribed per time via the value fn —
   // evaluated at t = 0 here; time-varying support uses the constant map).
@@ -85,6 +128,9 @@ export function solveHeat(problem: HeatProblem): FemHeatResult {
   const nodes = mesh.nodes;
   for (let i = 0; i < n; i += 1) {
     u0[i] = problem.initial(nodes[i * 2]!, nodes[i * 2 + 1]!);
+    if (!Number.isFinite(u0[i]!)) {
+      throw new Error(`fem: initial temperature is not finite at node ${i}`);
+    }
   }
 
   const history: Float64Array[] = [Float64Array.from(u0)];

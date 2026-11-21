@@ -8,12 +8,14 @@
 // ==========================================================================
 
 import * as monaco from 'monaco-editor';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+// Monaco 0.57 exposes its sources through a package exports map whose
+// wildcard is rooted at `esm/vs`, so deep imports drop the `esm/vs/` prefix.
+import editorWorker from 'monaco-editor/editor/editor.worker?worker';
 // Code mode also edits JavaScript: Monaco's TS language contribution owns
 // the 'javascript' label and proxies into the TypeScript worker. Returning
 // the plain editor worker for it makes the worker throw `$loadForeignModule`
 // (toUri of undefined) on every JS model.
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker';
 
 self.MonacoEnvironment = {
   getWorker: (_workerId, label) => {

@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "vitepress dev .",
     "build": "vitepress build .",
-    "preview": "vitepress preview ."
+    "preview": "vitepress preview .",
+    "gen:catalog": "node scripts/gen-plugin-catalog.mjs"
   },
   "dependencies": {
+    "search-insights": "^2.17.3",
     "vitepress": "2.0.0-alpha.6"
   }
 }

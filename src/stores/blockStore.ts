@@ -17,10 +17,20 @@ import type {
 } from '@/types/block';
 import { compile } from '@/blocks/compiler';
 import type { CompileDiagnostic } from '@/blocks/compiler';
-import { DagExecutor } from '@/blocks/executor';
 import { createMemoryStorage } from '@/blocks/context';
 import { blockRegistry } from '@/blocks/registry';
 import { emit } from '@/core/events';
+import { BuildEngine } from '@/core/build/engine';
+import { createBuildCache } from '@/core/build/cache';
+import { createBuildEnvironment } from '@/core/build/key';
+import { compiledRegionToPlan, runCompiledRegion } from '@/core/build/blockAdapter';
+import { createBuildAttestation } from '@/core/build/provenance';
+import type { BuildAttestation } from '@/core/build/provenance';
+import type { BuildPreview, BuildStats, StepDecision } from '@/core/build/engine';
+import { cacheBundleToJson, exportCacheBundle, importCacheBundle } from '@/core/build/bundle';
+import type { ImportCacheResult } from '@/core/build/bundle';
+import type { BuildCacheStats } from '@/core/build/cache';
+import type { RunBuildStats } from '@/core/experiment/record';
 import type { DataValue } from '@/types/datatable';
 
 export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
@@ -28,12 +38,27 @@ export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
 /** Emitted when a Flow-mode graph run finishes (experiment tracking hook). */
 export const FLOW_RUN_FINISHED = 'flow:run:finished';
 
+/** Cache/compute breakdown of a run, for the run history and diagnostics. */
+export type FlowBuildStats = RunBuildStats;
+
+/** Per-node outcome of the last run (drives the canvas cache badges). */
+export interface FlowBuildStepInfo {
+  status: StepDecision['status'];
+  /** Machine-readable reason: `cache-hit`, `computed`, `upstream-failed`, … */
+  reason: string;
+  durationMs: number;
+  /** True when a cache hit came from IndexedDB rather than this session. */
+  fromPersistence?: boolean;
+}
+
 export interface FlowRunFinishedPayload {
   ok: boolean;
   durationMs: number;
   /** Fingerprint of the executed graph (instances + connections). */
   graphHash: string;
   outputs: Record<string, unknown>;
+  /** Incremental-build breakdown (absent when compilation failed). */
+  build?: FlowBuildStats;
 }
 
 export type { BlockGraphState };
@@ -54,6 +79,14 @@ interface BlockStore {
   compileDiagnostics: CompileDiagnostic[];
   /** Output of every executed node from the last run, keyed by node id. */
   nodeOutputs: Record<string, DataValue>;
+  /** Build breakdown of the last successful run (null before the first one). */
+  lastBuild: FlowBuildStats | null;
+  /** Portable attestation of the last successful run (digest-verifiable). */
+  lastAttestation: BuildAttestation | null;
+  /** Per-node cache hit/recompute decision of the last run. */
+  buildSteps: Record<string, FlowBuildStepInfo>;
+  /** Dry-run prediction of the next run (cleared whenever the graph changes). */
+  buildPreview: BuildPreview | null;
 
   addInstance: (blockId: string, position: BlockPosition) => void;
   removeInstance: (id: string) => void;
@@ -71,6 +104,16 @@ interface BlockStore {
   run: () => Promise<void>;
   stop: () => void;
   clear: () => void;
+  /** Entries/bytes/persistence of the incremental build cache. */
+  buildCacheStats: () => Promise<BuildCacheStats>;
+  /** Drop all cached build results (memory + IndexedDB) and reset the report. */
+  clearBuildCache: () => Promise<void>;
+  /** Compile the current graph and predict which nodes the cache can serve. */
+  previewBuild: () => Promise<void>;
+  /** Serialize the content-addressed cache into a portable JSON snapshot. */
+  exportBuildCache: () => Promise<string>;
+  /** Merge a portable cache snapshot; returns per-entry import statistics. */
+  importBuildCache: (json: string, allowForeign?: boolean) => Promise<ImportCacheResult>;
 
   toJSON: () => BlockGraphState;
   fromJSON: (state: BlockGraphState) => void;
@@ -99,7 +142,46 @@ function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
 export function createBlockGraphStore(emitEvents: boolean) {
   let notifyTimer: ReturnType<typeof setTimeout> | null = null;
   let runSeq = 0;
-  let activeExecutor: DagExecutor | null = null;
+  let activeAbort: AbortController | null = null;
+  /**
+   * One engine per store instance: its cache survives every `run()`, which is
+   * the whole point of the build system (the old code constructed a fresh
+   * `DagExecutor` per run, so nothing was ever reused across runs).
+   */
+  let buildEngine: BuildEngine | null = null;
+
+  const getBuildEngine = (): BuildEngine => {
+    if (!buildEngine) {
+      buildEngine = new BuildEngine({
+        cache: createBuildCache({
+          // Persist in the real app (browser / desktop renderer) so cache
+          // entries survive reloads. Node-based tests have no `window`:
+          // IndexedDB shims can hang under fake timers, and a test process
+          // gains nothing from persistence.
+          persistent: typeof window !== 'undefined',
+          limits: { maxEntries: 20_000, maxBytes: 512 * 1024 * 1024, maxEntryBytes: 64 * 1024 * 1024 },
+        }),
+        environment: createBuildEnvironment(),
+      });
+    }
+    return buildEngine;
+  };
+
+  /** Map the engine's decision counters onto the run-record payload. */
+  const buildStatsPayload = (stats: BuildStats): FlowBuildStats => {
+    const ran = stats.cached + stats.computed;
+    return {
+      total: stats.total,
+      computed: stats.computed,
+      cached: stats.cached,
+      blocked: stats.blocked,
+      failed: stats.failed,
+      durationMs: stats.durationMs,
+      planHash: stats.planHash,
+      environment: stats.environment,
+      cacheHitRate: ran > 0 ? stats.cached / ran : 0,
+    };
+  };
 
   const notifyChanged = (): void => {
     if (!emitEvents) return;
@@ -121,6 +203,10 @@ export function createBlockGraphStore(emitEvents: boolean) {
     executionErrors: {},
     compileDiagnostics: [],
     nodeOutputs: {},
+    lastBuild: null,
+    lastAttestation: null,
+    buildSteps: {},
+    buildPreview: null,
 
     addInstance: (blockId, position) => {
       const meta = blockRegistry.get(blockId);
@@ -131,7 +217,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         position,
         params: { ...meta.defaultParams },
       };
-      set((s) => ({ instances: [...s.instances, instance] }));
+      set((s) => ({ instances: [...s.instances, instance], buildPreview: null }));
       notifyChanged();
     },
 
@@ -149,6 +235,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         nodeStatus: omitKey(s.nodeStatus, id),
         executionErrors: omitKey(s.executionErrors, id),
         compileDiagnostics: [],
+        buildPreview: null,
       }));
       notifyChanged();
     },
@@ -165,6 +252,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         instances: s.instances.map((i) =>
           i.id === instanceId ? { ...i, params: { ...i.params, ...params } } : i,
         ),
+        buildPreview: null,
       }));
       notifyChanged();
     },
@@ -189,7 +277,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
       );
       if (dup) return;
       const conn: BlockConnection = { id: newId(), from, to };
-      set((s) => ({ connections: [...s.connections, conn] }));
+      set((s) => ({ connections: [...s.connections, conn], buildPreview: null }));
       notifyChanged();
     },
 
@@ -201,6 +289,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
         // data computed with a connection that no longer exists.
         ...(conn ? { nodeOutputs: omitKey(s.nodeOutputs, conn.to.nodeId) } : {}),
         compileDiagnostics: [],
+        buildPreview: null,
       }));
       notifyChanged();
     },
@@ -218,38 +307,85 @@ export function createBlockGraphStore(emitEvents: boolean) {
       const graphHash = JSON.stringify([instances, connections]);
       const result = compile(graph, blockRegistry);
       if (!result.ok || !result.program) {
-        set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {}, nodeOutputs: {}, isRunning: false });
+        set({
+          compileDiagnostics: result.diagnostics,
+          executionErrors: {},
+          nodeStatus: {},
+          nodeOutputs: {},
+          lastBuild: null,
+          lastAttestation: null,
+          buildSteps: {},
+          buildPreview: null,
+          isRunning: false,
+        });
         return;
       }
 
       // Keep the previous run's outputs visible until the new results arrive
       // — blanking them here made the preview flash empty during long runs.
-      set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {} });
-
-      const executor = new DagExecutor(result.program, {
-        storage: createMemoryStorage(),
-        onNodeStatus: (nodeId, status) => {
-          // A run superseded by stop() or a newer run must not keep painting
-          // node status onto the graph.
-          if (token !== runSeq) return;
-          set((s) => ({ nodeStatus: { ...s.nodeStatus, [nodeId]: status } }));
-        },
+      set({
+        compileDiagnostics: [],
+        executionErrors: {},
+        isRunning: true,
+        nodeStatus: {},
+        // A build summary describes one run; showing the previous one while
+        // this run is still in flight would read as if it already finished.
+        lastBuild: null,
+        lastAttestation: null,
+        buildSteps: {},
+        buildPreview: null,
       });
 
-      activeExecutor = executor;
+      const controller = new AbortController();
+      activeAbort = controller;
+      const engine = getBuildEngine();
 
       try {
-        const cache = await executor.run();
+        const run = await runCompiledRegion(
+          result.program,
+          { storage: createMemoryStorage() },
+          engine,
+          {
+            signal: controller.signal,
+            onStepStatus: (nodeId, status) => {
+              // A run superseded by stop() or a newer run must not keep painting
+              // node status onto the graph.
+              if (token !== runSeq) return;
+              set((s) => ({ nodeStatus: { ...s.nodeStatus, [nodeId]: status } }));
+            },
+          },
+        );
         if (token !== runSeq) return; // superseded by stop() or a newer run
         const nodeOutputs: Record<string, DataValue> = {};
-        for (const [nodeId, value] of cache) nodeOutputs[nodeId] = value;
-        set({ isRunning: false, nodeOutputs });
+        for (const [nodeId, value] of run.outputs) nodeOutputs[nodeId] = value;
+        const attestation = createBuildAttestation({
+          plan: compiledRegionToPlan(result.program),
+          stats: run.stats,
+          environment: engine.environment,
+        });
+        const build: FlowBuildStats = {
+          ...buildStatsPayload(run.stats),
+          attestationDigest: attestation.digest,
+        };
+        const buildSteps: Record<string, FlowBuildStepInfo> = {};
+        for (const decision of run.stats.steps) {
+          buildSteps[decision.id] = {
+            status: decision.status,
+            reason: decision.reason,
+            durationMs: decision.durationMs,
+            ...(decision.fromPersistence !== undefined
+              ? { fromPersistence: decision.fromPersistence }
+              : {}),
+          };
+        }
+        set({ isRunning: false, nodeOutputs, lastBuild: build, lastAttestation: attestation, buildSteps });
         if (emitEvents) {
           emit(FLOW_RUN_FINISHED, {
             ok: true,
             durationMs: Date.now() - startedAt,
             graphHash,
             outputs: nodeOutputs,
+            build,
           } satisfies FlowRunFinishedPayload);
         }
       } catch (err) {
@@ -270,7 +406,7 @@ export function createBlockGraphStore(emitEvents: boolean) {
           } satisfies FlowRunFinishedPayload);
         }
       } finally {
-        if (activeExecutor === executor) activeExecutor = null;
+        if (activeAbort === controller) activeAbort = null;
       }
     },
 
@@ -279,7 +415,8 @@ export function createBlockGraphStore(emitEvents: boolean) {
       // writes are discarded...
       runSeq += 1;
       // ...and actually stop the computation, not just its result delivery.
-      activeExecutor?.cancel();
+      activeAbort?.abort();
+      activeAbort = null;
       set({ isRunning: false });
     },
 
@@ -293,8 +430,55 @@ export function createBlockGraphStore(emitEvents: boolean) {
         executionErrors: {},
         compileDiagnostics: [],
         nodeOutputs: {},
+        lastBuild: null,
+        lastAttestation: null,
+        buildSteps: {},
+        buildPreview: null,
       });
       notifyChanged();
+    },
+
+    buildCacheStats: () => getBuildEngine().cacheStats(),
+
+    clearBuildCache: async () => {
+      await getBuildEngine().clearCache();
+      set({ lastBuild: null, lastAttestation: null, buildSteps: {}, buildPreview: null });
+    },
+
+    previewBuild: async () => {
+      const { instances, connections } = get();
+      const result = compile({ id: 'main', instances, connections }, blockRegistry);
+      if (!result.ok || !result.program) {
+        set({ buildPreview: null, compileDiagnostics: result.diagnostics });
+        return;
+      }
+      const preview = await getBuildEngine().preview(compiledRegionToPlan(result.program));
+      // A concurrent graph edit or clear() must not resurrect a stale preview.
+      if (
+        get().instances !== instances ||
+        get().connections !== connections
+      ) {
+        return;
+      }
+      set({ buildPreview: preview, compileDiagnostics: [] });
+    },
+
+    exportBuildCache: async () => {
+      const engine = getBuildEngine();
+      const bundle = await exportCacheBundle(engine.cacheStore, {
+        environment: engine.environmentFingerprint,
+      });
+      return cacheBundleToJson(bundle);
+    },
+
+    importBuildCache: async (json, allowForeign = false) => {
+      const engine = getBuildEngine();
+      const result = await importCacheBundle(engine.cacheStore, json, {
+        expectedEnvironment: engine.environmentFingerprint,
+        allowForeignEnvironment: allowForeign,
+      });
+      set({ buildPreview: null });
+      return result;
     },
 
     toJSON: () => ({
@@ -332,6 +516,10 @@ export function createBlockGraphStore(emitEvents: boolean) {
         executionErrors: {},
         compileDiagnostics: [],
         nodeOutputs: {},
+        lastBuild: null,
+        lastAttestation: null,
+        buildSteps: {},
+        buildPreview: null,
       });
     },
   }));

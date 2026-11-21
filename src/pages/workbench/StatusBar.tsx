@@ -50,7 +50,11 @@ export function StatusBar() {
   useEffect(() => {
     if (!perfOpen) return;
     const onPointer = (e: PointerEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      const target = e.target as Element;
+      // The two status-bar chips are the triggers: let their own onClick
+      // toggle the popover instead of closing it here and reopening it there.
+      if (target.closest('[data-perf-trigger]')) return;
+      if (popoverRef.current && !popoverRef.current.contains(target)) {
         setPerfOpen(false);
       }
     };
@@ -145,6 +149,7 @@ export function StatusBar() {
           title={t('ux.perf.title')}
           aria-label={t('ux.perf.title')}
           aria-expanded={perfOpen}
+          data-perf-trigger
           onClick={() => setPerfOpen((v) => !v)}
         >
           {gpu.available
@@ -158,6 +163,7 @@ export function StatusBar() {
           title={t('ux.perf.title')}
           aria-label={t('ux.perf.title')}
           aria-expanded={perfOpen}
+          data-perf-trigger
           onClick={() => setPerfOpen((v) => !v)}
         >
           {perf.fps} FPS
@@ -168,8 +174,13 @@ export function StatusBar() {
         <span className="statusbar-clock" title={now.toLocaleDateString()}>{clock}</span>
       </div>
 
-      {perfOpen && (
-        <div className="statusbar-popover" ref={popoverRef} role="dialog" aria-label={t('ux.perf.title')}>
+      <div
+        className={`statusbar-popover${perfOpen ? ' is-open' : ''}`}
+        ref={popoverRef}
+        role="dialog"
+        aria-label={t('ux.perf.title')}
+        aria-hidden={!perfOpen}
+      >
           <div className="statusbar-popover-title">{t('ux.perf.title')}</div>
           <dl className="statusbar-popover-grid">
             <dt>{t('ux.perf.fps')}</dt>
@@ -197,8 +208,7 @@ export function StatusBar() {
               {perfWarnings} {t('ux.perf.issues')}
             </div>
           )}
-        </div>
-      )}
+      </div>
     </footer>
   );
 }

@@ -8,3 +8,4 @@ export * from './logistic';
 export * from './ridge';
 export * from './poly';
 export * from './diagnostics';
+export * from './nonlinear';

@@ -11,13 +11,13 @@
 // All cleaning logic lives in @/core/cleaning; this file only orchestrates.
 // ==========================================================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useT } from '@/i18n';
+import { useCallback, useEffect, useMemo, useState } from 'react';import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { useProjectStore } from '@/stores/projectStore';
 import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { useEditorStore } from '@/stores/editorStore';
-import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { resolveDataFile } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { parseCodeToIR } from '@/editor/code/parse';
 import { hashString } from '@/core/repro/random';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -61,11 +61,8 @@ export default function CleaningWizardPage() {
   const project = useProjectStore((s) => s.project);
   const addDataFile = useProjectStore((s) => s.addDataFile);
 
-  const fileGroups = useMemo(
-    () => listDataFilesGrouped(DATA_EXTS_SERIES),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional invalidation trigger
-    [project?.data.files],
-  );
+  // The data file listing lives in the shared picker (DataFilePickField); it
+  // refreshes the workspace snapshot each time the floating window opens.
   const [fileName, setFileName] = useState('');
   const [source, setSource] = useState<CleaningTable | null>(null);
   const [parseError, setParseError] = useState('');
@@ -214,18 +211,11 @@ export default function CleaningWizardPage() {
             {/* ---- source picker ---- */}
             <h4 className="share-section-title">{t('clean.source')}</h4>
             <div className="analysis-row">
-              <select className="input" value={fileName} onChange={(e) => void loadFile(e.target.value)}>
-                <option value="">{t('clean.pick_file')}</option>
-                {fileGroups.project.length + fileGroups.examples.length === 0 && (
-                  <option value="" disabled>{t('clean.no_files')}</option>
-                )}
-                {fileGroups.project.map((n) => (
-                  <option key={`p:${n}`} value={n}>{n}</option>
-                ))}
-                {fileGroups.examples.map((n) => (
-                  <option key={`e:${n}`} value={n}>{n}</option>
-                ))}
-              </select>
+              <DataFilePickField
+                value={fileName}
+                placeholderKey="clean.pick_file"
+                onChange={(name) => void loadFile(name)}
+              />
               {source && (
                 <span className="analysis-note">
                   {t('clean.rows', { n: source.rows.length, m: source.columns.length })}

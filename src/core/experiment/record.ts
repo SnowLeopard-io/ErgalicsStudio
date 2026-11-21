@@ -9,7 +9,28 @@
 // ==========================================================================
 
 /** Which workbench surface produced the run. */
-export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql' | 'inference';
+export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql' | 'inference' | 'industrial';
+
+/**
+ * Incremental-build breakdown attached to a run (Flow mode). Kept separate
+ * from `params` on purpose: `params` is the *input* snapshot, so embedding
+ * per-run cache counters and durations there made `diffRuns` report "params
+ * changed" for two identical runs.
+ */
+export interface RunBuildStats {
+  total: number;
+  computed: number;
+  cached: number;
+  blocked: number;
+  failed: number;
+  durationMs: number;
+  planHash: string;
+  environment: string;
+  /** Digest of the exported build attestation (provenance, optional). */
+  attestationDigest?: string;
+  /** Cached / (cached + computed), 0 when nothing ran. */
+  cacheHitRate: number;
+}
 
 export interface RunRecord {
   id: string;
@@ -36,6 +57,8 @@ export interface RunRecord {
   /** True when the run ended in an error — failed runs are kept on purpose
    *  (they are part of the experiment's history) but flagged. */
   failed?: boolean;
+  /** Incremental-build breakdown (Flow runs only). */
+  build?: RunBuildStats;
   createdAt: number;
   durationMs: number;
 }
@@ -53,6 +76,7 @@ export interface CreateRunRecordArgs {
   metrics?: Record<string, number>;
   seed?: number | null;
   failed?: boolean;
+  build?: RunBuildStats;
   durationMs?: number;
   createdAt?: number;
 }
@@ -73,6 +97,7 @@ export function createRunRecord(args: CreateRunRecordArgs): RunRecord {
     metrics: args.metrics ?? {},
     seed: args.seed ?? null,
     failed: args.failed ?? false,
+    ...(args.build ? { build: args.build } : {}),
     createdAt: args.createdAt ?? Date.now(),
     durationMs: args.durationMs ?? 0,
   };

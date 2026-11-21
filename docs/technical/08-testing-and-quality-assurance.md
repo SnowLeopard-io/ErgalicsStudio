@@ -1,0 +1,127 @@
+# 08 Testing and Quality Assurance
+
+Testing is treated as a first-class part of the codebase: pure logic is unit-tested with Vitest in Node, product behavior is verified end-to-end against a production preview by Playwright-core driving a headless browser, and performance and size are guarded by baselines and budgets in CI.
+
+Current baseline (measured by a full `vitest run` on 2026-11-16):
+
+| Metric | Value |
+| --- | --- |
+| Unit test files | 263 (`tests/` contains 267 `.ts` files in total; 4 are shared helpers / type declarations: vitest.setup.ts, blocks/fixtures.ts, core/opfs-helpers.ts, fixtures/native-esm.d.ts) |
+| Unit test cases | 4,076 passed + 2 skipped (4,078 total; the skipped cases require GPU conditions unavailable in the headless environment) |
+| End-to-end scripts | 14 (1 smoke script + 13 `verify-*` scripts); `npm run test:e2e` chains 11 suites, while 3 have separate entry points |
+| CI workflows | 5 (ci, bench, security, release, deploy) |
+| Type checking | `tsc --noEmit` strict mode, no output emitted; `npm run lint` actually runs the `eslint .` code-style check followed by `tsc --noEmit` (lint is not equivalent to typecheck) |
+
+## I. Unit tests (Vitest) {#一、单元测试-vitest}
+
+Run `npm test` (i.e. `vitest run`) for all unit tests. `npm run verify` runs type checking followed by unit tests and is the combined check the contribution guide requires to remain green.
+
+Test files are organized by topic under `tests/`: 147 sit in the root (plugin runtime and cross-cutting concerns) and 116 are grouped into one subdirectory per subsystem:
+
+| Topic | File count | Coverage |
+| --- | --- | --- |
+| Plugin runtime and plugin families (root) | 147 | Built-in plugins; research / geophysics / environmental / biology / data plugins; structure and chemistry plugins; electromagnetic eigenvalues and fluid coupling; 3D visualization; plugin enhancements and defect regressions; sandbox and cspkg; file-format routing; Git adapter; GPU services and WASM; theme packs; i18n; accessibility and contrast; citation metadata; PWA, gallery, courses, cleaning, submission, storage and run records, app state stores. Also kernel unit tests for 32 plugins in the research-grade suite (chemistry: titration / reaction order / Turing patterns; physics: quantum solver / Ising / heat engine / diffusion / diffraction / trajectories; engineering: circuits / trusses / control; biology and environment: pharmacokinetics / Mendelian genetics / neurons / predator–prey; earth science: carbon dating / soil water / hydrology; math: Fourier / domain coloring / ODE fields; statistics: CLT / Markov / Zipf; economics and psychology: options / evolutionary games / signal detection theory / reaction time; astronomy and data: transit / Hertzsprung–Russell diagram / image processing). |
+| Editor and IR (editor/) | 16 | Shared IR validation and round trips, Blockly JSON ↔ IR, interpreter, JS and Python code generation, three-mode sync-threeway, block i18n, editor store, Studio API, code samples, and free three-language round trips pinned by `roundtrip-all-langs.test.ts` |
+| Block system (blocks/) | 13 | DataTable operations, block catalog and registry, compiler, executor, geometry, statistics blocks, file data, operators, visualization bridge, units |
+| Statistics kernel (stats/) | 7 | Descriptive statistics, hypothesis tests, multiple-comparison correction, effect sizes, power analysis, special functions, narrative rendering of results |
+| Platform core (core/) | 11 | Compute service and WGSL kernels, OPFS and migration, delimited-text parsing, VFS paths, Worker pool, workspace search |
+| Stores (stores/) | 9 | project / notebook / experiment / chunk / block / aiPanel, project isolation, store orchestration, workbench session |
+| Numerical kernels (numerics/) | 5 | Interpolation, ODE integrators, optimization, root finding, sparse linear algebra |
+| Finite element (fem/) | 4 | Delaunay meshing, Poisson, heat conduction, elasticity |
+| Python runtime (pyodide/) | 4 | REPL commands, Studio variables, worker snippets, workspace files |
+| Terminal (terminal/) | 3 | Command continuation, terminal store, window geometry |
+| I/O (io/) | 4 | HDF5 / NetCDF / FITS / Zarr loaders and helpers |
+| R runtime (r/) | 4 | Runtime factory, full-runtime fallback, DSL, webR bridge |
+| Reproducibility (repro/) | 4 | Random numbers, run manifests, lockfiles (including v2), snapshots |
+| Uncertainty (uncertainty/) | 3 | Bootstrap, Monte Carlo, MCMC and diagnostics |
+| Templates (templates/) | 3 | Discipline template catalog, plugin scaffolding, guided flows |
+| Plugin signing / inference / sweeps / figures / research tools | 2 each | Signature verification and website packages, Bayesian templates and ONNX, design-point expansion, figure composition and persistence, research-tool budgets and second-round audits |
+| Other single-file modules | 1 each | AI assistant intents, chemistry, chunked reading, data quality, lineage, models, notebook, packaging, pages, plots, profiling, reports, signals, SQL |
+| Units (units/) | 2 | Dimensional quantities and conversions |
+
+Notable testing techniques:
+
+| Technique | Description |
+| --- | --- |
+| Reset module-level caches | Modules with module-level state, such as the WASM loader, are reset before each case with `resetModules` and `doMock`, then dynamically imported as fresh instances to prevent cross-test contamination. |
+| FakeWorker drives the real runtime | Plugin Worker RPC uses a fake Worker to host the real runtime implementation and complete an end-to-end round trip in Node, without a browser. |
+| Strict-mode pitfalls documented | `new Function` in strict mode cannot combine a `"use strict"` directive with default parameter values; the legacy sandbox therefore uses plain parameters and passes `undefined` explicitly. Such points that “look like style issues but are actually correctness issues” are recorded in test comments. |
+| Institutionalized regression cases | Fixed plugin defects become regression cases such as `pluginBugfixes`, and tests verify i18n keys are complete to avoid recurrence. |
+
+## II. End-to-end tests (Playwright-core) {#二、端到端测试-playwright-core}
+
+Each script starts its own `vite preview` production preview (with exceptions for a few suites), drives a headless browser, and asserts real pixels and zero console errors:
+
+| Suite | Port | Coverage |
+| --- | --- | --- |
+| smoke-test | 4173 | Startup, autoloaded plugins, automatic project creation, reactive parameters, recent project restoration |
+| verify-ui | 4173 | Post-redesign functional regression and layout geometry: dimensions, theme switching, canvas visibility, plugin list |
+| verify-fixes | 4177 | Auto-fit, unified monospace font, Run control switch, top-bar grouping |
+| verify-3d | 4199 | 3D point cloud in the host Three.js scene |
+| verify-plugins | 4198 | Mutual exclusion of 3D and 2D viewport visibility, contour rendering of a vortex field, scatter and tornado examples |
+| verify-webgpu | 4289 (dev server) | Two stages: `tests/e2e/webgpu.html` requests a real WebGPU device in headless Edge (SwiftShader software adapter), drives the native-core module interface (buffers, kernel compilation, dispatch, mapAsync readback) with real WGSL kernels from `src/core/wgsl.ts`, and compares GPU and CPU integrators for strict and boundary scenarios (tolerances 5e-3 and 0.02). It then loads the particles plugin and galaxy sample in the app, clicks “GPU 计算,” and asserts that the success notice reports the real engine and measured GPU time. |
+| verify-block-mode | 4174 | Block mode: mode switching, compilation, execution, block-to-code synchronization |
+| verify-code-mode | 4175 | Monaco plus Pyodide: run Python, variable panel, console, plot canvas |
+| verify-lang-modes | 4176 | R / JS Code mode and cross-mode switching, R→JS translation, lossless Flow ⇄ Block ⇄ Code cycle |
+| verify-ai-samples | 4211 | Load all four AI training samples individually through the sample dialog and capture notices, making parsing failures observable rather than inferred |
+| verify-ai-training | 4199 | AI trainer: hyperparameter panel, sample loading, real TF.js training and live loss curve, model-switch reset to default hyperparameters, logistic regression decision boundary, MNIST CNN digit thumbnails |
+| verify-research | 4173 | Research-tool flow: launcher → run records → lineage → figure workbench → supplement packaging → notebook |
+| verify-r-runtime | Custom | Full webR runtime check: after entering Code mode and switching to R, the engine badge must change to the full-R label and a real R program must print to the console; on fallback, capture the original import error for the fallback notice |
+| verify-site | — | Merged deployment artifact integrity: a local static server probes each path; all 8 canonical paths return 200 and nonempty content |
+
+**Runner.** `npm run test:e2e` is `node scripts/e2e-run.mjs` and chains **11 suites**: `smoke-test`, `verify-ui`, `verify-fixes`, `verify-3d`, `verify-plugins`, `verify-webgpu`, `verify-block-mode`, `verify-code-mode`, `verify-ai-samples`, `verify-ai-training`, and `verify-research`. The runner has `--continue` semantics: if a suite fails it continues through the others, prints a pass / fail summary, and exits nonzero if any failed, replacing the old npm chain's stop-on-first-failure behavior. It also supports filtering by name (`node scripts/e2e-run.mjs smoke ui`) and `--parallel <n>` concurrency (the harness automatically yields to another port on conflicts).
+
+**Inside and outside the chain.** The three scripts not in the chain have separate entry points: `verify-lang-modes` depends on fully loading Monaco and Pyodide (slower); `verify-r-runtime` requires vendored webR artifacts; `npm run verify:site` checks merged deployment artifacts rather than a development preview (with `--merge`, it first runs `merge-deploy.mjs`, then serves `pages-out` locally and asserts that all 8 canonical paths—including the site root, favicon, `/app/` workbench, `/app/docs/` documentation site, and its deep pages—return 200 and nonempty content).
+
+**Shared harness.** All suites use `scripts/_harness.mjs`, unifying three things formerly scattered in scripts and valid on only one machine as “resolve from the environment with reasonable defaults”: browser executable path (platform-specific candidates, Edge preferred and Chrome as fallback, with CI able to pin `CHROME_PATH`), screenshot directory (system temporary directory), and preview port (automatically select another if occupied). The harness also guarantees cleanup so failed assertions do not leak preview servers or browser processes.
+
+The contribution guide requires new plugins or features to include an end-to-end check.
+
+## III. Performance benchmarks and size budgets {#三、性能基准与体积预算}
+
+Performance regressions use **baseline comparisons** rather than absolute thresholds, with separate baseline files per environment:
+
+- `runAllBenchmarks()` in `src/core/bench/` runs four key-path suites—import / GPU kernels / rendering frame rate / memory—and returns structured results with environment information (Node version, platform, architecture, CPU model, date).
+- `npm run bench` (`node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs && node scripts/bench-report.mjs`) runs headlessly in Node and writes `bench-results.json`. `scripts/bench-compare.mjs` compares each metric to a baseline: `bench/baseline.json` targets developer machines, while `bench/baseline.<platform>-<arch>.json` (the repository already has `baseline.linux-x64.json` and `baseline.win32-x64.json`) targets CI because numbers on shared runners are not comparable to developer desktops. `scripts/bench-report.mjs` generates a single-file HTML report. CI uses `bench:ci` (both comparison and reporting include `--env-baseline`).
+- On the first run in a new environment with no baseline, `bench-compare.mjs` records one and exits 0; the bench workflow commits that file back to the repository for future runs to enforce a real gate. Two **hardware-noise guards** re-record rather than falsely fail (the re-recorded file is **deliberately not committed** to avoid a commit on every run): ① the CPU model or Node version reported by the runner differs from the baseline; ② CPU/Node strings match, but ≥75% of throughput metrics regress in the same direction and all memory metrics remain level—a typical signature of the same CPU model moved to a different host (different microcode/firmware/load). Selective or mixed-direction real code regressions do not trigger the guard and still fail normally.
+- For size, `scripts/build-budget.mjs` analyzes build artifacts (`dist/`, or `pages-out/app/` after merged deployment) and gates against the root `budget-baseline.json` (FR-06).
+
+## IV. Continuous integration (5 workflows) {#四、持续集成-5-条工作流}
+
+| Workflow | Trigger | Key steps and gates |
+| --- | --- | --- |
+| **ci** | Push to main, all PRs | Two jobs. `verify`: citation metadata check (FR-10) → `tsc --noEmit` → ESLint → `npm test` → generate WASM stub → `build:web` → performance budget (FR-06). `e2e-smoke`: after building, run the two fastest end-to-end suites with `e2e-run smoke ui` (runner-provided Chrome pinned through `CHROME_PATH`); the full suite remains local. Any failure makes CI red. |
+| **bench** | Push to main, Release publication | `npm run bench:ci` (run benchmarks + compare against environment baseline) → commit the environment baseline on first run (job has `contents: write`) → write results to job summary and upload an artifact; attach to the Release on publication (FR-23). |
+| **security** | Push to main, PR, every Monday 03:00 UTC, manual | Three parallel jobs: OSSF Scorecards (v2.4.4, SARIF retained 30 days), SBOM generation (CycloneDX 1.5, generated from `package-lock.json` by a dependency-free Node script, retained 90 days), `npm audit` (**high / critical block merging**, with an `AUDIT_ALLOWLIST` exception mechanism requiring a reason and follow-up issue; exceptions become warnings). |
+| **release** | Push `v*` tag | build: generate WASM stub → `build:web` → generate `CITATION.cff` → package dist zip; archive: deposit with Zenodo and mint a DOI, **explicitly erroring with three configuration steps if `ZENODO_TOKEN` is missing** rather than silently skipping archival; release: publish a GitHub Release with zip, `CITATION.cff`, and DOI. |
+| **deploy** | Push to main, manual | Install Rust (`wasm32-unknown-unknown` target, cached) and `wasm-bindgen-cli 0.2.127` → `build:wasm` compiles real WASM → build workbench `app/` and official root site → `deploy:merge` combines artifacts → `verify-site` checks 8 canonical paths → publish GitHub Pages. |
+
+**CI has no Rust toolchain** (except deploy): other workflows' `dist` uses a module stub generated by `scripts/make-wasm-stub.mjs`, because `vite build` splits the dynamic import in `src/core/wasm.ts` into a separate chunk; only the chunk's existence is needed at build time, not the real kernel.
+
+**The build chain has built-in gates**: `npm run build` = `build:wasm` && `tsc --noEmit` && `vite build` && `build-docs`, stopping if any step fails. For frontend-only scenarios use `npm run build:web` (skips WASM compilation and starts with a stub).
+
+## V. Engineering scripts {#五、工程脚本}
+
+The 41 engineering scripts under `scripts/` (40 `.mjs` + 1 `.py`, plus shared type declarations and benchmark run logs) fall into seven categories:
+
+| Category | Scripts |
+| --- | --- |
+| End-to-end and harness | `e2e-run.mjs` (runner: --continue, summary table, --parallel), `_harness.mjs` (shared harness), `smoke-test.mjs`, `verify-*.mjs` (13: webgpu / 3d / plugins / code-mode / block-mode / lang-modes / r-runtime / ai-samples / ai-training / research / ui / fixes / site), `_line-check.mjs` (visually inspect actual rendering colors of the current Monaco line and selection) |
+| Performance and budget | `bench-run.mjs`, `bench-compare.mjs`, `bench-report.mjs`, `build-budget.mjs` |
+| Build and deployment | `build-wasm.mjs`, `make-wasm-stub.mjs`, `build-docs.mjs`, `merge-deploy.mjs`, `gen-sw-precache.mjs`, `copy-pyodide.mjs`, `copy-webr.mjs`, `vendor-blockly-media.mjs` |
+| Assets and sample generation | `make-example-data.mjs` (rebuild distribution.dat, field.json, and base64 test patterns for image demos), `make-example-projects.mjs` (build example .clproj files from sample data), `gen-ai-examples.mjs` (seeded PRNG producing deterministic, committable CSV learners can inspect) |
+| Compliance and signing | `sign-cspkg.mjs` (.cspkg signing CLI: --genkey generation, signing, verification), `gen-sbom.mjs` (CycloneDX SBOM), `gen-citation-cff.mjs`, `check-citation.mjs` |
+| Domain-specific | `chem-reactmd-validate.mjs` (runs the Python NumPy engine for all catalog reactions with real payloads at low / high temperatures and prints a comparison table, confirming each reaction physically completes only at high temperature), `repro-plugins.mjs` (one-time reproduction and baseline checks for the two competition plugins fluid-cfd-coupler and em-eigensolver), `make-qr.py` (QR generation) |
+| Technical documentation typesetting | `build-tech-docs.mjs` (md → paginated HTML → A4 PDF), `build-tech-summary.mjs` (assemble a compendium from individual chapters so the compendium cannot drift from them) |
+
+`gen-citation-cff.mjs` and `check-citation.mjs` maintain `CITATION.cff` together, one writing and one checking (the checker compares hard-coded author / license values in `src/core/citation.ts` with `package.json`, exiting nonzero and failing CI on drift). `gen-sw-precache.mjs` generates the Service Worker precache manifest so offline coverage matches build artifacts exactly. `copy-pyodide.mjs` and `copy-webr.mjs` vendor Python / R runtimes for local self-hosting, avoiding runtime dependence on a public CDN.
+
+**Technical documentation typesetting pipeline.** Eleven documents under `docs/technical/` are rebuilt by `node scripts/build-tech-docs.mjs`: Markdown is converted to blocks by a built-in subset parser, Mermaid fences are rendered to inline SVG in a headless browser at build time (the output has no client-side scripts, and the PDF contains scalable vector graphics), and then **each block's height is measured** at real page dimensions and packed by page height. A fixed-height `.page` with `overflow: hidden` would clip content whenever a section grows if content were balanced by eye, so pagination must be measurement-driven. Measurements also populate TOC page numbers, and every generated page is rechecked for content crossing the bottom margin; overflow causes repagination with reduced usable height. The technical summary (`ergalics-studio.md` in this English edition, `Ergalics Studio.md` in the Chinese edition) is assembled from the individual source articles by `build-tech-summary.mjs`, so “individual article updated while compendium retains old numbers” cannot occur.
+
+## VI. Quality principles {#六、质量原则}
+
+1. **Pure functions first.** The compiler, statistics kernel, plot and figure engines, code generation, and IR conversion are pure functions and can be tested directly in Node. The lineage graph's layered layout also has no React / store / DOM dependency.
+2. **Contain side effects.** The block system has only one side-effectful module, the render bridge; the executor is asynchronous but side-effect-free. The research-tool glue layer (`researchUi.ts`) is also deliberately thin and free of React dependencies so it can be tested separately.
+3. **Numerical consistency as a safeguard.** Every GPU kernel has a mathematically consistent CPU implementation, checked for agreement at both unit and end-to-end levels—this is the prerequisite for trusting automatic fallback.
+4. **Make boundaries explicit.** Boundary inputs produce structured errors, empty-data startup has guarded notices, and missing capabilities are honestly reported by self-checks, rather than silent failure or degradation; reproducibility has dedicated gate documentation.
+5. **Never skip silently.** Archival must actually occur when required (missing Zenodo configuration errors with guidance), gates must actually be enforced (audit exceptions need reasons), and a missing first-run baseline is recorded and committed—distinguishing “did not run” from “ran.”

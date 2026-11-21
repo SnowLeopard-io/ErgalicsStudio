@@ -14,7 +14,7 @@ import {
   assembleP1Stiffness,
 } from '../assemble/stiffness';
 import { SourceFn, assembleSourceVector, assembleEdgeLoad, EdgeSelector, selectBoundaryEdges } from '../assemble/load';
-import { DofValue, applyDirichlet, selectEdgeNodes, selectNodesByPredicate, selectTaggedNodes } from '../bc/dirichlet';
+import { DofValue, applyDirichlet, enforceDirichletValues, selectEdgeNodes, selectNodesByPredicate, selectTaggedNodes } from '../bc/dirichlet';
 import { PlanarMesh, nodeCount, nodeX, nodeY } from '../mesh/types';
 import { CgOptions } from '../solve/cg';
 import { solveStationarySystem } from '../solve/stationary';
@@ -44,7 +44,8 @@ export interface PoissonProblem {
   /** Source term f(x, y, tag). Default 0. */
   source?: SourceFn;
   dirichlet?: DirichletSpec;
-  neumann?: NeumannSpec;
+  /** One or several prescribed outward-flux edge groups. */
+  neumann?: NeumannSpec | NeumannSpec[];
   cg?: CgOptions;
 }
 
@@ -86,18 +87,33 @@ export function solvePoisson(problem: PoissonProblem): FemScalarResult {
   const { mesh } = problem;
   const n = nodeCount(mesh);
   const k = problem.k ?? 1;
+  // k ≤ 0 or non-finite yields a singular/indefinite system whose zero
+  // solution would look valid; reject it at the boundary.
+  const tags = new Set<number>();
+  for (const el of mesh.elements) tags.add(el.tag);
+  if (tags.size === 0) tags.add(0);
+  for (const tag of tags) {
+    const value = coefficientAt(k, tag);
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`fem: conductivity must be positive and finite (element tag ${tag})`);
+    }
+  }
   const builder = new CsrBuilder(n, n);
   addPoissonStiffness(mesh, k, builder);
   const load = assembleSourceVector(mesh, problem.source ?? (() => 0));
-  if (problem.neumann) {
-    const selected = selectBoundaryEdges(mesh, problem.neumann.edges);
-    const flux = assembleEdgeLoad(mesh, selected, problem.neumann.flux);
+  const neumann = problem.neumann
+    ? (Array.isArray(problem.neumann) ? problem.neumann : [problem.neumann])
+    : [];
+  for (const spec of neumann) {
+    const selected = selectBoundaryEdges(mesh, spec.edges);
+    const flux = assembleEdgeLoad(mesh, selected, spec.flux);
     for (let i = 0; i < n; i += 1) load[i] = load[i]! + flux[i]!;
   }
   const K = builder.toCsr();
   const dofs = problem.dirichlet ? dirichletDofs(mesh, problem.dirichlet) : [];
   applyDirichlet(K, load, dofs);
   const solved = solveStationarySystem(K, load, problem.cg);
+  enforceDirichletValues(solved.solution, dofs);
 
   // Per-element gradients and flux.
   const nE = mesh.elements.length;

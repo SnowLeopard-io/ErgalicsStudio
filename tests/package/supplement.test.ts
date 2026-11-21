@@ -8,13 +8,25 @@
 // ==========================================================================
 
 import { describe, it, expect } from 'vitest';
-import { unzipSync, strFromU8 } from 'fflate';
-import { buildSupplement, countWorkspaceDataFiles } from '@/core/package/supplement';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
+import {
+  buildSupplement,
+  countWorkspaceDataFiles,
+  verifySupplementBundle,
+} from '@/core/package/supplement';
 import type { SupplementManifest } from '@/core/package/supplement';
 import { MemoryVfs } from '@/core/vfs';
 import { seedStandardSkeleton } from '@/core/vfs/skeleton';
 import { createEmptyProject } from '@/types/project';
 import type { Project } from '@/types/project';
+import { createRunRecord } from '@/core/experiment/record';
+import { MemoryBuildCache } from '@/core/build/cache';
+import { encodeDataValue } from '@/core/build/codec';
+import { cacheBundleToJson, exportCacheBundle } from '@/core/build/bundle';
+import { createBuildAttestation } from '@/core/build/provenance';
+import type { BuildPlan } from '@/core/build/plan';
+import type { BuildStats } from '@/core/build/engine';
+import type { BuildEnvironment } from '@/core/build/key';
 
 const ROOT = '/workspaces/test-project';
 
@@ -82,7 +94,7 @@ describe('buildSupplement — manifest', () => {
     const zip = await build(project, { reproLock: true });
     expect(zip['repro.lock']).toBeDefined();
     const lock = JSON.parse(zip['repro.lock']!) as { lockVersion: number; projectId: string; runs: unknown[] };
-    expect(lock.lockVersion).toBe(2);
+    expect(lock.lockVersion).toBe(3);
     expect(lock.projectId).toBe(project.id);
     expect(Array.isArray(lock.runs)).toBe(true);
     const manifest = JSON.parse(zip['manifest.json']!) as SupplementManifest;
@@ -158,6 +170,96 @@ describe('buildSupplement — mirrors the workspace tree', () => {
     );
     expect(zip['manifest.json']).toBeDefined();
     expect(zip['repro.lock']).toBeDefined();
+  });
+});
+
+describe('buildSupplement — reproducibility bundle (one packager)', () => {
+  const makeRun = (projectId: string) =>
+    createRunRecord({ projectId, source: 'flow', params: { k: 2 }, metrics: { r2: 0.9 } });
+
+  async function evidence() {
+    const cache = new MemoryBuildCache();
+    await cache.put({ key: 'k1', value: encodeDataValue({ kind: 'scalar', value: 1 })! });
+    const plan: BuildPlan = { id: 'p', steps: [] };
+    const stats: BuildStats = {
+      planId: 'p',
+      planHash: 'plan-hash',
+      environment: 'env-1',
+      total: 0,
+      computed: 0,
+      cached: 0,
+      blocked: 0,
+      failed: 0,
+      durationMs: 0,
+      concurrency: 1,
+      outputs: {},
+      steps: [],
+    };
+    const environment: BuildEnvironment = { appVersion: '1', schemaVersion: 'v1' };
+    return {
+      buildCacheJson: cacheBundleToJson(
+        await exportCacheBundle(cache, { environment: 'env-1', createdAt: 1 }),
+      ),
+      attestationJson: JSON.stringify(
+        createBuildAttestation({ plan, stats, environment, createdAt: 1 }),
+      ),
+    };
+  }
+
+  it('packages build evidence into the SAME archive as the lock and project', async () => {
+    const project = makeProject();
+    const run = makeRun(project.id);
+    const bytes = await buildSupplement(project, {
+      root: ROOT,
+      vfs: new MemoryVfs(),
+      runs: [run, makeRun('other-project')],
+      runIds: [run.id],
+      reproLock: true,
+      includeProject: true,
+      includeData: false,
+      includeCode: false,
+      includeWorkspace: false,
+      integrity: true,
+      ...(await evidence()),
+    });
+    const files = unzipSync(bytes);
+    expect(Object.keys(files).sort()).toEqual(
+      ['build-attestation.json', 'build-cache.json', 'manifest.json', 'project.clproj', 'repro.lock']
+        .sort(),
+    );
+    const manifest = JSON.parse(strFromU8(files['manifest.json']!)) as SupplementManifest;
+    expect(manifest.runs.map((r) => r.id)).toEqual([run.id]);
+    expect(manifest.contents.buildCache).toBe('build-cache.json');
+    expect(manifest.contents.attestation).toBe('build-attestation.json');
+    // All members except manifest.json itself (lock, cache, attestation, project).
+    expect(manifest.integrity?.files).toHaveLength(4);
+
+    const result = verifySupplementBundle(bytes);
+    expect(result.issues).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.verified).toContain('build-attestation.json');
+  });
+
+  it('detects a swapped member and a tampered manifest digest', async () => {
+    const project = makeProject();
+    const bytes = await buildSupplement(project, {
+      root: ROOT,
+      vfs: new MemoryVfs(),
+      runs: [makeRun(project.id)],
+      reproLock: true,
+      integrity: true,
+    });
+    const entries = unzipSync(bytes);
+    entries['repro.lock'] = strToU8('{}');
+    const swapped = verifySupplementBundle(zipSync(entries, { level: 6 }));
+    expect(swapped.ok).toBe(false);
+    expect(swapped.issues.some((issue) => issue.includes('repro.lock'))).toBe(true);
+
+    const clean = JSON.parse(strFromU8(entries['manifest.json']!)) as SupplementManifest;
+    clean.integrity!.digest = 'deadbeef';
+    entries['manifest.json'] = strToU8(JSON.stringify(clean));
+    const tampered = verifySupplementBundle(zipSync(entries, { level: 6 }));
+    expect(tampered.issues).toContain('manifest digest mismatch');
   });
 });
 

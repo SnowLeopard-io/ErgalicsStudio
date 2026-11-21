@@ -113,7 +113,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  /* Two-line topbar labels ("普/通") read broken — keep each on one line. */
+  /* Two-line topbar labels ("�?�?) read broken �?keep each on one line. */
   white-space: nowrap;
   transition: background var(--transition-fast), color var(--transition-fast),
     transform var(--transition-fast);
@@ -325,7 +325,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  /* 左侧留白略大：品牌/项目名不再顶住屏幕左缘。 */
+  /* 左侧留白略大：品�?项目名不再顶住屏幕左缘�?*/
   padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
@@ -378,7 +378,7 @@
   display: flex;
   min-height: 0;
   /* 为收起态贴边的浮层按钮 (.panel-edge-*) 提供定位上下文，使其不占横向
-     布局槽位，从而让中央画布填满整行。 */
+     布局槽位，从而让中央画布填满整行�?*/
   position: relative;
 }
 
@@ -393,8 +393,8 @@
   padding: var(--space-3);
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  overflow-y: auto;  /* 横向内容一律省略号收尾，不出横向滚动条（拖拽手柄挂在
-     .panel-wrap 包裹层上，不受此裁剪影响）。 */
+  overflow-y: auto;  /* 横向内容一律省略号收尾，不出横向滚动条（拖拽手柄挂�?
+     .panel-wrap 包裹层上，不受此裁剪影响）�?*/
   overflow-x: hidden;
 }
 
@@ -595,7 +595,7 @@
   color: var(--color-text-secondary);
 }
 .explorer-guide-list li::before {
-  content: '▸ ';
+  content: '�?';
   color: var(--color-text-tertiary);
 }
 .plugin-list {
@@ -609,6 +609,11 @@
 
 /* Collapsible discipline groups in the sidebar plugin list. */
 .plugin-group {
+  margin-top: var(--space-2);
+}
+
+/* Free-text plugin filter under the "Load" button. */
+.plugin-search {
   margin-top: var(--space-2);
 }
 
@@ -720,7 +725,7 @@
 /* ---- central area: the scope ---- */
 
 /* Column wrapper: viewfinder canvas on top, science readout strip below in
-   normal flow (the strip must NOT live inside .central — the plugin host is
+   normal flow (the strip must NOT live inside .central �?the plugin host is
    position:absolute there, which made the strip float over the canvas). */
 .central-wrap {
   position: relative;
@@ -732,7 +737,7 @@
 }
 
 /* Immersive fullscreen (canvas toolbar entry): the canvas wrap IS the
-   fullscreen element — topbar/statusbar/left sidebar stay behind. The right
+   fullscreen element �?topbar/statusbar/left sidebar stay behind. The right
    panel is portaled into the wrap while immersed, floated over the canvas. */
 .central-wrap:fullscreen {
   width: 100vw;
@@ -770,11 +775,11 @@
   position: absolute;
   inset: 0;
   /* Clip the 2D canvas pan/zoom transform (and the 3D canvas) to the
-     viewfinder — without this, scaling a 2D view bleeds into the panels. */
+     viewfinder �?without this, scaling a 2D view bleeds into the panels. */
   overflow: hidden;
 }
 
-/* viewfinder corner brackets — the signature element */
+/* viewfinder corner brackets �?the signature element */
 .central::before {
   content: '';
   position: absolute;
@@ -816,7 +821,7 @@
   overflow: hidden;
   /* The 2D pan drag starts here (empty canvas area). Without this the
      browser's native scroll/gesture recognizer holds pointermove and then
-     fires pointercancel on touch devices, making the drag stutter — the 3D
+     fires pointercancel on touch devices, making the drag stutter �?the 3D
      path is unaffected because OrbitControls sets touch-action: none on its
      own canvas. */
   touch-action: none;
@@ -828,7 +833,7 @@
   width: 100%;
   height: 100%;
   display: block;
-  /* The 2D canvas is a pure display surface — plugins draw to its context,
+  /* The 2D canvas is a pure display surface �?plugins draw to its context,
      they never attach pointer handlers. Keeping it out of hit-testing lets
      pointer events fall through to the 3D canvas (OrbitControls) or to the
      host wrapper (2D pan/zoom). */
@@ -930,7 +935,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Welcome cover — VS Code-style start page. The welcome content is a
+   Welcome cover �?VS Code-style start page. The welcome content is a
    scrolling, left-aligned cover with a two-column start/recent layout,
    instead of a single vertically-centered hero. `.central-empty` keeps the
    absolute positioning; these rules only replace its flex centering.
@@ -1238,7 +1243,7 @@
   padding: 6px 14px;
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
-  /* The strip itself never scrolls — only the metrics row does (below), so
+  /* The strip itself never scrolls �?only the metrics row does (below), so
      the pinned deep-link actions on the right can never be clipped. */
   overflow: hidden;
   flex-shrink: 0;
@@ -1257,7 +1262,7 @@
   align-items: center;
   gap: var(--space-4);
   white-space: nowrap;
-  /* Only this row scrolls horizontally (mouse wheel maps to scrollLeft —
+  /* Only this row scrolls horizontally (mouse wheel maps to scrollLeft �?
      see ScienceOutputStrip). Scrollbar hidden; the wheel + edge fade do the
      affordance work instead. */
   min-width: 0;
@@ -1363,7 +1368,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* No-repo placeholder: give the hint + init button real breathing room —
+/* No-repo placeholder: give the hint + init button real breathing room �?
    previously they hung directly off the panel's 8px group gap and read as
    one cramped blob under the GIT header. */
 .git-panel-no-repo {
@@ -1374,7 +1379,7 @@
   padding: var(--space-2) 0 var(--space-1);
 }
 
-/* The init button is the panel's primary action — give it the full column
+/* The init button is the panel's primary action �?give it the full column
    width instead of hugging its label (the hint stays left-aligned). */
 .git-panel-no-repo .btn {
   align-self: stretch;
@@ -1467,7 +1472,7 @@
 /* ---- VSCode-style source-control layout -----------------------------------
    Message box + full-width primary commit button on top, then the change
    tree: a collapsible "更改 N" header and file rows with status letters,
-   dim directories and a hover-to-stage action (VSCode's ＋). */
+   dim directories and a hover-to-stage action (VSCode's �?. */
 
 .git-commit-input {
   width: 100%;
@@ -1601,7 +1606,7 @@
 }
 
 /* Hover-revealed per-file stage action; tiny on purpose so it does not
-   widen the row (desktop precision pointers only — see the coarse block). */
+   widen the row (desktop precision pointers only �?see the coarse block). */
 .git-change-stage {
   visibility: hidden;
   flex: none;
@@ -1647,7 +1652,7 @@
 }
 
 /* Restrained instrument-console pulse: the dashed frame breathes, the icon
-   stays still — signaling "drop here" without a bouncing payload. */
+   stays still �?signaling "drop here" without a bouncing payload. */
 @keyframes drop-hint-pulse {
   0%, 100% { box-shadow: inset 0 0 0 0 var(--color-glow); }
   50% { box-shadow: inset 0 0 0 4px var(--color-glow); }
@@ -1738,7 +1743,7 @@
   color: var(--color-text-secondary);
 }
 
-/* 套件信息表：数据要求 / 运行方式等事实性条目。 */
+/* 套件信息表：数据要求 / 运行方式等事实性条目�?*/
 .suite-intro-facts {
   margin: 0;
   padding: var(--space-2) 0;
@@ -1769,9 +1774,9 @@
   gap: var(--space-2);
 }
 
-/* ---- 右侧栏 · 无插件欢迎面板 -------------------------------------------
-   替代原先孤零零的"请先激活一个插件"占位：快速引导 + 版本更新要点 +
-   仓库卡片。视觉沿用 suite-intro 的克制风格（细分隔线 + 弱化文案）。 */
+/* ---- 右侧�?· 无插件欢迎面�?-------------------------------------------
+   替代原先孤零零的"请先激活一个插�?占位：快速引�?+ 版本更新要点 +
+   仓库卡片。视觉沿�?suite-intro 的克制风格（细分隔线 + 弱化文案）�?*/
 .rp-welcome {
   display: flex;
   flex-direction: column;
@@ -1883,16 +1888,8 @@
   width: auto;
   min-width: 5.5em;
 }
-/* Number params are pure text-entry boxes — hide the native spin buttons. */
-.param-panel input[type='number'] {
-  appearance: textfield;
-  -moz-appearance: textfield;
-}
-.param-panel input[type='number']::-webkit-outer-spin-button,
-.param-panel input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
+/* Number params are pure text-entry boxes — the native spin buttons are
+   hidden globally in global.css. */
 .param-group .field.field-inline .input {
   width: 100%;
 }
@@ -1984,7 +1981,7 @@
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-3);
   /* The resize grips live just OUTSIDE the frame, so the window itself must
-   * not clip them — the rounded corners are handled by its two columns. */
+   * not clip them �?the rounded corners are handled by its two columns. */
   overflow: visible;
   /* Below the status bar chrome (1401) and its popover; above the canvas. */
   z-index: 1390;
@@ -2176,6 +2173,10 @@
   border-bottom: 1px solid var(--color-border);
   cursor: move;
   user-select: none;
+  /* Touchscreens: without this the browser claims the gesture for panning and
+     fires pointercancel almost immediately, so the window would barely move. */
+  touch-action: none;
+  -webkit-user-select: none;
 }
 
 .terminal-drawer-title {
@@ -2287,7 +2288,7 @@
 }
 
 /* A real terminal has no focus chrome: suppress the global focus-visible
-   ring (global.css) — the caret alone marks the input position. */
+   ring (global.css) �?the caret alone marks the input position. */
 .terminal-drawer-input input:focus,
 .terminal-drawer-input input:focus-visible,
 .terminal-input-area:focus,
@@ -2619,7 +2620,7 @@
   vertical-align: middle;
 }
 
-/* Research-readiness tier badges (docs/technical/11-插件科研化整改方案.md). */
+/* Research-readiness tier badges (docs/technical/11-插件科研化整改方�?md). */
 .tier-research {
   background: var(--color-accent-soft, rgba(46, 158, 91, 0.15));
   color: var(--color-accent-text);
@@ -2809,6 +2810,13 @@
   padding: var(--space-1);
 }
 
+/* Items carry their own padding; the bare empty hint would otherwise sit
+   flush against the column edge — pad it to align with item text. */
+.data-file-picker-list .empty-hint {
+  padding: var(--space-2);
+  text-align: center;
+}
+
 .data-file-picker-item {
   display: flex;
   align-items: center;
@@ -2852,10 +2860,149 @@
   white-space: nowrap;
 }
 
+.data-file-picker-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.data-file-picker-desc {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.data-file-picker-item.has-description {
+  align-items: flex-start;
+}
+
+.data-file-picker-item.is-readonly {
+  cursor: default;
+}
+
+.data-file-picker-item.is-readonly:hover {
+  background: transparent;
+}
+
+/* Manage mode reuses the picker list; only the row payload differs:
+   imported files get size + inline actions, workspace files just load. */
+.data-file-manager .data-file-picker-item {
+  cursor: default;
+}
+
+.data-file-manager .data-file-picker-name {
+  flex: 1 1 auto;
+}
+
+.data-file-manager .data-file-picker-item.is-readonly {
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+.data-file-manager .data-file-picker-item.is-readonly:hover {
+  background: transparent;
+}
+
+.data-file-row-meta {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.data-file-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.data-file-row-actions .icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
 @media (max-width: 640px) {
   .data-file-picker {
     grid-template-columns: 1fr;
   }
+}
+
+/* Button-shaped field that opens the floating data file picker (replaces the
+   former grouped `<select>` dropdowns). Sized like a `.input` control so it
+   drops into the existing flex rows (.analysis-row, .research-toolbar) and
+   grid forms (.report-field-grid) without those rows' own rules. */
+.data-file-field {
+  display: inline-flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 0;
+  height: 34px;
+  flex: 1 1 18ch;
+  max-width: 46ch;
+  box-sizing: border-box;
+}
+
+.report-field-grid .data-file-field {
+  max-width: none;
+  height: auto;
+}
+
+.data-file-field-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.data-file-field-btn:hover:not(:disabled),
+.data-file-field-btn:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  outline: none;
+}
+
+.data-file-field-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.data-file-field-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-file-field-clear {
+  flex-shrink: 0;
+  width: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.data-file-field-clear:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .tag-primary {
@@ -2937,8 +3084,8 @@
     var(--color-bg-primary);
 }
 
-/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签条
-   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度。 */
+/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签�?
+   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度�?*/
 .settings-embedded {
   height: 100%;
   min-height: 0;
@@ -3047,8 +3194,8 @@
   gap: var(--space-4);
 }
 
-/* ---- 设置页 · 主题市场卡片网格 ----------------------------------------
-   行式布局在大屏上留白过多；主题条目改为自适应两列卡片，信息密度更高。 */
+/* ---- 设置�?· 主题市场卡片网格 ----------------------------------------
+   行式布局在大屏上留白过多；主题条目改为自适应两列卡片，信息密度更高�?*/
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -3199,7 +3346,7 @@
   font-family: var(--font-mono);
 }
 
-/* Python package panel (Settings → Python environment): one action button
+/* Python package panel (Settings �?Python environment): one action button
    width everywhere so 安装 / 卸载 / 启动 line up instead of each sizing to its
    own label; block headings keep the label left and the action right. */
 .python-packages .btn {
@@ -3259,7 +3406,7 @@
 }
 
 /* ==========================================================================
-   Settings "About" — repositories, project status & development team
+   Settings "About" �?repositories, project status & development team
    ========================================================================== */
 
 .about-links {
@@ -3552,7 +3699,7 @@
 }
 
 /* ==========================================================================
-   FR-08 — model inference tool page
+   FR-08 �?model inference tool page
    ========================================================================== */
 
 .infer-device-badge {
@@ -3641,7 +3788,7 @@
    ========================================================================== */
 
 /* The whole layer ignores pointer events so the real UI under the spotlight
-   stays clickable — only the tooltip card captures clicks. Sits above the
+   stays clickable �?only the tooltip card captures clicks. Sits above the
    modal (2000) so it can spotlight elements inside open dialogs. */
 .tour-layer {
   position: fixed;
@@ -3660,7 +3807,7 @@
   transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
 }
 
-/* Pulsing ring that draws the eye to the highlighted element. It fades only —
+/* Pulsing ring that draws the eye to the highlighted element. It fades only �?
    never scales: a transform scale(1.1) on a viewport-sized box (sidebar,
    top bar) throws the ring far outside the window. */
 .tour-spot::after {
@@ -3704,7 +3851,7 @@
 }
 
 /* Centered variant for steps without a target (welcome / done). Uses the
-   standalone `translate` property — the tour-tip-in animation animates
+   standalone `translate` property �?the tour-tip-in animation animates
    `transform`, which would otherwise override the centering transform and
    flash the card off-center for its 0.2s duration. */
 .tour-tip-center {
@@ -3797,7 +3944,7 @@
 }
 
 /* Menu step (track chooser): the hero card widens further to fit the
-   onboarding parts — two primary cards, then a 3-up row of extra features. */
+   onboarding parts �?two primary cards, then a 3-up row of extra features. */
 .tour-tip-hero:has(.tour-menu-grid) {
   width: min(860px, calc(100vw - 48px));
   max-height: calc(100vh - 32px);
@@ -4033,7 +4180,7 @@
   color: var(--color-error);
 }
 
-/* Route-level lazy-load fallback (App.tsx) — full-viewport, centred. The
+/* Route-level lazy-load fallback (App.tsx) �?full-viewport, centred. The
    App shell has no flex parent, so it must size itself against the viewport. */
 .route-loading {
   min-height: 100vh;
@@ -4062,7 +4209,7 @@
   animation: shimmer 1.4s linear infinite;
 }
 
-/* Mode-level lazy-load fallback (WorkbenchPage.tsx) — fills the workbench
+/* Mode-level lazy-load fallback (WorkbenchPage.tsx) �?fills the workbench
    body, centred. The workbench body IS a flex container, so flex:1 works. */
 .workbench-loading {
   flex: 1;
@@ -4093,6 +4240,12 @@
   gap: var(--space-3);
   min-height: 180px;
   max-height: 420px;
+}
+
+.project-files.is-dragover {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
 }
 
 .project-files-toolbar {
@@ -4224,7 +4377,7 @@
 }
 
 /* ==========================================================================
-   Research modules — run history dialog (design tokens only)
+   Research modules �?run history dialog (design tokens only)
    ========================================================================== */
 
 .runs-dialog {
@@ -4303,7 +4456,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
-/* ---- Research modules — data lineage dialog (design tokens only) --------- */
+/* ---- Research modules �?data lineage dialog (design tokens only) --------- */
 
 .lineage-dialog {
   display: flex;
@@ -4598,7 +4751,7 @@
   width: 100%;
 }
 
-/* ---- Research modules — chunked preview panel (design tokens only) ------- */
+/* ---- Research modules �?chunked preview panel (design tokens only) ------- */
 
 .chunk-panel {
   display: flex;
@@ -4856,7 +5009,7 @@
   }
 }
 
-/* ---- Research modules — FR-03 submission assistant ----------------------- */
+/* ---- Research modules �?FR-03 submission assistant ----------------------- */
 
 .submit-panel {
   display: flex;
@@ -4957,7 +5110,7 @@
   gap: var(--space-3);
 }
 
-/* ---- Research modules — supplement packaging dialog ---------------------- */
+/* ---- Research modules �?supplement packaging dialog ---------------------- */
 
 .supplement-form {
   display: flex;
@@ -5232,6 +5385,35 @@
   align-items: start;
 }
 
+/* The workbench is a screen-shaped tool: when the SQL page fills the shell
+   (see the :has rule below) the layout, sidebar and result area stretch to
+   the viewport instead of stopping mid-page with dead black space below. */
+.tool-content:has(> .sql-layout) {
+  height: 100%;
+  min-height: 0;
+}
+
+.tool-content:has(> .sql-layout) .sql-layout {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.tool-content:has(> .sql-layout) .sql-main {
+  min-height: 0;
+}
+
+.tool-content:has(> .sql-layout) .sql-result {
+  flex: 1;
+  min-height: 0;
+}
+
+.tool-content:has(> .sql-layout) .sql-result-scroll {
+  flex: 1;
+  min-height: 120px;
+  max-height: none;
+}
+
 @media (max-width: 900px) {
   .sql-layout {
     grid-template-columns: 1fr;
@@ -5243,6 +5425,8 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -5368,10 +5552,19 @@
   min-width: 0;
 }
 
-.sql-editor {
+/* Scoped to .tool-content on purpose: `.tool-content textarea` / `.tool-content
+   .input` below set `min-height: 34px` and would otherwise squeeze this editor
+   down to a couple of visible lines. The extra type selector keeps it ahead of
+   `.tool-content .input` (same specificity would let the later rule win).
+   `field-sizing: content` makes the box grow/shrink with the query by default
+   (Chromium 123+); older engines fall back to the fixed min-height floor. */
+.tool-content textarea.sql-editor {
   width: 100%;
-  min-height: 160px;
+  min-height: 140px;
+  max-height: 60vh;
+  field-sizing: content;
   resize: vertical;
+  overflow-y: auto;
   font-family: var(--font-mono, monospace);
   font-size: var(--font-size-sm);
   line-height: 1.5;
@@ -5386,6 +5579,28 @@
 .sql-run-btn {
   border-color: var(--color-accent);
   color: var(--color-accent);
+}
+
+.sql-import-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sql-import-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted, var(--color-text));
+  font-family: var(--font-mono, monospace);
+}
+
+.sql-import-bar {
+  width: 100%;
+  height: 8px;
+}
+
+.sql-rows-note {
+  margin-left: var(--space-2);
+  opacity: 0.75;
 }
 
 .sql-error {
@@ -5921,7 +6136,7 @@
   background: var(--color-bg-hover);
 }
 /* One-line environment status strip: the four checks side by side, each a
-   dot + label (+ GPU name). Permanent — never collapsible. */
+   dot + label (+ GPU name). Permanent �?never collapsible. */
 .welcome-envbar {
   display: flex;
   align-items: center;
@@ -5981,7 +6196,7 @@
 }
 
 /* ==========================================================================
-   P3/P4 UI restructure — tool shell, launcher, welcome grid, topbar zones
+   P3/P4 UI restructure �?tool shell, launcher, welcome grid, topbar zones
    ========================================================================== */
 
 /* ---- ToolShell (/studio/<tool>) ------------------------------------------ */
@@ -6063,7 +6278,7 @@
 }
 
 /* Embedded variant: the suite is rendered inside the workbench CentralArea
-   (overlay over the canvas), which already owns the top bar and status bar —
+   (overlay over the canvas), which already owns the top bar and status bar �?
    fill the host instead of the viewport. */
 .tool-shell.embedded {
   height: 100%;
@@ -6071,7 +6286,7 @@
 }
 
 /* Slim action bar that preserves a suite's headerExtra (sheet switcher,
-   caption generator, submission check, add-cell …) when the full tool
+   caption generator, submission check, add-cell �? when the full tool
    topbar is dropped in embedded mode. */
 .tool-embedded-bar {
   flex-shrink: 0;
@@ -6106,8 +6321,8 @@
    instead of the centred reading column, so the editor/preview split has no
    dead space on either side. A 15px gutter keeps content off the pane edges
    (inherited from the base `.tool-content` rule above). The content box is
-   also a size container so the split can collapse when the *pane* — not the
-   viewport — gets narrow (e.g. inside a resized workbench panel). */
+   also a size container so the split can collapse when the *pane* �?not the
+   viewport �?gets narrow (e.g. inside a resized workbench panel). */
 .tool-content:has(.publish-page) {
   max-width: none;
   padding-left: 15px;
@@ -6432,7 +6647,7 @@
   position: relative;
 }
 
-/* Active (on) state for the sidebar / params-panel toggle handles — the same
+/* Active (on) state for the sidebar / params-panel toggle handles �?the same
    accent chip used by the mode buttons so a pressed rail is visually clear. */
 .topbar-cluster .icon-btn.is-active,
 .topbar-cluster .cluster-btn.icon-only.is-active {
@@ -6461,7 +6676,7 @@
   animation: blink 1s ease-in-out infinite;
 }
 
-/* ⋯ overflow trigger — hidden until the narrow breakpoint needs it. */
+/* �?overflow trigger �?hidden until the narrow breakpoint needs it. */
 .topbar-overflow {
   display: none;
   width: 34px;
@@ -6505,7 +6720,7 @@
 }
 
 /* Low-weight secondary entries (open folder / browse examples) under the
-   CTA row — clickable but visually quiet. */
+   CTA row �?clickable but visually quiet. */
 .welcome-quiet-row {
   display: flex;
   align-items: center;
@@ -6834,7 +7049,7 @@
 }
 
 /* ==========================================================================
-   FR-13 — course mode tool page
+   FR-13 �?course mode tool page
    ========================================================================== */
 
 .course-list {
@@ -7061,7 +7276,22 @@
   padding: 1px 8px;
   border-radius: 999px;
   font-size: var(--font-size-xs);
-  color: var(--color-bg-primary);
+  font-weight: 600;
+}
+
+/* Role badges must read in both themes, so they pair a tinted surface with
+   its matching text colour instead of the old bg-as-foreground trick (which
+   had no background at all and vanished in dark mode). */
+.course-chip-teacher {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border: 1px solid var(--color-accent);
+}
+
+.course-chip-student {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 .course-change-btn {
   color: var(--color-text-secondary);
@@ -7158,7 +7388,7 @@
 }
 
 /* ==========================================================================
-   FR-14 — data cleaning wizard tool page
+   FR-14 �?data cleaning wizard tool page
    ========================================================================== */
 
 .clean-stepper {
@@ -7284,7 +7514,7 @@
 }
 
 /* ==========================================================================
-   FR-19 — Work gallery (ToolShell page)
+   FR-19 �?Work gallery (ToolShell page)
    ========================================================================== */
 
 .gallery-body {
@@ -7481,11 +7711,11 @@
 }
 
 /* ==========================================================================
-   Lab / tool surfaces — professional polish
+   Lab / tool surfaces �?professional polish
    Conservative additive refinements shared by every research tool that renders
-   inside the ToolShell (.tool-content) — i.e. every /studio/<tool> page.
+   inside the ToolShell (.tool-content) �?i.e. every /studio/<tool> page.
    Aim: a clearer section hierarchy, a calmer less edge-to-edge look, uniform
-   interactive sizing for easy operation, and full keyboard operability —
+   interactive sizing for easy operation, and full keyboard operability �?
    without restyling any single page's bespoke card language, and without
    touching modal dialogs (which share some class names but not .tool-content).
    ========================================================================== */
@@ -7495,7 +7725,7 @@
   gap: var(--space-5);
 }
 
-/* Tool pages scroll in the shell — clear the dialog-era inner height cap so
+/* Tool pages scroll in the shell �?clear the dialog-era inner height cap so
    a lab never renders a nested scrollbar inside the page scroll. The rules
    below also zero the rows' modal-era bottom margins, so give the flex
    container itself a column gap or buttons / result blocks stack with no
@@ -7556,6 +7786,15 @@
   max-width: 46ch;
   height: 34px;
   box-sizing: border-box;
+}
+
+/* A textarea holds a full paragraph (result narrative), not a one-line
+   control: let it use the whole row width and grow with its content. */
+.tool-content .analysis-row > textarea.input {
+  max-width: none;
+  height: auto;
+  resize: vertical;
+  line-height: 1.55;
 }
 
 .tool-content .analysis-row > .btn {
@@ -7623,10 +7862,10 @@
 }
 
 /* ==========================================================================
-   UX 改进层 — 命令面板 / 模式同步点 / 面板拖拽 / 状态栏弹层与进度 /
-   AI 悬浮球 / 图表读出 / 紧凑空状态
+   UX 改进�?�?命令面板 / 模式同步�?/ 面板拖拽 / 状态栏弹层与进�?/
+   AI 悬浮�?/ 图表读出 / 紧凑空状�?
    全部为新增选择器，不触碰既有规则；发光分层遵循 --glow-hover（hover
-   克制）与 --color-glow（状态指示）两档 token。
+   克制）与 --color-glow（状态指示）两档 token�?
    ========================================================================== */
 
 /* ---- 全局命令面板 (Ctrl+K) ---- */
@@ -7828,7 +8067,7 @@
   bottom: 0;
   width: 5px;
   /* 高于收起按钮（z-21）：按钮贴边后会盖住感应条的 5px，提层级保证
-     整条边缘全高可拖拽。 */
+     整条边缘全高可拖拽�?*/
   z-index: 22;
   cursor: col-resize;
   touch-action: none;
@@ -7836,12 +8075,12 @@
 }
 
 .panel-resize-right {
-  /* 整体挂在侧栏右缘外侧（叠在中央区最左侧 5px 上），完整可命中。 */
+  /* 整体挂在侧栏右缘外侧（叠在中央区最左侧 5px 上），完整可命中�?*/
   right: -5px;
 }
 
 .panel-resize-left {
-  /* 整体挂在右栏左缘外侧（叠在中央区最右侧 5px 上），完整可命中。 */
+  /* 整体挂在右栏左缘外侧（叠在中央区最右侧 5px 上），完整可命中�?*/
   left: -5px;
 }
 
@@ -7850,8 +8089,8 @@
   background: var(--color-accent-soft);
 }
 
-/* 面板包裹层：手柄的定位容器。面板本身 overflow 会裁剪超出边界的
-   手柄，因此手柄必须挂在包裹层上，位于面板外侧。 */
+/* 面板包裹层：手柄的定位容器。面板本�?overflow 会裁剪超出边界的
+   手柄，因此手柄必须挂在包裹层上，位于面板外侧�?*/
 .panel-wrap {
   position: relative;
   flex-shrink: 0;
@@ -7859,10 +8098,10 @@
   min-height: 0;
 }
 
-/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称的
-   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻结
+/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称�?
+   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻�?
    内容宽度——内容像推拉门一样被裁剪，而不是被挤压回绕；pointer-events
-   吞掉指针，防止动画中途误点内部控件。 */
+   吞掉指针，防止动画中途误点内部控件�?*/
 .panel-wrap-closing {
   overflow: hidden;
   pointer-events: none;
@@ -7877,9 +8116,9 @@
 }
 
 /* 展开入场：收拢的镜像。wrap 挂载时从 0 宽度展开到内联目标宽度（keyframe
-   只写 from，to 取计算样式），内容同样冻结自身宽度被裁剪展开，与收拢的
+   只写 from，to 取计算样式），内容同样冻结自身宽度被裁剪展开，与收拢�?
    “推拉门”观感对称。仅 Sidebar 使用；页面首挂载也会播放一次，作为侧栏
-   入场。 */
+   入场�?*/
 .panel-wrap-opening {
   overflow: hidden;
   animation: panel-expand 0.22s var(--ease-out);
@@ -7892,7 +8131,7 @@
   }
 }
 
-/* 展开期间与收拢共用同一冻结规则：内容保持自身宽度，只被裁剪不回绕。 */
+/* 展开期间与收拢共用同一冻结规则：内容保持自身宽度，只被裁剪不回绕�?*/
 .panel-wrap-opening > .sidebar,
 .panel-wrap-opening > .right-panel {
   flex: 0 0 auto;
@@ -7907,15 +8146,15 @@
   position: static;
 }
 
-/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度。 */
+/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度�?*/
 .panel-wrap-closing > .sidebar,
 .panel-wrap-closing > .right-panel {
   flex: 0 0 auto;
   width: var(--panel-closing-width, var(--sidebar-width));
 }
 
-/* ---- 栏目边缘收起/展开小按钮 ---- */
-/* 展开态：贴在栏目外缘（拖拽手柄外侧），窄长竖条。 */
+/* ---- 栏目边缘收起/展开小按�?---- */
+/* 展开态：贴在栏目外缘（拖拽手柄外侧），窄长竖条�?*/
 .panel-collapse-btn {
   position: absolute;
   top: 50%;
@@ -7938,7 +8177,7 @@
 }
 
 .panel-collapse-right {
-  /* 紧贴侧栏边框外侧（压住 5px 感应条，感应条层级更高不受影响）。 */
+  /* 紧贴侧栏边框外侧（压�?5px 感应条，感应条层级更高不受影响）�?*/
   right: -16px;
   border-left: none;
   border-radius: 0 8px 8px 0;
@@ -7956,7 +8195,7 @@
   border-color: var(--color-accent);
 }
 
-/* 收起态：栏目原位置只剩一个贴边窄按钮。 */
+/* 收起态：栏目原位置只剩一个贴边窄按钮�?*/
 .panel-edge-btn {
   flex-shrink: 0;
   align-self: center;
@@ -7966,7 +8205,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住。 */
+  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住�?*/
   z-index: 45;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -7983,9 +8222,9 @@
   border-radius: 0 8px 8px 0;
 }
 
-/* 收起态：左栏展开按钮与右侧对称地改为浮层，不占 flex 槽位，中央画布
+/* 收起态：左栏展开按钮与右侧对称地改为浮层，不�?flex 槽位，中央画�?
    即可贴住活动栏填满整行宽（按钮靠 z-index 浮在画布之上）。锚在活动栏
-   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下。 */
+   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下�?*/
 .panel-edge-left.panel-edge-btn {
   position: absolute;
   top: 50%;
@@ -7998,7 +8237,7 @@
   border-radius: 8px 0 0 8px;
 }
 
-/* 收起态：右栏展开按钮改为浮层，不占 flex 槽位，中央画布即可填满整行宽。 */
+/* 收起态：右栏展开按钮改为浮层，不�?flex 槽位，中央画布即可填满整行宽�?*/
 .panel-edge-right.panel-edge-btn {
   position: absolute;
   top: 50%;
@@ -8055,7 +8294,15 @@
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%;
-  transform: translateX(-50%);
+  /* Keep the node mounted so closing animates too, not just opening. */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px) scale(0.98);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 160ms ease;
   width: 280px;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -8063,6 +8310,19 @@
   box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
   padding: var(--space-3);
   z-index: 60;
+}
+
+.statusbar-popover.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusbar-popover {
+    transition: none;
+  }
 }
 
 .statusbar-popover-title {
@@ -8196,7 +8456,7 @@
   color: var(--color-error);
 }
 
-/* ---- AI 助手悬浮球（贴边水洼 → 汇聚成水珠） ---- */
+/* ---- AI 助手悬浮球（贴边水洼 �?汇聚成水珠） ---- */
 
 /* Closed: [melt] back toward the droplet instead of vanishing abruptly.
    `visibility` is delayed so the fade/scale can finish first, and hiding it
@@ -8336,7 +8596,7 @@
   transform: none;
 }
 
-/* ---- 图表读出：十字线 + mono 读数卡 ---- */
+/* ---- 图表读出：十字线 + mono 读数�?---- */
 
 .plot-readout {
   position: relative;
@@ -8411,7 +8671,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* ---- 活动栏（标准模式，侧栏最左侧） ---- */
+/* ---- 活动栏（标准模式，侧栏最左侧�?---- */
 
 .activity-bar {
   width: var(--activitybar-width);
@@ -8422,7 +8682,7 @@
   border-right: 1px solid var(--color-border);
 }
 
-/* 视图入口靠上；底部留给全局设置（margin-top:auto 下推）。 */
+/* 视图入口靠上；底部留给全局设置（margin-top:auto 下推）�?*/
 .activity-bar-views {
   display: flex;
   flex-direction: column;
@@ -8473,7 +8733,7 @@
   color: var(--color-accent-text);
 }
 
-/* 激活态左侧指示条（贴活动栏左缘，不与图标抢空间）。 */
+/* 激活态左侧指示条（贴活动栏左缘，不与图标抢空间）�?*/
 .activity-item.is-active::before {
   content: '';
   position: absolute;
@@ -8485,7 +8745,7 @@
   background: var(--color-accent);
 }
 
-/* ---- 工作区搜索（活动栏 · 搜索视图） ---- */
+/* ---- 工作区搜索（活动�?· 搜索视图�?---- */
 
 .search-panel {
   display: flex;
@@ -8749,7 +9009,7 @@
   color: var(--color-error-text, var(--color-danger, #d9534f));
 }
 
-/* ---- 文件资源管理器（活动栏 · 文件视图） ---- */
+/* ---- 文件资源管理器（活动�?· 文件视图�?---- */
 
 .file-explorer {
   display: flex;
@@ -8820,7 +9080,7 @@
   color: var(--color-text-primary);
 }
 
-/* 预览中的文件行：弱高亮（与选中态区分——取消选中后仍能看出"正在预览"）。 */
+/* 预览中的文件行：弱高亮（与选中态区分——取消选中后仍能看�?正在预览"）�?*/
 .explorer-row.active {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
@@ -8846,7 +9106,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* Git 变更角标（与 Git 面板共用状态；A/M/D/U 四色） */
+/* Git 变更角标（与 Git 面板共用状态；A/M/D/U 四色�?*/
 .explorer-git-badge {
   flex-shrink: 0;
   width: 14px;
@@ -8881,7 +9141,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* ---- 文件资源管理器 · 常规文件管理（A 需求） ---- */
+/* ---- 文件资源管理�?· 常规文件管理（A 需求） ---- */
 
 .explorer-actions {
   display: flex;
@@ -8911,8 +9171,8 @@
   user-select: none;
 }
 
-/* 选中参考 Windows 资源管理器：只换底色，不加描边。accent 青绿描边在
-   列表里过于抢眼；背景 tint 不受滚动容器裁剪影响，无需 inset 阴影代替。 */
+/* 选中参�?Windows 资源管理器：只换底色，不加描边。accent 青绿描边�?
+   列表里过于抢眼；背景 tint 不受滚动容器裁剪影响，无需 inset 阴影代替�?*/
 .explorer-row.selected,
 .explorer-row.selected:hover {
   background: var(--color-accent-soft);
@@ -8938,7 +9198,7 @@
   font-size: var(--font-size-xs);
 }
 
-/* 右键上下文菜单 */
+/* 右键上下文菜�?*/
 .explorer-context-menu {
   position: fixed;
   z-index: 120;
@@ -8979,7 +9239,7 @@
   background: var(--color-border);
 }
 
-/* 工具行/分段小按钮（MD 视图切换等） */
+/* 工具�?分段小按钮（MD 视图切换等） */
 .explorer-pill {
   padding: 3px 10px;
   border: 1px solid var(--color-border);
@@ -9005,12 +9265,12 @@
   color: #fff;
 }
 
-/* 原始数据预览：项目树文件的只读预览。 */
+/* 原始数据预览：项目树文件的只读预览�?*/
 
 /* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
 
-/* 覆盖层堆栈：套件标签条 + 预览/套件浮层共用一个定位容器，标签条
-   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间。 */
+/* 覆盖层堆栈：套件标签�?+ 预览/套件浮层共用一个定位容器，标签�?
+   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间�?*/
 .central-overlay-stack {
   position: absolute;
   inset: 0;
@@ -9019,8 +9279,8 @@
   flex-direction: column;
   border-radius: inherit;
   overflow: hidden;
-  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明，
-     否则 2D 插件的拖动/平移会被这层空壳拦住。交互子元素再单独开启。 */
+  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明�?
+     否则 2D 插件的拖�?平移会被这层空壳拦住。交互子元素再单独开启�?*/
   pointer-events: none;
 }
 
@@ -9029,8 +9289,8 @@
   pointer-events: auto;
 }
 
-/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格仅
-   display:none —— 切换标签不卸载内容，状态得以保留。 */
+/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格�?
+   display:none —�?切换标签不卸载内容，状态得以保留�?*/
 .central-tab-pane {
   position: relative;
   flex: 1;
@@ -9043,7 +9303,7 @@
   display: none;
 }
 
-/* 窗格内的浮层从"绝对铺满"改为"常规流占满剩余高度"。 */
+/* 窗格内的浮层�?绝对铺满"改为"常规流占满剩余高�?�?*/
 .central-tab-pane > .central-file-preview,
 .central-tab-pane > .central-tool-view {
   position: relative;
@@ -9054,7 +9314,7 @@
   border-radius: 0;
 }
 
-/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）。 */
+/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）�?*/
 .central-tool-tabs {
   flex-shrink: 0;
   display: flex;
@@ -9073,10 +9333,10 @@
   touch-action: pan-x;
 }
 
-/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
-   下方开始（标签行高 + 1px 分隔线，均取自 --central-tabs-height 以便紧凑
+/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签�?
+   下方开始（标签行高 + 1px 分隔线，均取�?--central-tabs-height 以便紧凑
    档同步缩放）——VS Code 编辑区同款布局，标签条独占一行，画布/窗格占满
-   其余空间，互不重叠。 */
+   其余空间，互不重叠�?*/
 .central:has(> .central-overlay-stack > .central-tool-tabs) > .central-plugin-host {
   inset: calc(var(--central-tabs-height) + 1px) 0 0 0;
 }
@@ -9138,7 +9398,7 @@
   align-items: center;
   justify-content: center;
   /* 20px box around a 10px glyph: a 16px target was routinely missed on
-     the first click (Fitts's law — small edge-aligned targets). */
+     the first click (Fitts's law �?small edge-aligned targets). */
   width: 20px;
   height: 20px;
   margin-right: -3px;
@@ -9246,18 +9506,18 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary);
-  /* 覆盖 .central 的圆角/边框内侧即可，不额外加边框。 */
+  /* 覆盖 .central 的圆�?边框内侧即可，不额外加边框�?*/
   border-radius: inherit;
   overflow: hidden;
 }
 
 /* ---- Embedded research suite (central canvas overlay) --------------------- */
 
-/* Opaque overlay over the plugin canvas — same contract as the file preview:
+/* Opaque overlay over the plugin canvas �?same contract as the file preview:
    the canvas stays mounted underneath, closing never re-initializes scenes.
    z-index 20 stays BELOW the panel collapse buttons (21) and resize handles
    (22) so panels stay collapsible/resizable while a suite is open; the small
-   edge buttons may overlap the suite — accepted trade-off. */
+   edge buttons may overlap the suite �?accepted trade-off. */
 .central-tool-view {
   position: absolute;
   inset: 0;
@@ -9496,7 +9756,7 @@
 }
 
 /* ---- Markdown v2 shared styles (marked renderer): tables, task lists,
-       mermaid diagrams, KaTeX math — applied to both the file preview and
+       mermaid diagrams, KaTeX math �?applied to both the file preview and
        notebook markdown cells. ---- */
 
 .central-md-preview table,
@@ -9583,7 +9843,7 @@
 }
 
 /* 图片 / PDF / 视频 / 音频 */
-/* 二进制文件读取中的占位（tab 已开、字节未到）。 */
+/* 二进制文件读取中的占位（tab 已开、字节未到）�?*/
 .central-file-loading {
   display: flex;
   flex-direction: column;
@@ -9637,7 +9897,7 @@
   border: none;
 }
 
-/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）。 */
+/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）�?*/
 .central-file-media object {
   width: 100%;
   height: 100%;
@@ -9735,8 +9995,8 @@
   color: var(--color-text-secondary);
 }
 
-/* “用插件打开”：一行一个插件，替代原先挤在预览底部的横排按钮。
-   插件可能多达几十个，纵向列表随右栏滚动，不会撑高或挤压画布。 */
+/* “用插件打开”：一行一个插件，替代原先挤在预览底部的横排按钮�?
+   插件可能多达几十个，纵向列表随右栏滚动，不会撑高或挤压画布�?*/
 .rp-openwith {
   margin-top: var(--space-4);
 }
@@ -9791,7 +10051,7 @@
 }
 
 /* ==========================================================================
-   Boot gate — recovery UI (failure / timeout path of the boot sequence).
+   Boot gate �?recovery UI (failure / timeout path of the boot sequence).
    The normal-path splash lives inline in index.html; only the React-rendered
    fallback is styled here. Mirrors the splash's restrained instrument look.
    ========================================================================== */
@@ -9854,7 +10114,7 @@
 
 /* ==========================================================================
    Utility toolkit pages (unit-convert / calc / format-convert / sigfig /
-   molar-mass / quick-stats) — shared instrument-panel styling.
+   molar-mass / quick-stats) �?shared instrument-panel styling.
    ========================================================================== */
 
 /* Utility pages follow the research-suite layout: plain full-width sections
@@ -10155,6 +10415,85 @@
   background: var(--color-bg-primary);
 }
 
+/* ---- performance dashboard ---- */
+
+.perf-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--space-2);
+}
+
+.perf-timeline-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(60px, 3fr) 80px minmax(90px, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.perf-timeline-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.perf-timeline-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-accent);
+}
+
+.perf-timeline-bar.is-cached {
+  background: var(--color-success);
+}
+
+.perf-timeline-bar.is-computed {
+  background: var(--color-accent);
+}
+
+.perf-timeline-bar.is-blocked {
+  background: var(--color-warning);
+}
+
+.perf-timeline-bar.is-failed {
+  background: var(--color-error);
+}
+
+.perf-timeline-bar.is-kernel {
+  background: var(--color-info, var(--color-accent));
+}
+
+.perf-timeline-value {
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+
+.perf-timeline-status {
+  color: var(--color-text-tertiary);
+}
+
+/* ---- causal lab ---- */
+
+.causal-pane {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.causal-input {
+  width: 100%;
+  height: 150px;
+  max-width: 100%;
+  margin: var(--space-1) 0;
+  /* A resize grip inside a flex column drags the whole pane along with it �?
+     keep a fixed box and scroll instead. */
+  resize: none;
+  overflow: auto;
+  line-height: 1.5;
+}
+
 /* ---- quick stats ---- */
 
 .qs-input {
@@ -10200,7 +10539,7 @@
   height: auto;
 }
 
-/* ---- Sidebar tools view (activity bar → toolkit) ---- */
+/* ---- Sidebar tools view (activity bar �?toolkit) ---- */
 
 .util-item {
   align-items: flex-start;
@@ -10994,11 +11333,11 @@
 }
 
 /* ==========================================================================
-   Mobile adaptation — forced landscape, compact tier, touch targets
+   Mobile adaptation �?forced landscape, compact tier, touch targets
    ==========================================================================
    The workbench is portrait-incompatible by design. See
-   src/core/orientation.ts for the three lock layers (manifest →
-   screen.orientation.lock → the guard below). The compact media query must
+   src/core/orientation.ts for the three lock layers (manifest �?
+   screen.orientation.lock �?the guard below). The compact media query must
    stay identical to COMPACT_VIEWPORT_QUERY in that file;
    tests/orientation.test.ts asserts the two strings match.
    ========================================================================== */
@@ -11073,14 +11412,14 @@
 
 /* ---- compact tier: landscape phones ------------------------------------
    Covers every mainstream landscape phone viewport (844×390, 851×393,
-   915×412, 780×360, 640×360 …): width ≤1024 and height ≤560. Portrait is
+   915×412, 780×360, 640×360 �?: width �?024 and height �?60. Portrait is
    refused outright by the guard above, so portrait-only viewports never
    reach a half-adapted layout. */
 
 @media (max-width: 1024px) and (max-height: 560px) {
   /* Proportional scaling: structural tokens derive from their desktop values
      through --ui-scale, so the chrome shrinks as one system instead of
-     per-rule nudges. Type keeps a legibility floor (max()) — a phone CSS px
+     per-rule nudges. Type keeps a legibility floor (max()) �?a phone CSS px
      is physically larger than a monitor's, so text must not scale blindly. */
   :root {
     --ui-scale: 0.9;
@@ -11156,7 +11495,7 @@
   }
 
   /* Status readouts yield in order: the left label truncates, the GPU chip
-     caps its width, the plugin name gives up its slot entirely — a phone
+     caps its width, the plugin name gives up its slot entirely �?a phone
      status line has no room for all of them. */
   .statusbar-left {
     min-width: 0;
@@ -11308,7 +11647,7 @@
   }
 
   /* Panel rails: the 16px desktop strips are below the comfortable touch
-     minimum, so they widen — and the resize感应条 they overlap widens with
+     minimum, so they widen �?and the resize感应�?they overlap widens with
      them (it keeps z-index priority over the button's inner edge). */
   .panel-edge-btn,
   .panel-collapse-btn {
@@ -11341,7 +11680,7 @@
   }
 }
 
-/* Touch: no hover in the change tree — keep the per-file stage action
+/* Touch: no hover in the change tree �?keep the per-file stage action
    permanently visible and at the shared 36px rail width. */
 @media (pointer: coarse) {
   .git-change-stage {
@@ -11403,4 +11742,1050 @@
 
 .git-changes-static:hover {
   background: none;
+}
+
+/* ---- industrial workbench ------------------------------------------------ */
+
+.ind-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.tool-content:has(.ind-page) {
+  width: 100%;
+  max-width: none;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.ind-page > * {
+  min-width: 0;
+}
+
+/* Compact controls used across the industrial forms. `.input` and `.btn`
+   come from global.css; the small variants only adjust density so a row of
+   fields fits on one line inside the right half of the workbench. */
+.ind-page .input-sm,
+.rp-engineering .input-sm {
+  padding: 4px 8px;
+  font-size: var(--font-size-sm);
+  min-height: 28px;
+  height: 28px;
+}
+
+.ind-page .btn-sm {
+  min-height: 28px;
+}
+
+.ind-page .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ind-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ind-page-head h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+/* Page titles reuse the shared tool icon so the embedded industrial pages
+   match their research-suite counterparts. */
+.ind-page-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ind-page-head-icon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+.ind-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.ind-importbar,
+.ind-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ind-importbar {
+  padding: 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-secondary);
+}
+
+.ind-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.ind-error {
+  color: var(--color-danger, #e5484d);
+  font-size: var(--font-size-sm);
+}
+
+.ind-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.ind-field .input {
+  min-width: 96px;
+}
+
+.ind-field .input.ind-num {
+  min-width: 0;
+  width: 82px;
+}
+
+.ind-empty {
+  padding: 24px 0;
+}
+
+/* Narrow panels and 200% browser zoom: let cards and action rows reflow
+   instead of overflowing horizontally. */
+@media (max-width: 720px) {
+  .ind-card-head {
+    flex-wrap: wrap;
+  }
+
+  .ind-export-row .btn {
+    flex-basis: 100%;
+  }
+
+  .ind-toolbar .input-sm,
+  .ind-page .ind-field .input {
+    min-width: 0;
+  }
+
+  .ind-calc-field .input-sm {
+    width: 70px;
+  }
+}
+
+/* Touch-first targets: 44px hit areas, thumb-sized inputs and native
+   scrolling only where a gesture is not owned by the viewport. */
+@media (pointer: coarse) {
+  .ind-page .btn-sm,
+  .rp-engineering-actions .btn,
+  .ind-toolbar .btn {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+
+  .ind-page .input-sm,
+  .ind-page .ind-field .input,
+  .rp-engineering-actions .input,
+  .rp-engineering-actions .ind-field .input {
+    min-height: 40px;
+    font-size: var(--font-size-md, 14px);
+  }
+
+  .ind-toolbar {
+    gap: 10px;
+  }
+
+  .ind-field {
+    gap: 6px;
+  }
+
+  .ind-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .research-check {
+    min-height: 44px;
+  }
+
+  .research-check input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ind-page .btn-sm:active,
+  .rp-engineering-actions .btn:active,
+  .ind-toolbar .btn:active {
+    transform: scale(0.97);
+  }
+
+  /* OrbitControls owns one- and two-finger gestures on the CAD surface. */
+  .ind-cad-viewport {
+    touch-action: none;
+  }
+}
+
+/* Import field label inside the shared data-file-field shell. The generic
+   `flex: 1 1 18ch` on .data-file-field stretches to a huge block when the
+   parent stacks vertically (industrial pages) — pin it to a single row. */
+.data-file-field > .analysis-label {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ind-import-field {
+  flex: 0 0 auto !important;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 34px;
+  align-items: center;
+}
+
+/* CAD 3D viewport (independent Three.js canvas inside a ToolShell page). */
+.ind-cad-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: #0b1117;
+}
+
+.ind-cad-viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ind-cad-error,
+.ind-cad-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+}
+
+.tag.is-hit {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.ind-toolbar .btn.btn-sm.is-active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.ind-mesh-canvas {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background:
+    linear-gradient(var(--color-bg-secondary) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--color-bg-secondary) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--color-bg-primary);
+}
+
+/* Empty-canvas guidance: the mesh stays visible underneath while a centered
+   note explains the next action (or the localized reason the solve failed). */
+.ind-canvas-wrap {
+  position: relative;
+}
+
+.ind-canvas-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ind-canvas-hint-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 380px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-primary);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  color: var(--color-text-secondary);
+}
+
+.ind-canvas-hint strong {
+  font-size: var(--font-size-md, 14px);
+  color: var(--color-text-primary);
+}
+
+.ind-canvas-hint span {
+  font-size: var(--font-size-sm, 12px);
+  line-height: 1.6;
+}
+
+.ind-canvas-hint.is-error .ind-canvas-hint-card {
+  border-color: var(--color-error);
+}
+
+.ind-canvas-hint.is-error strong,
+.ind-canvas-hint.is-error span {
+  color: var(--color-error);
+}
+
+/* Pre-solve model checklist (mesh / material / constraints / loads / step). */
+.ind-check {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ind-check-item {
+  display: grid;
+  grid-template-columns: 16px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm, 12px);
+  color: var(--color-text-secondary);
+}
+
+.ind-check-fix {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--font-size-sm, 12px);
+  color: var(--color-accent, #2dd4bf);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ind-check-item strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ind-check-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-success);
+}
+
+.ind-check-item.is-warn .ind-check-mark {
+  background: var(--color-warning);
+  color: #1f2937;
+}
+
+.ind-check-item.is-info .ind-check-mark {
+  background: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.ind-empty-actions {
+  justify-content: center;
+  margin-top: 4px;
+}
+
+/* Material library "template + add" row: the picker and the button share the
+   row 50/50 instead of hugging their own content at different lengths. */
+.ind-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.ind-add-row > select,
+.ind-add-row > .btn {
+  width: 100%;
+}
+
+/* Report exports: an explicit Download group and Save-to-workspace group,
+   each in thirds so buttons never leave a hanging empty cell. */
+.ind-export-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: var(--space-2, 8px);
+}
+
+.ind-export-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ind-export-label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* One equal column per button, whatever the group size. */
+.ind-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ind-export-row .btn {
+  flex: 1 1 auto;
+  /* Never squeeze a label into clipping: the row wraps instead. */
+  white-space: nowrap;
+  justify-content: center;
+}
+
+/* Report preview: a printable A4 sheet on a neutral desktop backdrop. */
+.ind-paper-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ind-zoom {
+  width: 160px;
+  accent-color: var(--color-accent, #2dd4bf);
+}
+
+.ind-paper-shell {
+  display: flex;
+  /* `safe` keeps the sheet's left edge reachable once it overflows; without
+     it, centred overflow is clipped and unscrollable. */
+  justify-content: safe center;
+  padding: 20px 16px 28px;
+  border-radius: var(--radius-md, 8px);
+  background: #cbd5e1;
+  overflow-x: auto;
+}
+
+/* Reserves the scaled footprint so the zoomed sheet never overlaps siblings
+   or leaves phantom gaps (transform alone would keep the unscaled layout). */
+.ind-paper-stage {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.ind-paper-frame {
+  /* The sheet must never be squeezed sideways: keep the true 210 mm A4 width
+     and let the shell scroll horizontally on narrow panels instead. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 210mm;
+  min-width: 210mm;
+  border: 0;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 28%);
+  transform-origin: top left;
+}
+
+.ind-cards {
+  display: grid;
+  /* `min(…, 100%)` keeps the grid from overflowing a very narrow panel /
+     200% zoom; a bare 300px minimum would force a horizontal scrollbar. */
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 12px;
+}
+
+.ind-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-bg-elevated);
+}
+
+/* Engineering calculators: compact value+unit fields and result rows that
+   mirror the shared .ind-row table look. */
+.ind-calc-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ind-calc-field .input-sm {
+  width: 84px;
+  flex: none;
+}
+
+.ind-calc-unit {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ind-calc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+
+.ind-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Calculator algorithm list — compact nav in the sidebar action bar and a
+   card grid on the canvas empty state. */
+.ind-calc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ind-calc-nav-item {
+  appearance: none;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 0 var(--radius-sm, 4px) var(--radius-sm, 4px) 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.ind-calc-nav-item:hover {
+  background: var(--color-bg-hover, rgba(255, 255, 255, 0.05));
+  color: var(--color-text-primary);
+}
+
+.ind-calc-nav-item.is-active {
+  border-left-color: var(--color-accent);
+  background: var(--color-bg-hover, rgba(255, 255, 255, 0.05));
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.ind-calc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 48px 24px;
+}
+
+.ind-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  width: min(720px, 100%);
+  margin: 0 auto;
+}
+
+.ind-calc-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 15px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-elevated);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.ind-calc-card:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.ind-calc-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ind-calc-card-desc {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.ind-scan-error {
+  color: var(--color-danger, #e5534b);
+}
+
+.ind-card.is-active {
+  border-color: var(--color-accent, #3b82f6);
+  box-shadow: 0 0 0 1px var(--color-accent, #3b82f6) inset;
+}
+
+.ind-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ind-prop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
+  gap: 8px;
+}
+
+.ind-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ind-table-wrap {
+  overflow: auto;
+  max-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+}
+
+.ind-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.ind-table th,
+.ind-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ind-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-elevated);
+  z-index: 1;
+}
+
+.ind-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 8px;
+}
+
+.ind-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.ind-metrics span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.ind-metrics strong {
+  font-size: var(--font-size-sm);
+}
+
+.ind-pre {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  max-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ind-geometry-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+}
+
+.ind-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.rp-engineering {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Section heading: small caps label followed by a hairline that pushes to
+   the panel edge, giving the sidebar a clear rhythm. */
+.rp-engineering-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rp-engineering-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.rp-engineering-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Action-bar host: industrial pages portal their toolbars here (see
+   IndustrialActions) so the canvas keeps only the viewport, charts and
+   tables. Each page row is separated by a hairline inside one card. */
+.rp-engineering-actions {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.rp-engineering-actions > * + * {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.rp-engineering-actions:empty {
+  display: none;
+}
+
+/* The section heading already draws the divider above the facts. */
+.rp-engineering-section .suite-intro-facts {
+  padding-top: 0;
+  border-top: none;
+}
+
+.rp-engineering-output {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.rp-engineering-output:hover {
+  background: var(--color-bg-hover);
+}
+
+.rp-engineering-output input {
+  accent-color: var(--color-accent);
+  margin: 0;
+}
+
+.rp-engineering-actions .ind-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+}
+
+/* Inputs, hints and checkboxes span the full sidebar width; plain buttons
+   flow two per row. */
+.rp-engineering-actions .ind-toolbar > .ind-field,
+.rp-engineering-actions .ind-toolbar > .ind-hint,
+.rp-engineering-actions .ind-toolbar > .data-file-field,
+.rp-engineering-actions .ind-toolbar > .tag,
+.rp-engineering-actions .ind-toolbar > .research-check,
+.rp-engineering-actions .ind-toolbar > .btn-primary {
+  grid-column: 1 / -1;
+}
+
+/* Two equal-weight actions (e.g. HTML + Markdown report downloads): let the
+   primary share the row with its sibling. Spanning both columns would leave
+   the secondary alone with an empty cell and two mismatched button widths. */
+.rp-engineering-actions .ind-toolbar:has(
+  > .btn:not(.btn-primary) ~ .btn-primary,
+  > .btn-primary ~ .btn:not(.btn-primary)
+) > .btn-primary {
+  grid-column: auto;
+}
+
+.rp-engineering-actions .ind-toolbar-spacer {
+  display: none;
+}
+
+/* The material row (template picker + add button) keeps its own 50/50 split
+   inside the sidebar: the generic two-column toolbar rule would otherwise
+   push the primary "add" button onto a full-width row of its own. */
+.rp-engineering-actions .ind-add-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.rp-engineering-actions .ind-add-row > .btn-primary {
+  grid-column: auto;
+}
+
+.rp-engineering-actions .ind-toolbar .btn {
+  width: 100%;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.rp-engineering-actions .ind-field,
+.rp-engineering-actions .data-file-field {
+  width: 100%;
+  max-width: none;
+}
+
+.rp-engineering-actions .ind-field .input,
+.rp-engineering-actions .ind-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.rp-engineering-actions .research-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rp-engineering-actions .ind-hint {
+  font-size: var(--font-size-xs);
+}
+
+/* Actions that belong to the tool as a whole (report / close). */
+.rp-engineering-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.rp-engineering-footer .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.rp-engineering-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.rp-engineering-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.rp-engineering-metrics strong {
+  color: var(--text);
+  font-size: var(--font-size-sm);
+}
+
+/* ---- floating touch keypad (keyboard-less touch screens) ---- */
+.touch-keypad {
+  position: fixed;
+  z-index: 3000;
+  width: 248px;
+  padding: 6px 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  touch-action: none;
+}
+
+.touch-keypad-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 8px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.touch-keypad-head:active {
+  cursor: grabbing;
+}
+
+.touch-keypad-grip {
+  width: 34px;
+  height: 4px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.touch-keypad-done {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.touch-keypad-grid {
+  display: grid;
+  gap: 6px;
+  touch-action: none;
+}
+
+.touch-keypad-key {
+  appearance: none;
+  height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-primary);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.touch-keypad-key:active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.touch-keypad-key.is-op {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.touch-keypad-key.is-util {
+  color: var(--color-text-secondary);
+}
+/* Field currently driven by the floating pad: read-only while the pad is up,
+   so mark it so the user knows which box the keys write into. */
+input[data-keypad-active] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.touch-keypad.is-docked {
+  right: 16px;
+  bottom: 72px;
+}
+
+.touch-keypad-key:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* While dragging, the pad is positioned by left/top written straight to the
+   DOM each animation frame; contain layout work to the panel itself. */
+.touch-keypad.is-dragging {
+  will-change: left, top;
+  contain: layout style;
+}
+.touch-keypad-modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.touch-keypad-mode {
+  appearance: none;
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 9px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.touch-keypad-mode.is-active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.touch-keypad.is-formula {
+  width: min(300px, calc(100vw - 24px));
+}
+
+.touch-keypad-key.is-fn {
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }

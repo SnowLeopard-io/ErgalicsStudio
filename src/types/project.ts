@@ -48,6 +48,8 @@ export interface ProjectState {
   profiles?: import('../core/profiler/profile').SavedProfile[] | null;
   /** Research publishing: manuscripts, BibTeX library, collab notes, preprints. */
   publish?: import('../core/publish/state').PublishState | null;
+  /** Industrial workbench: the active engineering study + last solve result. */
+  engineering?: import('../core/engineering/projectState').EngineeringProjectState | null;
 }
 
 /** A multi-panel publication figure persisted in the project (Figure Studio). */
@@ -74,6 +76,8 @@ export interface Project {
   name: string;
   createdAt: number;
   updatedAt: number;
+  /** Capability list of the project. Absent/unknown = research (legacy). */
+  domain?: 'research' | 'industrial';
   data: {
     files: FileEntry[];
     processed?: unknown;
@@ -87,13 +91,14 @@ export const PROJECT_FORMAT_VERSION = '1.0';
 /** Fallback name for a project created without an explicit name. */
 export const DEFAULT_PROJECT_NAME = 'Untitled';
 
-export function createEmptyProject(name: string): Project {
+export function createEmptyProject(name: string, domain: Project['domain'] = 'research'): Project {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
     name: name.trim() || DEFAULT_PROJECT_NAME,
     createdAt: now,
     updatedAt: now,
+    domain,
     data: { files: [], processed: undefined },
     state: {
       activePlugin: null,
@@ -110,6 +115,7 @@ export function createEmptyProject(name: string): Project {
       reports: [],
       profiles: [],
       publish: createPublishState(),
+      engineering: null,
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -171,6 +177,7 @@ export function normalizeProject(parsed: Project): Project {
     name: parsed.name,
     createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
     updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
+    domain: parsed.domain === 'industrial' ? 'industrial' : 'research',
     data: {
       files: Array.isArray(parsed.data?.files) ? parsed.data.files : [],
       processed: parsed.data?.processed,
@@ -195,6 +202,7 @@ export function normalizeProject(parsed: Project): Project {
       publish: state.publish
         ? normalizePublishState(state.publish)
         : createPublishState(),
+      engineering: state.engineering ?? null,
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,

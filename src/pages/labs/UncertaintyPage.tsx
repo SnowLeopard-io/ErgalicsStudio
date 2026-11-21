@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { parseDataText } from '@/blocks/fileData';
 import { asFloat64, isNumericType } from '@/blocks/ops';
 import { renderSVG, dataTableToHistogram } from '@/core/plot';
@@ -458,27 +459,7 @@ export default function UncertaintyPage() {
           {fileGroups.project.length === 0 && fileGroups.examples.length === 0 ? (
             <span className="analysis-note">{t('analysis.no_data')}</span>
           ) : (
-            <select className="input" value={file} disabled={busy} onChange={(e) => void loadFile(e.target.value)}>
-              <option value="">{t('analysis.select_file')}</option>
-              {fileGroups.project.length > 0 && (
-                <optgroup label={t('datafiles.group_project')}>
-                  {fileGroups.project.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {fileGroups.examples.length > 0 && (
-                <optgroup label={t('datafiles.group_examples')}>
-                  {fileGroups.examples.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+            <DataFilePickField value={file} disabled={busy} onChange={(name) => void loadFile(name)} />
           )}
           <label className="research-check">
             <input type="checkbox" checked={recordEnabled} onChange={(e) => setRecordEnabled(e.target.checked)} />

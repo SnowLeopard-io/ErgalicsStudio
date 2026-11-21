@@ -1,0 +1,38 @@
+# Ergalics Studio Windows packaging (Electron, NSIS).
+# Only the workbench build output (dist/) and the Electron main process
+# (deploy/windows/dist-electron/) ship — website/ and docs/ are never packaged.
+appId: io.snowleopard.ergalics.desktop
+productName: Ergalics Studio Desktop
+copyright: SnowLeopard-io
+directories:
+  output: release
+  buildResources: build
+# rcedit-based icon/metadata stamping (see scripts/afterPack.cjs): the
+# built-in executable editing needs winCodeSign, whose macOS symlinks cannot
+# be extracted on this machine without Developer Mode.
+afterPack: scripts/afterPack.cjs
+files:
+  - dist-electron/**/*
+  - app-dist/**/*
+  - package.json
+asar: true
+# node-pty ships prebuilt binaries that must live outside the asar.
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+extraResources:
+  - from: resources
+    to: resources
+win:
+  # icon.png (512x512) is converted to a proper multi-size .ico by
+  # electron-builder; the source ico.ico is a non-square 256x245 frame that
+  # both GDI and NSIS reject.
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-Setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Ergalics Studio Desktop

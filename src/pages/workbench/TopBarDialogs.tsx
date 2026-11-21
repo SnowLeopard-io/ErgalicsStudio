@@ -5,7 +5,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { DataDialog } from './DataDialog';
-import { ProjectFilesDialog } from './ProjectFilesDialog';
+import { DataFilePickerModal } from '@/components/DataFilePickerModal';
 import { PerfDialog } from './PerfDialog';
 
 /** Every dialog the TopBar can open. Only one is ever open at a time, so the
@@ -109,7 +109,7 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
         onClose={onClose}
       />
       <DataDialog open={dialog === 'data'} onClose={onClose} />
-      <ProjectFilesDialog open={dialog === 'files'} onClose={onClose} />
+      <DataFilePickerModal open={dialog === 'files'} mode="manage" onClose={onClose} />
       <PerfDialog open={dialog === 'perf'} onClose={onClose} />
     </>
   );

@@ -28,11 +28,12 @@ types/      DataTable · Scalar · RenderedView · BlockMeta · BlockGraph
 blocks/
   registry       meta + executor registration, category buckets
   compiler       pure: validate → topological sort → CompiledRegion
-  executor       DagExecutor: run(), incremental cache, dirty propagation
+  executor       DagExecutor: lightweight in-memory runner (tests, headless)
+core/build/      content-addressed build engine used by blockStore.run()
   context        MemoryStorage + RuntimeEnvironment
   fileData       shared raw-text → DataTable parsing (source.file & studio.load)
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        53 built-in block types (data_source → … → plot · visualize)
+  catalog        63 built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -93,17 +94,32 @@ of structured `diagnostics`:
   plus optional `nodeId` — the canvas paints red edges and an inline strip
   in the toolbar surfaces them, instead of crashing.
 
-## Executor: incremental, cache-friendly
+## Executor: content-addressed incremental builds
 
-`DagExecutor(program, env).run()` walks the topological order. After the
-first run it holds a `Map<nodeId, DataValue>` cache; `invalidate(nodeId)` walks
-downstream and marks everything that depends on `nodeId` dirty. Changing a
-single parameter therefore re-executes only that node and its descendants,
-which is what makes the canvas feel instant even for non-trivial pipelines.
+Flow runs are executed by the content-addressed `BuildEngine` in
+`src/core/build/` (wired up in `src/stores/blockStore.ts`). Each block becomes a
+pure build step and its cache key hashes the code, parameters, upstream content
+keys and an environment fingerprint:
 
-The executor is the only async piece in the block system; every `executor`
-returns a `Promise<DataValue>` so GPU work can slot in later without an API
-change.
+```
+key = H(kind, executor-source hash, params, {port → upstream content key}, environment)
+```
+
+Node id, canvas position and tags are deliberately excluded from the key, so a
+renamed node — or a re-imported identical table — still hits the same entry.
+A changed parameter gives a new key for exactly the affected downstream
+sub-graph, and results persist in a dedicated IndexedDB database
+(`ergalics-build-cache`) across runs and reloads. The engine runs a parallel
+wavefront, records a per-step decision (hit / computed / blocked / failed) and
+reports a `build` summary through `FLOW_RUN_FINISHED`.
+
+`DagExecutor` (in `src/blocks/executor.ts`) is still exported as a lightweight
+in-memory topological runner for headless use and block tests; it keeps a
+`Map<nodeId, DataValue>` cache with `invalidate(nodeId)` dirty propagation, but
+its cache lives only as long as the instance.
+
+Execution is the only async part of the block system; every `executor`
+returns a `Promise<DataValue>` so GPU work can slot in without an API change.
 
 ## The render bridge — viz.\* never draws
 
@@ -139,7 +155,7 @@ selection.
 
 ## Built-in blocks
 
-The catalog (`src/blocks/catalog/`) registers **53 built-in blocks across
+The catalog (`src/blocks/catalog/`) registers **63 built-in blocks across
 eight categories**:
 
 | Category     | Count | Blocks                                                                                |

@@ -10,13 +10,23 @@
 // added on top.
 // ==========================================================================
 
-import { zipSync, strToU8 } from 'fflate';
+import { unzipSync, zipSync, strToU8, strFromU8 } from 'fflate';
 import type { Project } from '@/types/project';
+import { serializeProject } from '@/types/project';
 import type { RunRecord } from '@/core/experiment/record';
 import type { LineageGraph } from '@/core/lineage/graph';
 import { buildLineage } from '@/core/lineage/graph';
 import { listRuns } from '@/core/storage';
-import { buildLock, lockToJson } from '@/core/repro/lock';
+import { hashValue } from '@/core/build/hash';
+import { verifyBuildAttestation } from '@/core/build/provenance';
+import { verifyCacheBundle } from '@/core/build/bundle';
+import {
+  buildLock,
+  lockToJson,
+  parseLock,
+  type BuildLockOptions,
+  type ReproLock,
+} from '@/core/repro/lock';
 import { logger } from '@/core/logger';
 import { getVfs, type Vfs } from '@/core/vfs';
 
@@ -27,6 +37,21 @@ export interface SupplementMeta {
 }
 
 export interface SupplementOptions {
+  /** Override the persisted runs (e.g. the selected rows on the Repro page). */
+  runs?: RunRecord[];
+  /** Restrict both the manifest and the lock to these run ids. */
+  runIds?: string[];
+  /** Passed through to `buildLock` (runtime/dependency fingerprints). */
+  versions?: BuildLockOptions['versions'];
+  dependencies?: BuildLockOptions['dependencies'];
+  /** Add a content-addressed build-cache snapshot to the archive. */
+  buildCacheJson?: string;
+  /** Add the digest-verifiable build attestation to the archive. */
+  attestationJson?: string;
+  /** Include `project.clproj` (default: false; reproducibility bundles set it). */
+  includeProject?: boolean;
+  /** Add a per-file digest inventory + manifest digest (default: false). */
+  integrity?: boolean;
   /** Include the workspace `data/` directory. */
   includeData?: boolean;
   /** Include the workspace `code/` directory. */
@@ -66,6 +91,15 @@ export interface SupplementManifest {
     /** Every other packed file (workspace-relative). */
     files: string[];
     reproLock: string | null;
+    /** Optional build evidence, present when supplied by the caller. */
+    buildCache: string | null;
+    attestation: string | null;
+    project: string | null;
+  };
+  /** Present when `integrity: true`: digests of every member + a manifest digest. */
+  integrity?: {
+    files: Array<{ path: string; bytes: number; digest: string }>;
+    digest: string;
   };
 }
 
@@ -124,11 +158,18 @@ export async function buildSupplement(
   project: Project,
   opts: SupplementOptions = {},
 ): Promise<Uint8Array> {
-  let runs: RunRecord[] = [];
-  try {
-    runs = await listRuns(project.id);
-  } catch (err) {
-    logger.warn('package', 'run records unavailable, manifest degrades', err);
+  let runs: RunRecord[] | undefined = opts.runs;
+  if (!runs) {
+    try {
+      runs = await listRuns(project.id);
+    } catch (err) {
+      logger.warn('package', 'run records unavailable, manifest degrades', err);
+      runs = [];
+    }
+  }
+  if (opts.runIds) {
+    const ids = new Set(opts.runIds);
+    runs = runs.filter((run) => ids.has(run.id));
   }
   const lineage = buildLineage(project.data.files, runs);
 
@@ -142,6 +183,9 @@ export async function buildSupplement(
     code: [],
     files: [],
     reproLock: null,
+    buildCache: null,
+    attestation: null,
+    project: null,
   };
 
   for (const file of workspaceFiles) {
@@ -158,9 +202,33 @@ export async function buildSupplement(
 
   if (opts.reproLock) {
     // FR6.5: pin data/code/params/seed fingerprints alongside the materials.
-    const lock = buildLock(project, { runs });
+    const lock = buildLock(project, {
+      runs,
+      ...(opts.runIds !== undefined ? { runIds: opts.runIds } : {}),
+      ...(opts.versions !== undefined ? { versions: opts.versions } : {}),
+      ...(opts.dependencies !== undefined ? { dependencies: opts.dependencies } : {}),
+    });
     entries['repro.lock'] = strToU8(lockToJson(lock));
     contents.reproLock = 'repro.lock';
+  }
+
+  // Optional build evidence: the same archive now carries everything needed
+  // to *reproduce* a result (lock + inputs) and to *prove* what ran (attestation
+  // + content-addressed cache). No second packager is required.
+  if (opts.buildCacheJson) {
+    entries['build-cache.json'] = strToU8(opts.buildCacheJson);
+    contents.buildCache = 'build-cache.json';
+    contents.files.push('build-cache.json');
+  }
+  if (opts.attestationJson) {
+    entries['build-attestation.json'] = strToU8(opts.attestationJson);
+    contents.attestation = 'build-attestation.json';
+    contents.files.push('build-attestation.json');
+  }
+  if (opts.includeProject) {
+    entries['project.clproj'] = strToU8(serializeProject(project));
+    contents.project = 'project.clproj';
+    contents.files.push('project.clproj');
   }
 
   const manifest: SupplementManifest = {
@@ -179,9 +247,116 @@ export async function buildSupplement(
     lineage,
     contents,
   };
+  if (opts.integrity) {
+    const files = Object.entries(entries)
+      .map(([path, bytes]) => ({ path, bytes: bytes.byteLength, digest: hashValue(strFromU8(bytes)) }))
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    manifest.integrity = {
+      files,
+      digest: hashValue({ generator: manifest.generator, projectId: project.id, files }),
+    };
+  }
   entries['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
 
   return zipSync(entries, { level: 6 });
+}
+
+export interface SupplementVerification {
+  ok: boolean;
+  issues: string[];
+  manifest: SupplementManifest | null;
+  /** Members that passed their digest check. */
+  verified: string[];
+}
+
+/**
+ * Verify a supplement/reproducibility bundle without touching the project.
+ * Checks the integrity inventory (when present), then the embedded lock,
+ * attestation and build-cache snapshot structurally.
+ */
+export function verifySupplementBundle(bytes: Uint8Array): SupplementVerification {
+  let entries: Record<string, Uint8Array>;
+  try {
+    entries = unzipSync(bytes);
+  } catch (err) {
+    return {
+      ok: false,
+      issues: [`cannot unzip bundle: ${err instanceof Error ? err.message : String(err)}`],
+      manifest: null,
+      verified: [],
+    };
+  }
+  const raw = entries['manifest.json'];
+  if (!raw) return { ok: false, issues: ['missing manifest.json'], manifest: null, verified: [] };
+  let manifest: SupplementManifest;
+  try {
+    manifest = JSON.parse(strFromU8(raw)) as SupplementManifest;
+  } catch (err) {
+    return {
+      ok: false,
+      issues: [`invalid manifest: ${err instanceof Error ? err.message : String(err)}`],
+      manifest: null,
+      verified: [],
+    };
+  }
+  const issues: string[] = [];
+  const verified: string[] = [];
+  const integrity = manifest.integrity;
+  if (integrity) {
+    const recomputed = hashValue({
+      generator: manifest.generator,
+      projectId: manifest.project.id,
+      files: integrity.files,
+    });
+    if (recomputed !== integrity.digest) issues.push('manifest digest mismatch');
+    for (const file of integrity.files) {
+      const content = entries[file.path];
+      if (!content) {
+        issues.push(`missing file: ${file.path}`);
+        continue;
+      }
+      if (content.byteLength !== file.bytes || hashValue(strFromU8(content)) !== file.digest) {
+        issues.push(`content mismatch: ${file.path}`);
+      } else {
+        verified.push(file.path);
+      }
+    }
+  }
+
+  const parseJson = (path: string): unknown | null => {
+    const content = entries[path];
+    if (!content) return null;
+    try {
+      return JSON.parse(strFromU8(content)) as unknown;
+    } catch (err) {
+      issues.push(`invalid JSON in ${path}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  };
+  if (manifest.contents?.reproLock) {
+    const lock = parseJson(manifest.contents.reproLock) as ReproLock | null;
+    if (lock) {
+      try {
+        parseLock(JSON.stringify(lock));
+        if (lock.projectId !== manifest.project.id) issues.push('lock projectId mismatch');
+      } catch (err) {
+        issues.push(`invalid lock: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
+  if (manifest.contents?.attestation) {
+    const parsed = parseJson(manifest.contents.attestation);
+    if (parsed !== null) {
+      for (const issue of verifyBuildAttestation(parsed).issues) issues.push(`attestation: ${issue}`);
+    }
+  }
+  if (manifest.contents?.buildCache) {
+    const parsed = parseJson(manifest.contents.buildCache);
+    if (parsed !== null) {
+      for (const issue of verifyCacheBundle(parsed).issues) issues.push(`build cache: ${issue}`);
+    }
+  }
+  return { ok: issues.length === 0, issues, manifest, verified };
 }
 
 /** Count the files currently under the workspace `data/` directory. */

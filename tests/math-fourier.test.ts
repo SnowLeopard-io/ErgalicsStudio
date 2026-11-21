@@ -147,9 +147,16 @@ describe('math-fourier kernel — L2 error vs exact Parseval tail', () => {
 });
 
 describe('math-fourier embedded benchmark suite', () => {
-  it('all five spec benchmarks pass at N = 64', () => {
+  it('all six embedded benchmarks pass at N = 64', () => {
     const bench = runFourierBenchmarks();
-    const specIds = ['square-coeff', 'triangle-coeff', 'gibbs-ratio', 'fejer-overshoot', 'parseval-residual'];
+    const specIds = [
+      'square-coeff',
+      'triangle-coeff',
+      'gibbs-ratio',
+      'fejer-overshoot',
+      'parseval-residual',
+      'l2-vs-tail',
+    ];
     for (const id of specIds) {
       const b = bench.find((x) => x.id === id);
       expect(b, `benchmark ${id} missing`).toBeDefined();

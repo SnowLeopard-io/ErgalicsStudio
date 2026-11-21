@@ -2,7 +2,8 @@
 // ==========================================================================
 // Ergalics Studio — compendium assembler
 //
-// Builds docs/technical/"Ergalics Studio.md" out of the eight numbered
+// Builds docs/technical/ergalics-studio.md (--en) or docs/zh-CN/technical/
+// "Ergalics Studio.md" out of the eight numbered
 // chapter documents, plus a hand-written usage guide and a generated
 // document index. The compendium is therefore a *derived* artefact: it can
 // never drift from the chapters it summarises, which is how the previous
@@ -12,14 +13,45 @@
 // Usage: node scripts/build-tech-summary.mjs
 // ==========================================================================
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
 
-const read = (name) => readFileSync(path.join(DOCS_DIR, `${name}.md`), 'utf8');
+// --en assembles the English edition from docs/technical; the default builds
+// the maintained Chinese edition from docs/zh-CN/technical.
+const EN = process.argv.includes('--en');
+
+// English chapters use English slugs; Chinese chapters keep Chinese names.
+const EN_CHAPTER_FILES = {
+  '01-产品介绍': '01-product-introduction',
+  '02-系统架构': '02-system-architecture',
+  '03-插件系统': '03-plugin-system',
+  '04-四大工作模式': '04-four-working-modes',
+  '05-科研工具集': '05-research-toolset',
+  '06-GPU计算与原生核心': '06-gpu-computing-and-native-core',
+  '07-科学计算子系统': '07-scientific-computing-subsystems',
+  '08-测试与质量保障': '08-testing-and-quality-assurance',
+  '09-电磁谐振特征值求解器': '09-electromagnetic-resonance-eigensolver',
+  '10-流体双向耦合求解器': '10-fluid-bidirectional-coupling-solver',
+  '11-应用场景库': '11-application-scenario-library',
+};
+
+function localisedOrFallback(localized, name) {
+  return existsSync(localized) ? localized : path.join(DOCS_DIR, `${name}.md`);
+}
+
+const read = (name) => {
+  const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${name}.md`);
+  const source = EN
+    ? path.join(DOCS_DIR, `${EN_CHAPTER_FILES[name] ?? name}.md`)
+    : localisedOrFallback(localized, name);
+  // The generated compendium lives in docs/technical, one level above the
+  // localized sources, so restore asset paths relative to its output location.
+  return readFileSync(source, 'utf8').replaceAll('](../../assets/', '](../assets/');
+};
 
 /** Split a chapter document into its `## ` sections, dropping the H1 preamble. */
 function sections(md) {
@@ -44,9 +76,11 @@ function sections(md) {
   return out;
 }
 
-/** "一、总体分层" → "总体分层" */
+/** "一、总体分层" → "总体分层"; "I. Overview" → "Overview" */
 function stripCjkNumeral(title) {
-  return title.replace(/^[一二三四五六七八九十]+\s*[、.]\s*/, '');
+  return title
+    .replace(/^[一二三四五六七八九十]+\s*[、.]\s*/, '')
+    .replace(/^[IVX]+\.\s+/, '');
 }
 
 const CN = '一二三四五六七八九十';
@@ -91,14 +125,80 @@ function emitSection(ch, k, section) {
 function emitChapter(ch, title, sourceName, pick) {
   const src = sections(read(sourceName));
   const picked = pick ? src.filter((s, i) => pick(s, i + 1)) : src;
-  const lines = [`## 第${cnNum(ch)}章 ${title}`, ''];
+  const lines = [EN ? `## Chapter ${ch} ${title}` : `## 第${cnNum(ch)}章 ${title}`, ''];
   picked.forEach((s, i) => lines.push(...emitSection(ch, i + 1, s)));
   return lines;
 }
 
 // ---- usage guide (unique to the compendium) -------------------------------
 
-const USAGE = `## 第九章 使用指南
+const USAGE_EN = `## Chapter 9 Usage Guide
+
+### 9.1 Stack and requirements
+
+Ergalics Studio is a pure front-end single-page application. Its only hard dependency is a modern browser; the only optional local toolchain is Rust, used solely to compile the native core to WebAssembly.
+
+| Layer | Choice |
+| --- | --- |
+| UI | React 18, react-router-dom 7, Zustand 5 |
+| Language | TypeScript 5.7 (strict) |
+| Build | Vite 6 + Vitest |
+| Visualization | Canvas / WebGL, Three.js, WGSL compute shaders |
+| Editors | Monaco Editor, Blockly 13 |
+| Runtimes | Pyodide (CPython), DuckDB-WASM, TensorFlow.js |
+| Scientific I/O | h5wasm, netcdfjs, fitsjs, zarrita, parquet-wasm (with apache-arrow) |
+| Packaging | fflate, lz-string |
+| Native core | Rust (wasm32-unknown-unknown) + wasm-bindgen 0.2 |
+| E2E | playwright-core driving headless Edge |
+| License | MIT |
+
+Browsers need WebGPU / WebAssembly / Web Workers / IndexedDB. WebGPU and WASM are optional: when missing, the welcome page reports it honestly and computation falls back to CPU implementations.
+
+### 9.2 Install, run and build
+
+\`\`\`bash
+npm install          # dependencies
+npm run dev          # development server
+npm run build        # full build: WASM core → type check → bundle → docs site
+npm run build:web    # front-end only (skips Rust)
+npm run preview      # preview the production build
+\`\`\`
+
+Quality gates:
+
+\`\`\`bash
+npm test             # Vitest unit tests
+npm run verify       # tsc --noEmit + unit tests
+npm run test:e2e     # Playwright E2E suites (needs a local browser)
+npm run bench        # benchmarks against baselines
+\`\`\`
+
+\`npm run build\` is itself a gate: any failing step (WASM compile, type check, bundling, docs copy) aborts it. Type checking doubles as lint — the repository ships no extra lint rule set and relies on TypeScript strict mode instead.
+
+### 9.3 Data formats
+
+CSV / TSV / DAT / TXT / MD; XY and XYE spectra; JSON grids and XYZ point clouds; MTX / NPY / NPZ matrices; CIF / POSCAR / VASP structures; GeoJSON / GPX / ASC geodata; FASTA / FA / VCF sequences; PNG / JPEG / WEBP / GIF images; HDF5, NetCDF, FITS, Zarr and Parquet scientific binaries; \`.clproj\` projects (lz-string compressed); \`.cspkg\` plugin packages (manifest and optional signature checked on load); \`.cstheme\` theme packs (declarative data only). Large files pass through chunked reading and content fingerprinting before a Worker pool parses them in parallel.
+
+### 9.4 Sample assets
+
+| Location | Contents |
+| --- | --- |
+| examples/data | Loadable sample datasets attached to built-in plugins |
+| examples/projects | 11 real \`.clproj\` pipelines (signal analysis, binned statistics, dual-pipeline comparison, …) |
+| examples/code | 9 Python sample programs (EDA pipeline, Monte Carlo π, signal smoothing, …) |
+| src/editor/block/samples.ts | 5 block programs (galaxy scatter, telemetry line, random histogram, …) |
+| src/core/templates | Discipline template catalog with deterministic datasets and 3–6 guided steps |
+
+### 9.5 Contributing
+
+Read ARCHITECTURE.md and REQUIREMENTS.md before changing code; new plugins or features need an end-to-end check; keep \`npm run verify\` green before committing. Fixed defects should become regression cases rather than one-off code edits.
+
+### 9.6 License
+
+MIT. Citation and archival metadata live in \`CITATION.cff\` (generated from package.json and checked in CI); tagged releases are archived to Zenodo with a DOI.
+`;
+
+const USAGE = EN ? USAGE_EN : `## 第九章 使用指南
 
 ### 9.1 技术栈与环境要求
 
@@ -179,22 +279,46 @@ npm run bench        # 性能基准并对基线
 MIT。软件引用与归档元数据由 \`CITATION.cff\` 维护（由脚本从 package.json 生成并在 CI 中校验），打标签发版时会自动归档到 Zenodo 并铸造 DOI。
 `;
 
-const APPENDIX = `## 附录 文档索引
+const APPENDIX_EN = `## Appendix: Document Index
+
+| Document | Contents |
+| --- | --- |
+| 01 Product Introduction | Review-oriented overview: positioning, innovation, feature map, application scenarios, open-source governance and long-term plan |
+| 02 System Architecture | Layered architecture, routing and page organisation, startup sequence, state management, rendering pipeline, directory and dependency rules |
+| 03 Plugin System | Plugin contract, the 165 built-in plugins (including 32 research-grade suite plugins), marketplace and two-level loading, cspkg sandbox and Ed25519 signing, file routing |
+| 04 Four Working Modes | Standard, Flow, Block and Code, and lossless round trips through one shared IR |
+| 05 Research Toolset | One registry for 33 tools in seven groups, per-tool responsibilities, entry points and inter-tool flow |
+| 06 GPU Computing and Native Core | Native-core delivery and WebGPU / CPU fallback, the compute pipeline, 14 reusable WGSL kernels |
+| 07 Scientific Computing Subsystems | 54 subsystems: statistics, scientific binary I/O, publication plotting and figure composition, reproducibility, uncertainty, modeling and inference |
+| 08 Testing and Quality Assurance | Unit tests, E2E tests, performance baselines and size budgets, five CI workflows and engineering scripts |
+| Electromagnetic Resonance Eigensolver | Sparse Hermitian eigenvalues: Lanczos / LOBPCG / Jacobi-Davidson, MINRES shift-invert, certified residuals, 3D mode fields, Pyodide worker |
+| Fluid Bidirectional Coupling Solver | 1D pipe network ↔ 3D field coupling: multirate stepping, coarse–fine subcycling, forward and reverse boundary coupling, millisecond valve control |
+| Container Deployment Manual | One-command Docker orchestration and CLI reproduction of 26 verification assertions and benchmarks |
+| Application Scenario Library | 81 scenarios (79 detailed entries plus two screenshot indexes), each mapped to a real plugin or research tool |
+| 12 Plugin Catalog | Generated per-plugin table: id, Chinese and English names, description, discipline and autoload flag for all 165 plugins |
+| Ergalics Studio (this document) | Complete technical summary assembled from the chapters above |
+| docs/guide (VitePress site) | User-facing documentation: introduction, architecture, mode guides, testing, roadmap, plugin development |
+
+These documents evolve with the code: when code, configuration or tests change, verify and update the numbers and descriptions in the corresponding chapters.
+`;
+
+const APPENDIX = EN ? APPENDIX_EN : `## 附录 文档索引
 
 | 文档 | 内容 |
 | --- | --- |
 | 01-产品介绍 | 面向评审的总述：项目概览、技术创新、功能全景、场景落地、开源治理与长期发展 |
 | 02-系统架构 | 分层架构、路由与页面组织、启动时序、状态管理、渲染管线、目录结构与依赖规则 |
-| 03-插件系统 | 插件契约、107 个内置插件明细（含 32 个科研级插件套件）、市场目录与两级加载、cspkg 沙箱与 Ed25519 签名、文件路由 |
+| 03-插件系统 | 插件契约、165 个内置插件总览（含 32 个科研级插件套件，逐插件清单见 12 篇）、市场目录与两级加载、cspkg 沙箱与 Ed25519 签名、文件路由 |
 | 04-四大工作模式 | 标准、流程、积木、代码四种模式的设计与三模式互转（共享 IR） |
-| 05-科研工具集 | 26 个科研工具的统一注册表、六个分组与逐项职责、入口导航与工具间流转 |
+| 05-科研工具集 | 33 个科研工具的统一注册表、七个分组与逐项职责、入口导航与工具间流转 |
 | 06-GPU计算与原生核心 | 原生核心源码交付与运行时 WebGPU/CPU 回退口径、WebGPU 计算管线、14 个可复用 WGSL 内核 |
-| 07-科学计算子系统 | 统计内核、科研二进制 I/O、出版级绘图与组图、可复现性、不确定度、建模与推断等 43 个子系统 |
+| 07-科学计算子系统 | 统计内核、科研二进制 I/O、出版级绘图与组图、可复现性、不确定度、建模与推断等 54 个子系统 |
 | 08-测试与质量保障 | 单元测试、端到端测试、性能基准与体积预算、五条 CI 工作流与工程脚本 |
 | 电磁谐振特征值求解器（独立专题） | 稀疏厄密特征值求解：Lanczos / LOBPCG / Jacobi-Davidson 内核、MINRES 位移反演、真实残差认证、3D 模式场、Pyodide Worker 运行时 |
 | 流体双向耦合求解器（独立专题） | 1D 管网-3D 场双向耦合：多速率时间步协调、粗-细子循环、正反向边界耦合、毫秒级阀门控制、守恒性与精度-效率权衡 |
 | 流体双向耦合求解器-容器化部署手册（独立专题） | Docker 一键编排与 CLI 复现：容器内复现 26 项验证断言与基准，生产静态模式与故障排查 |
-| 应用场景库（独立专题） | 81 条细粒度应用场景（硬核→基础）：每条对应真实插件或科研工具并附实截图，与 03 / 05 篇对照检索 |
+| 应用场景库（独立专题） | 81 条细粒度应用场景（79 条详解 + 2 条速查索引，硬核→基础）：每条对应真实插件或科研工具并附实截图，与 03 / 05 篇对照检索 |
+| 12-插件全表 | 由脚本从插件清单自动生成的逐插件清单：ID、中英文名、说明、学科与自动加载标记（165 个） |
 | Ergalics Studio（本文） | 完整技术总结：由本目录各分篇与独立专题汇编而成，含目录导航、正文与本文档索引 |
 | docs/guide（VitePress 站点） | 面向使用者的在线文档：导言、架构、各模式指南、测试、路线图、插件等 |
 
@@ -203,11 +327,22 @@ const APPENDIX = `## 附录 文档索引
 
 // ---- assemble -------------------------------------------------------------
 
-const intro = `# Ergalics Studio
+const intro = EN
+  ? `# Ergalics Studio
+
+Ergalics Studio is a scientific computing workstation that runs entirely in the browser: nothing to install, ready on open, with data kept on the local machine. Four working modes share one dataset, so viewing, pipeline building and coding happen without switching tools, and the result is a reproducible research artifact.
+
+> This document is assembled from the chapter files by \`scripts/build-tech-summary.mjs\`; do not edit it by hand. Edit the chapter and rerun the script.
+>
+> It is the complete technical summary of Ergalics Studio, covering system architecture, the plugin system, the four working modes, the research toolset, GPU computing and quality assurance, plus a usage guide and document index. Baseline: 165 built-in plugins, 63 flow blocks, 33 research tools, 54 core subsystems, 263 test files / 4,078 unit tests (4,076 passing + 2 skipped), 14 end-to-end suites (1 smoke + 13 verify) and 5 CI workflows.
+`
+  : `# Ergalics Studio
 
 Ergalics Studio 是一款完全运行在浏览器中的科学计算工作站：无需安装，打开即用，数据保存在本机。四种工作模式共享同一份数据，从看图、搭流程到写代码连贯不换工具，并可交付可复现的研究成果。
 
-> 本文是 Ergalics Studio 的完整技术总结，覆盖系统架构、插件体系、四种工作模式、科研工具集、GPU 计算引擎与测试质量保障，另附使用指南与文档索引。数字基线为 107 个内置插件、38 个流程区块、26 个科研工具、43 个领域子系统、173 个测试文件 / 2815 个单元测试（2813 通过 + 2 跳过）、14 套端到端套件（1 冒烟 + 13 verify）、5 条 CI 工作流。
+> 本文由 \`scripts/build-tech-summary.mjs\` 从各分篇自动汇编，请勿手改；修订请改分篇后重新运行脚本。
+>
+> 本文是 Ergalics Studio 的完整技术总结，覆盖系统架构、插件体系、四种工作模式、科研工具集、GPU 计算引擎与测试质量保障，另附使用指南与文档索引。数字基线为 165 个内置插件、63 个流程区块、33 个科研工具、54 个领域子系统、263 个测试文件 / 4078 个单元测试（4076 通过 + 2 跳过）、14 套端到端套件（1 冒烟 + 13 verify）、5 条 CI 工作流。
 `;
 
 const lines = [intro];
@@ -216,17 +351,18 @@ const lines = [intro];
 const pick01 = (s, i) => i === 1 || i === 3;
 const pick01Innovation = (s, i) => i === 2; // §二 技术创新
 
-lines.push(...emitChapter(1, '项目概览', '01-产品介绍', pick01));
-lines.push(...emitChapter(2, '系统架构', '02-系统架构'));
-lines.push(...emitChapter(3, '插件系统', '03-插件系统'));
-lines.push(...emitChapter(4, '四大工作模式', '04-四大工作模式'));
-lines.push(...emitChapter(5, '科研工具集', '05-科研工具集'));
-lines.push(...emitChapter(6, 'GPU 计算与原生核心', '06-GPU计算与原生核心'));
-lines.push(...emitChapter(7, '科学计算子系统', '07-科学计算子系统'));
-lines.push(...emitChapter(8, '测试与质量保障', '08-测试与质量保障'));
+const t = (zh, en) => (EN ? en : zh);
+lines.push(...emitChapter(1, t('项目概览', 'Project Overview'), '01-产品介绍', pick01));
+lines.push(...emitChapter(2, t('系统架构', 'System Architecture'), '02-系统架构'));
+lines.push(...emitChapter(3, t('插件系统', 'Plugin System'), '03-插件系统'));
+lines.push(...emitChapter(4, t('四大工作模式', 'Four Working Modes'), '04-四大工作模式'));
+lines.push(...emitChapter(5, t('科研工具集', 'Research Toolset'), '05-科研工具集'));
+lines.push(...emitChapter(6, t('GPU 计算与原生核心', 'GPU Computing and Native Core'), '06-GPU计算与原生核心'));
+lines.push(...emitChapter(7, t('科学计算子系统', 'Scientific Computing Subsystems'), '07-科学计算子系统'));
+lines.push(...emitChapter(8, t('测试与质量保障', 'Testing and Quality Assurance'), '08-测试与质量保障'));
 lines.push(USAGE);
-lines.push(...emitChapter(10, '技术创新', '01-产品介绍', pick01Innovation));
-lines.push(...emitChapter(11, '应用场景库', '11-应用场景库'));
+lines.push(...emitChapter(10, t('技术创新', 'Technical Innovation'), '01-产品介绍', pick01Innovation));
+lines.push(...emitChapter(11, t('应用场景库', 'Application Scenario Library'), '11-应用场景库'));
 lines.push(APPENDIX);
 
 const out = lines
@@ -234,7 +370,13 @@ const out = lines
   .replace(/\n{3,}/g, '\n\n')
   .replace(/\s*$/, '\n');
 
-writeFileSync(path.join(DOCS_DIR, 'Ergalics Studio.md'), out, 'utf8');
+// Default: assemble the Chinese compendium from docs/zh-CN. --en: assemble the
+// English compendium from docs/technical. Each locale keeps its own page.
+const summaryPath = EN
+  ? path.join(DOCS_DIR, 'ergalics-studio.md')
+  : path.join(ROOT, 'docs', 'zh-CN', 'technical', 'Ergalics Studio.md');
+const summary = EN ? out : out.replaceAll('](../assets/', '](../../assets/');
+writeFileSync(summaryPath, summary, 'utf8');
 console.log(
   `assembled: Ergalics Studio.md (${out.split('\n').length} lines, ${out.length} chars)`,
 );

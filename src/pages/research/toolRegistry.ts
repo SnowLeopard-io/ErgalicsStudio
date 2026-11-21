@@ -13,6 +13,7 @@ import { lazyRetry } from '@/core/lazyRetry';
 import type { NavigateFunction } from 'react-router-dom';
 import { useAppStore } from '@/stores/appStore';
 import type { ToolIconKind } from '@/components/icons';
+import type { Domain } from '@/core/domains';
 
 export type ResearchGroupId =
   | 'measure'
@@ -26,7 +27,20 @@ export type ResearchGroupId =
    *  the last group in the launchers, visually separate from research suites. */
   | 'utils';
 
-interface ResearchTool {
+/** Industrial workbench groups (design doc §2.2): geometry → mesh → material
+ *  → case → solve → post. Kept as a separate union so the research launchers
+ *  never pick them up by accident. */
+export type IndustrialGroupId =
+  | 'geometry'
+  | 'mesh'
+  | 'materials'
+  | 'cases'
+  | 'solve'
+  | 'post';
+
+export type ToolGroupId = ResearchGroupId | IndustrialGroupId;
+
+export interface ResearchTool {
   /** Stable id, also the /studio/<id> slug. */
   id: string;
   /** Canonical route. */
@@ -36,7 +50,13 @@ interface ResearchTool {
   icon: ToolIconKind;
   titleKey: string;
   descKey: string;
-  group: ResearchGroupId;
+  group: ToolGroupId;
+  /** Capability list this entry belongs to (default: research). */
+  domains: Domain[];
+  /** Viewer / editor / solver classification used by the right panel. */
+  kind?: 'viewer' | 'editor' | 'solver';
+  /** Which right-panel body to show while the suite is embedded. */
+  rightPanel?: 'intro' | 'params' | 'engineering';
   /** Shown in the top-bar launcher (the welcome-page launch grid was
    *  removed). The general "analyze" surface stays reachable via its own
    *  top-bar button. */
@@ -52,7 +72,10 @@ const tool = (
   opts: {
     icon: ToolIconKind;
     titleKey: string;
-    group: ResearchGroupId;
+    group: ToolGroupId;
+    domains?: Domain[];
+    kind?: ResearchTool['kind'];
+    rightPanel?: ResearchTool['rightPanel'];
     inGrid?: boolean;
     requireProject?: boolean;
     legacyPath?: string;
@@ -66,6 +89,9 @@ const tool = (
   titleKey: opts.titleKey,
   descKey: opts.descKey ?? `tool.${id}.desc`,
   group: opts.group,
+  domains: opts.domains ?? ['research'],
+  ...(opts.kind ? { kind: opts.kind } : {}),
+  ...(opts.rightPanel ? { rightPanel: opts.rightPanel } : {}),
   inGrid: opts.inGrid ?? true,
   requireProject: opts.requireProject ?? false,
   component: lazyRetry(loader),
@@ -78,6 +104,9 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('profiler', () => import('@/pages/labs/ProfilerPage'), {
     icon: 'profiler', titleKey: 'profile.title', group: 'measure',
   }),
+  tool('performance', () => import('@/pages/labs/PerformancePage'), {
+    icon: 'performance', titleKey: 'tool.performance.title', group: 'measure',
+  }),
   tool('model-lab', () => import('@/pages/labs/ModelLabPage'), {
     icon: 'model-lab', titleKey: 'model.title', group: 'model',
   }),
@@ -86,6 +115,9 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   }),
   tool('model-inference', () => import('@/pages/labs/InferencePage'), {
     icon: 'model-inference', titleKey: 'tool.model-inference.title', group: 'model',
+  }),
+  tool('causal-lab', () => import('@/pages/labs/CausalLabPage'), {
+    icon: 'causal', titleKey: 'tool.causal-lab.title', group: 'model',
   }),
   tool('sweeps', () => import('@/pages/sweeps/SweepsPage'), {
     icon: 'sweeps', titleKey: 'sweep.title', group: 'model', requireProject: true,
@@ -189,10 +221,63 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('quick-stats', () => import('@/pages/utils/QuickStatsPage'), {
     icon: 'quickstats', titleKey: 'tool.quick-stats.title', group: 'utils',
   }),
+  // ---- industrial workbench (P1): geometry → mesh → material → case →
+  //      solve → post. Same registry, filtered by the `industrial` domain. ---
+  tool('geometry-import', () => import('@/pages/industrial').then((m) => ({ default: m.GeometryPage })), {
+    icon: 'geometry', titleKey: 'tool.geometry-import.title', group: 'geometry',
+    domains: ['industrial'], kind: 'editor', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('mesh-viewer', () => import('@/pages/industrial').then((m) => ({ default: m.MeshViewerPage })), {
+    icon: 'mesh', titleKey: 'tool.mesh-viewer.title', group: 'mesh',
+    domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('material-library', () => import('@/pages/industrial').then((m) => ({ default: m.MaterialsPage })), {
+    icon: 'material', titleKey: 'tool.material-library.title', group: 'materials',
+    domains: ['industrial'], kind: 'editor', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('load-cases', () => import('@/pages/industrial').then((m) => ({ default: m.CasesPage })), {
+    icon: 'cases', titleKey: 'tool.load-cases.title', group: 'cases',
+    domains: ['industrial'], kind: 'editor', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('fea-solver', () => import('@/pages/industrial').then((m) => ({ default: m.SolvePage })), {
+    icon: 'solver', titleKey: 'tool.fea-solver.title', group: 'solve',
+    domains: ['industrial'], kind: 'solver', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('post-processing', () => import('@/pages/industrial').then((m) => ({ default: m.PostPage })), {
+    icon: 'post', titleKey: 'tool.post-processing.title', group: 'post',
+    domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('design-scan', () => import('@/pages/industrial').then((m) => ({ default: m.DesignScanPage })), {
+    icon: 'doe', titleKey: 'tool.design-scan.title', group: 'solve',
+    domains: ['industrial'], kind: 'solver', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('quick-fluid', () => import('@/pages/industrial').then((m) => ({ default: m.FluidPage })), {
+    icon: 'fluid', titleKey: 'tool.quick-fluid.title', group: 'solve',
+    domains: ['industrial'], kind: 'solver', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('repro-fingerprint', () => import('@/pages/industrial').then((m) => ({ default: m.FingerprintPage })), {
+    icon: 'fingerprint', titleKey: 'tool.repro-fingerprint.title', group: 'post',
+    domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering', requireProject: true,
+  }),
+  tool('industrial-report', () => import('@/pages/industrial').then((m) => ({ default: m.IndustrialReportPage })), {
+    icon: 'industrial-report', titleKey: 'tool.industrial-report.title', group: 'post',
+    domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering', requireProject: true,
+  }),
+  // Mesh-free quick calculators (pipe Δp, thermal stacks, …) — usable with
+  // no study loaded, hence no project requirement.
+  tool('engineering-calc', () => import('@/pages/industrial/calculators').then((m) => ({ default: m.CalculatorsPage })), {
+    icon: 'calc', titleKey: 'tool.engineering-calc.title', group: 'post',
+    domains: ['industrial'], kind: 'viewer', rightPanel: 'engineering',
+  }),
 ];
 
 export const GRID_GROUPS: ResearchGroupId[] = [
   'measure', 'model', 'data', 'signal', 'deliver', 'publish', 'utils',
+];
+
+/** Industrial sidebar group order (geometry → mesh → material → case → solve → post). */
+export const INDUSTRIAL_GROUPS: IndustrialGroupId[] = [
+  'geometry', 'mesh', 'materials', 'cases', 'solve', 'post',
 ];
 
 const BY_ID = new Map(RESEARCH_TOOLS.map((x) => [x.id, x]));
@@ -201,7 +286,15 @@ export function getTool(id: string | undefined): ResearchTool | undefined {
   return id ? BY_ID.get(id) : undefined;
 }
 
-export const GRID_TOOLS = RESEARCH_TOOLS.filter((x) => x.inGrid);
+/** Research-domain tool list (legacy name kept for existing imports). */
+export const GRID_TOOLS = RESEARCH_TOOLS.filter(
+  (x) => x.inGrid && (x.domains.includes('research') || x.domains.includes('both')),
+);
+
+/** Industrial-domain tool list for the industrial sidebar. */
+export const INDUSTRIAL_TOOLS = RESEARCH_TOOLS.filter(
+  (x) => x.domains.includes('industrial') || x.domains.includes('both'),
+);
 
 /**
  * Open a research suite embedded in the Standard-mode central canvas instead

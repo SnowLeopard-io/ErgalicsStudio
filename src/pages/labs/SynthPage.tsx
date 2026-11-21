@@ -2,25 +2,35 @@
 // Ergalics Studio — synthetic data page (/studio/synth).
 //
 // Standalone research tool over the pure core kernel (src/core/dataeng/synth):
-// CSV upload, generation options (rows / seed / mode / privacy budget), a
-// column-by-column quality report (KS / TVD / correlation gap / overall
-// score), original-vs-synthetic distribution histograms and CSV / metrics
-// exports. Academic, low-saturation style; all copy from global i18n.
+// CSV upload or project/example data files from the registry, generation
+// options (rows / seed / mode / privacy budget), a column-by-column quality
+// report (KS / TVD / correlation gap / overall score), original-vs-synthetic
+// distribution histograms and CSV / metrics exports. Academic,
+// low-saturation style; all copy from global i18n.
 // ==========================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
+import {
+  listDataFilesGrouped,
+  resolveDataFile,
+  DATA_EXTS_SERIES,
+} from '@/core/dataFiles';
+import { parseDataText } from '@/blocks/fileData';
+import type { DataTable } from '@/types/datatable';
 import {
   generateSynthetic,
   parseCsvTable,
   parseNum,
   toCsv,
 } from '@/core/dataeng/synth';
-import type { PrivacyMode, SynthMode, SynthResult, SynthTable } from '@/core/dataeng/synth';
+import type { Cell, PrivacyMode, SynthMode, SynthResult, SynthTable } from '@/core/dataeng/synth';
 import { extent } from '@/core/stats';
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 
 const MODES: readonly SynthMode[] = ['copula', 'independent', 'timeseries'];
 const PRIVACY_MODES: readonly PrivacyMode[] = ['none', 'dp', 'k-anonymity'];
@@ -61,6 +71,28 @@ function columnNumbers(table: SynthTable, column: string): number[] {
 function fmt(v: number | null | undefined, digits = 4): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
   return String(Math.round(v * 10 ** digits) / 10 ** digits);
+}
+
+/**
+ * Convert a registry `DataTable` (typed columns) into the row-oriented
+ * `SynthTable` the synth kernel consumes. Non-finite numbers and missing
+ * cells become `null` so the column profiler treats them as missing.
+ */
+function dataTableToSynth(df: DataTable): SynthTable {
+  const columns = df.columnNames();
+  const cols = columns.map((n) => df.getColumn(n)!);
+  const rows: Cell[][] = [];
+  for (let i = 0; i < df.length; i += 1) {
+    rows.push(
+      cols.map((col) => {
+        const v = col[i];
+        if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+        if (typeof v === 'boolean') return v;
+        return v === undefined || v === null ? null : String(v);
+      }),
+    );
+  }
+  return { columns, rows };
 }
 
 // ---- histogram canvas --------------------------------------------------------
@@ -162,11 +194,20 @@ function CompareHistogram({
 export function SynthPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
+  const project = useProjectStore((s) => s.project);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [source, setSource] = useState<SynthTable | null>(null);
+  const [sourceLabel, setSourceLabel] = useState('');
+  const [projectFile, setProjectFile] = useState('');
   const [result, setResult] = useState<SynthResult | null>(null);
   const [activeColumn, setActiveColumn] = useState<string>('');
+
+  // Registry-backed project / example data files (re-read when the
+  // project's data list changes). `project?.data.files` is an intentional
+  // invalidation trigger; listDataFilesGrouped reads store state directly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [rows, setRows] = useState(500);
   const [seed, setSeed] = useState(42);
@@ -174,6 +215,14 @@ export function SynthPage() {
   const [privacy, setPrivacy] = useState<PrivacyMode>('none');
   const [epsilon, setEpsilon] = useState(1.0);
   const [k, setK] = useState(5);
+
+  /** Accept a parsed table as the new source (shared by upload + registry). */
+  const applySource = (table: SynthTable, label: string): void => {
+    setSource(table);
+    setSourceLabel(label);
+    setResult(null);
+    notify('success', t('synth.loaded', { rows: table.rows.length, cols: table.columns.length }));
+  };
 
   const handleFile = async (file: File | undefined): Promise<void> => {
     if (!file) return;
@@ -184,9 +233,21 @@ export function SynthPage() {
         notify('error', t('synth.parse_failed'));
         return;
       }
-      setSource(table);
-      setResult(null);
-      notify('success', t('synth.loaded', { rows: table.rows.length, cols: table.columns.length }));
+      applySource(table, file.name);
+    } catch {
+      notify('error', t('synth.parse_failed'));
+    }
+  };
+
+  const loadProjectFile = async (name: string): Promise<void> => {
+    if (!name) return;
+    try {
+      const text = await resolveDataFile(name);
+      if (text === undefined) {
+        notify('error', t('synth.parse_failed'));
+        return;
+      }
+      applySource(dataTableToSynth(parseDataText(text, name)), name);
     } catch {
       notify('error', t('synth.parse_failed'));
     }
@@ -278,8 +339,19 @@ export function SynthPage() {
           <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
             {t('synth.upload')}
           </button>
+          {fileGroups.project.length > 0 || fileGroups.examples.length > 0 ? (
+            <DataFilePickField
+              value={projectFile}
+              placeholderKey="synth.select_project_file"
+              onChange={(name) => {
+                setProjectFile(name);
+                void loadProjectFile(name);
+              }}
+            />
+          ) : null}
           {source && (
             <span className="figures-panel-meta">
+              {sourceLabel && <>{sourceLabel} · </>}
               {t('synth.rows_label', { rows: source.rows.length })} ·{' '}
               {t('synth.cols_label', { cols: source.columns.length })} ·{' '}
               {source.columns.join(', ')}

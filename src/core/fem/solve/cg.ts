@@ -34,23 +34,44 @@ export function conjugateGradient(A: CsrMatrix, b: ArrayLike<number>, options: C
   const p = new Float64Array(n);
   const Ap = new Float64Array(n);
 
-  // r = b − A·x (x = 0 ⇒ r = b)
-  let bNorm = 0;
+  // Scale the RHS by max|b| before taking norms. This keeps ‖b‖² from
+  // overflowing (1e200²) or underflowing to zero (1e-200²), which would
+  // otherwise report a converged but completely wrong zero solution.
+  let bScale = 0;
   for (let i = 0; i < n; i += 1) {
-    r[i] = b[i]!;
-    bNorm += b[i]! * b[i]!;
+    const value = b[i]!;
+    if (!Number.isFinite(value)) {
+      return { solution: x, iterations: 0, residual: Number.NaN, converged: false };
+    }
+    bScale = Math.max(bScale, Math.abs(value));
   }
-  bNorm = Math.sqrt(bNorm);
-  if (bNorm === 0) {
+  if (bScale === 0) {
     return { solution: x, iterations: 0, residual: 0, converged: true };
   }
+  // r = b − A·x (x = 0 ⇒ r = b / bScale)
+  let bNorm = 0;
+  for (let i = 0; i < n; i += 1) {
+    r[i] = b[i]! / bScale;
+    bNorm += r[i]! * r[i]!;
+  }
+  bNorm = Math.sqrt(bNorm);
   p.set(r);
   let rr = 0;
   for (let i = 0; i < n; i += 1) rr += r[i]! * r[i]!;
 
   let iterations = 0;
   let converged = Math.sqrt(rr) <= tol * bNorm;
-  while (!converged && iterations < maxIter) {
+  // Degenerate systems (e.g. zero-area elements) can poison the recurrence
+  // with NaN/Inf: detect it before/after every update and fail fast through
+  // the normal non-converged return instead of spinning to maxIter.
+  const allFinite = (values: Float64Array): boolean => {
+    for (let i = 0; i < values.length; i += 1) {
+      if (!Number.isFinite(values[i]!)) return false;
+    }
+    return true;
+  };
+  let valid = allFinite(x) && allFinite(r) && allFinite(p);
+  while (!converged && iterations < maxIter && valid) {
     csrMulVec(A, p, Ap);
     let pAp = 0;
     for (let i = 0; i < n; i += 1) pAp += p[i]! * Ap[i]!;
@@ -67,13 +88,23 @@ export function conjugateGradient(A: CsrMatrix, b: ArrayLike<number>, options: C
     rr = rrNew;
     iterations += 1;
     converged = Math.sqrt(rr) <= tol * bNorm;
+    valid = allFinite(x) && allFinite(r) && allFinite(p);
   }
-  // Report the true residual ‖b − A x‖.
+  if (!valid) {
+    // Broken iterate: the true residual is meaningless (NaN) — report failure.
+    const broken = new Float64Array(n);
+    for (let i = 0; i < n; i += 1) broken[i] = x[i]! * bScale;
+    return { solution: broken, iterations, residual: Number.NaN, converged: false };
+  }
+  // Undo the RHS scaling: x is the solution of A·y = b/bScale, so the
+  // physical solution is bScale·y and the true residual is bScale·‖r_scaled‖.
+  const solution = new Float64Array(n);
+  for (let i = 0; i < n; i += 1) solution[i] = x[i]! * bScale;
   csrMulVec(A, x, Ap);
   let res = 0;
   for (let i = 0; i < n; i += 1) {
-    const d = b[i]! - Ap[i]!;
+    const d = b[i]! / bScale - Ap[i]!;
     res += d * d;
   }
-  return { solution: x, iterations, residual: Math.sqrt(res), converged };
+  return { solution, iterations, residual: Math.sqrt(res) * bScale, converged };
 }

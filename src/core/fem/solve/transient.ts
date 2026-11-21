@@ -14,7 +14,7 @@
 
 import { CsrMatrix, csrMulVec } from '../assemble/stiffness';
 import { CgOptions, conjugateGradient } from './cg';
-import { DofValue, eliminateDirichletMatrix } from '../bc/dirichlet';
+import { DofValue, eliminateDirichletMatrix, enforceDirichletValues } from '../bc/dirichlet';
 
 export interface ThetaSchemeOptions {
   /** Time step (must be > 0). */
@@ -93,6 +93,11 @@ export function thetaTimeStep(
   options: ThetaSchemeOptions,
 ): ThetaStepResult {
   const { dt, theta, steps } = options;
+  if (!Number.isFinite(dt) || dt <= 0) throw new Error('fem: θ-scheme dt must be a positive finite number');
+  if (!Number.isInteger(steps) || steps < 1) throw new Error('fem: θ-scheme steps must be an integer ≥ 1');
+  if (!Number.isFinite(theta) || theta < 0 || theta > 1) {
+    throw new Error('fem: θ-scheme theta must lie in [0, 1]');
+  }
   const n = lhs.rows;
   const u = Float64Array.from(u0);
   const rhs = new Float64Array(n);
@@ -136,7 +141,16 @@ export function thetaTimeStep(
       for (const { dof, value } of dofs) rhs[dof] = value;
     }
     const solved = conjugateGradient(lhs, rhs, options.cg);
+    if (!solved.converged) {
+      throw new Error(
+        `fem: θ-scheme step ${step + 1}/${steps} did not converge after ${solved.iterations} iterations ` +
+          `(residual ${solved.residual}); reduce dt or increase maxIter`,
+      );
+    }
     u.set(solved.solution);
+    // Same reason as the stationary drivers: the per-step RHS carries the
+    // Dirichlet coupling, so the prescribed values must be re-imposed.
+    enforceDirichletValues(u, dofs);
     iterations += solved.iterations;
     residual = solved.residual;
     options.onStep?.(u, tNext);

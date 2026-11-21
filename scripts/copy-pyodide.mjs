@@ -24,6 +24,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const SRC = resolve(ROOT, 'node_modules/pyodide');
 const DEST = resolve(ROOT, 'public/pyodide');
+/** Written on every run so the runtime can tell a complete local bundle from
+ *  a partial one (failed mirror) without probing every wheel over HTTP. */
+const STATUS = resolve(DEST, 'wheels.json');
 
 const PYODIDE_VERSION = JSON.parse(
   await readFile(resolve(SRC, 'package.json'), 'utf8'),
@@ -119,22 +122,29 @@ function dependencyClosure(lock, roots) {
  */
 async function downloadPackages() {
   await mkdir(DEST, { recursive: true });
-  const lock = await readLock();
+  let lock;
+  try {
+    lock = await readLock();
+  } catch (err) {
+    // A missing/corrupt pyodide-lock must never take the dev server down.
+    console.warn(`[copy-pyodide] cannot read pyodide-lock.json: ${err.message ?? err}`);
+    await writeFile(STATUS, `${JSON.stringify({ version: PYODIDE_VERSION, complete: false, missing: REQUIRED_PACKAGES }, null, 2)}\n`);
+    return;
+  }
 
   const required = dependencyClosure(lock, REQUIRED_PACKAGES);
   const optional = [...dependencyClosure(lock, OPTIONAL_PACKAGES)].filter(
     (name) => !required.has(name),
   );
 
+  const missing = [];
   for (const name of required) {
     const pkg = lock.packages[name];
     if (!pkg?.file_name) {
-      throw new Error(`required Pyodide package "${name}" is missing from pyodide-lock.json`);
+      missing.push(name);
+      continue;
     }
-    const ok = await downloadWheel(pkg.file_name, name);
-    if (!ok) {
-      throw new Error(`could not download required Pyodide package "${name}" from any mirror`);
-    }
+    if (!(await downloadWheel(pkg.file_name, name))) missing.push(name);
   }
 
   const failed = [];
@@ -149,19 +159,38 @@ async function downloadPackages() {
       `[copy-pyodide] optional packages unavailable (imports will raise until vendored): ${failed.join(', ')}`,
     );
   }
+
+  await writeFile(
+    STATUS,
+    `${JSON.stringify({ version: PYODIDE_VERSION, complete: missing.length === 0, missing }, null, 2)}\n`,
+  );
+  if (missing.length > 0) {
+    console.warn(
+      `[copy-pyodide] required wheels missing: ${missing.join(', ')} — the dev server keeps running, but code mode cannot load numpy locally until the mirror is reachable (retry by restarting dev).`,
+    );
+  }
 }
 
+/**
+ * Best-effort vendoring. A mirror outage or a partially downloaded wheel must
+ * never prevent `npm run dev` from starting — the workbench (block mode, data
+ * IO, plots, …) does not depend on Pyodide, and Python mode reports a clear
+ * runtime error when its wheels are unavailable.
+ */
 export async function ensurePyodideAssets() {
-  await copyCore();
-  await downloadPackages();
+  try {
+    await copyCore();
+    await downloadPackages();
+  } catch (err) {
+    console.warn(`[copy-pyodide] vendoring skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 // Run only when executed directly (`node scripts/copy-pyodide.mjs`), not when
 // imported by vite.config.ts (which drives it via the buildStart plugin hook).
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   ensurePyodideAssets().catch((err) => {
-    console.error(err);
-    process.exit(1);
+    console.warn(`[copy-pyodide] non-fatal: ${err instanceof Error ? err.message : String(err)}`);
   });
 }
 

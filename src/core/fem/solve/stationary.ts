@@ -20,6 +20,14 @@ export interface StationarySolveStats extends CgResult {
  */
 export function solveStationarySystem(K: CsrMatrix, f: Float64Array, options: CgOptions = {}): StationarySolveStats {
   const result = conjugateGradient(K, f, options);
+  // Never hand a non-converged iterate to physics/post-processing: it would
+  // be reported as a valid field with a plausible-looking range. Fail loudly.
+  if (!result.converged) {
+    throw new Error(
+      `fem: stationary solve did not converge after ${result.iterations} iterations ` +
+        `(residual ${result.residual}); check constraints, material constants or maxIter`,
+    );
+  }
   let nonzeros = 0;
   for (let i = 0; i < K.rows; i += 1) nonzeros += K.rowPtr[i + 1]! - K.rowPtr[i]!;
   return {

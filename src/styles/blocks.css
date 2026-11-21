@@ -186,6 +186,51 @@
   background: var(--color-error);
 }
 
+/* Last-run cache decision chip: "cached" / "rebuilt" / "blocked" / "failed".
+   It is the per-node half of the toolbar's hit-rate summary. */
+.block-node-build {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.block-node-build.is-cached {
+  color: var(--color-success);
+}
+
+.block-node-build.is-computed {
+  color: var(--color-accent);
+}
+
+.block-node-build.is-blocked {
+  color: var(--color-warning);
+}
+
+.block-node-build.is-failed {
+  color: var(--color-error);
+}
+
+/* Dry-run verdicts are predictions, so draw them softer than a real result. */
+.block-node-build.is-preview {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.block-node-build.is-stale {
+  color: var(--color-warning);
+}
+
+.block-node-build.is-unknown {
+  color: var(--color-text-tertiary);
+}
+
 /* ---- ports ---- */
 
 .block-port {
@@ -263,6 +308,40 @@
   padding: var(--space-2);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
+}
+
+/* Run summary: hit rate + hit/recompute counts, with the full breakdown in
+   the tooltip. Pushed to the right edge so the actions stay left-aligned. */
+.block-build-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.block-build-rate {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.block-build-summary.is-all-hit .block-build-rate {
+  color: var(--color-success);
+}
+
+.block-build-counts {
+  color: var(--color-text-tertiary);
+}
+
+/* The dry-run pill is provisional: dashed border, distinct from a run result. */
+.block-build-summary.is-preview {
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 
 /* ---- param editor ---- */

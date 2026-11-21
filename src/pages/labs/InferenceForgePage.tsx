@@ -11,7 +11,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
-import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { renderSVG } from '@/core/plot';
 import type { PlotSpec } from '@/core/plot';
@@ -28,13 +27,12 @@ import {
 } from '@/core/inference/templates';
 import type { ChainSamples, InferenceConfig, InferenceResult } from '@/core/inference/types';
 import {
-  useTabularDataGroups,
   useFileCols,
   loadTable,
   sendSpecToFigure,
   fmt,
 } from '../research/researchUi';
-import { DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 import { ToolShell } from '@/components/ToolShell';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 
@@ -120,9 +118,7 @@ function densitySpec(name: string, pooled: Float64Array): PlotSpec {
 export default function InferenceForgePage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
-  const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useTabularDataGroups(DATA_EXTS_SERIES, project?.data.files);
 
   const [file, setFile] = useState('');
   const [kind, setKind] = useState<TemplateKind>('normal-mean');
@@ -347,15 +343,11 @@ export default function InferenceForgePage() {
     <ToolShell toolId="inference">
       <div className="analysis-body">
         <div className="analysis-row">
-          <select className="input" value={file} disabled={running} onChange={(e) => { setFile(e.target.value); setYCol(''); setXCol(''); setGroupCol(''); setOutcome(null); setError(''); }}>
-            <option value="">{t('analysis.select_file')}</option>
-            {fileGroups.project.map((n) => <option key={n} value={n}>{n}</option>)}
-            {fileGroups.examples.length > 0 && (
-              <optgroup label={t('datafiles.group_examples')}>
-                {fileGroups.examples.map((n) => <option key={n} value={n}>{n}</option>)}
-              </optgroup>
-            )}
-          </select>
+          <DataFilePickField
+            value={file}
+            disabled={running}
+            onChange={(name) => { setFile(name); setYCol(''); setXCol(''); setGroupCol(''); setOutcome(null); setError(''); }}
+          />
           <select className="input" value={kind} disabled={running} onChange={(e) => { setKind(e.target.value as TemplateKind); setOutcome(null); setError(''); }}>
             <option value="normal-mean">{t('inference.template_mean')}</option>
             <option value="normal-linear">{t('inference.template_linear')}</option>

@@ -263,6 +263,13 @@ button {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+/* The corner square where horizontal and vertical scrollbars meet is painted
+   in Chromium's default light grey unless themed — it showed up as a stray
+   white block in the bottom-right of scrolling panels (SQL workbench sidebar,
+   file lists). Transparent lets the track show through. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 /* ---- buttons ---- */
 
 .btn {
@@ -387,6 +394,19 @@ button {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+/* Numeric fields are plain text boxes everywhere: the native spinner
+   steppers are hidden so every number input matches a regular input. */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* Textareas do not resize by default. The native grip is painted in a fixed

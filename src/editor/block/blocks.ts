@@ -60,8 +60,12 @@ function dropdown(name: string, options: [string, string][]): { type: string; na
   return { type: 'field_dropdown', name, options };
 }
 
-function num(name: string, val: number): { type: string; name: string; value: number } {
-  return { type: 'field_number', name, value: val };
+function num(
+  name: string,
+  val: number,
+  opts?: { min?: number; max?: number; precision?: number },
+): { type: string; name: string; value: number } {
+  return { type: 'field_number', name, value: val, ...(opts ?? {}) };
 }
 
 const MATH_OPS: [string, string][] = [
@@ -75,6 +79,17 @@ const COMPARE_OPS: [string, string][] = [
 ];
 const LOGIC_OPS: [string, string][] = [
   ['%{BKY_LOGIC_AND}', 'and'], ['%{BKY_LOGIC_OR}', 'or'],
+];
+const CORRECTION_OPTS: [string, string][] = [
+  ['%{BKY_CORR_BONFERRONI}', 'bonferroni'], ['%{BKY_CORR_BH}', 'bh'],
+];
+const NONLINEAR_OPTS: [string, string][] = [
+  ['%{BKY_NL_MICHAELIS}', 'michaelis-menten'],
+  ['%{BKY_NL_SIGMOID4}', 'sigmoid4'],
+  ['%{BKY_NL_EXPONENTIAL}', 'exponential'],
+  ['%{BKY_NL_POWER}', 'power'],
+  ['%{BKY_NL_GAUSSIAN}', 'gaussian'],
+  ['%{BKY_NL_ARRHENIUS}', 'arrhenius'],
 ];
 
 export const BLOCK_DEFS: BlockDef[] = [
@@ -112,6 +127,17 @@ export const BLOCK_DEFS: BlockDef[] = [
   // ---- statistics ----
   { type: 'studio_summary', message0: '%{BKY_STUDIO_SUMMARY}', args0: [value('DATA'), field('COLUMN', 'x')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_SUMMARY_TOOLTIP}' },
   { type: 'studio_histogram', message0: '%{BKY_STUDIO_HISTOGRAM}', args0: [value('DATA'), field('COLUMN', 'x'), value('BINS')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_HISTOGRAM_TOOLTIP}' },
+  { type: 'studio_tukey', message0: '%{BKY_STUDIO_TUKEY}', args0: [value('DATA'), field('VALUE', 'y'), field('GROUP', 'group'), num('ALPHA', 0.05, { min: 0.001, max: 0.5, precision: 0.001 })], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_TUKEY_TOOLTIP}' },
+  { type: 'studio_dunnett', message0: '%{BKY_STUDIO_DUNNETT}', args0: [value('DATA'), field('VALUE', 'y'), field('GROUP', 'group'), field('CONTROL', 'control'), num('ALPHA', 0.05, { min: 0.001, max: 0.5, precision: 0.001 })], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_DUNNETT_TOOLTIP}' },
+  { type: 'studio_kruskal', message0: '%{BKY_STUDIO_KRUSKAL}', args0: [value('DATA'), field('VALUE', 'y'), field('GROUP', 'group'), dropdown('CORRECTION', CORRECTION_OPTS), num('ALPHA', 0.05, { min: 0.001, max: 0.5, precision: 0.001 })], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_KRUSKAL_TOOLTIP}' },
+  { type: 'studio_nonlinear', message0: '%{BKY_STUDIO_NONLINEAR}', args0: [value('DATA'), field('X', 'x'), field('Y', 'y'), dropdown('MODEL', NONLINEAR_OPTS)], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_NONLINEAR_TOOLTIP}' },
+  { type: 'studio_kaplan_meier', message0: '%{BKY_STUDIO_KAPLAN_MEIER}', args0: [value('DATA'), field('TIME', 'time'), field('EVENT', 'event'), field('GROUP', '')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_KAPLAN_MEIER_TOOLTIP}' },
+  { type: 'studio_log_rank', message0: '%{BKY_STUDIO_LOG_RANK}', args0: [value('DATA'), field('TIME', 'time'), field('EVENT', 'event'), field('GROUP', 'group')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_LOG_RANK_TOOLTIP}' },
+  { type: 'studio_cronbach', message0: '%{BKY_STUDIO_CRONBACH}', args0: [value('DATA'), field('ITEMS', '')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_CRONBACH_TOOLTIP}' },
+  { type: 'studio_kmo', message0: '%{BKY_STUDIO_KMO}', args0: [value('DATA'), field('ITEMS', '')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_KMO_TOOLTIP}' },
+  { type: 'studio_bartlett', message0: '%{BKY_STUDIO_BARTLETT}', args0: [value('DATA'), field('ITEMS', '')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_BARTLETT_TOOLTIP}' },
+  { type: 'studio_pivot_longer', message0: '%{BKY_STUDIO_PIVOT_LONGER}', args0: [value('DATA'), field('IDS', 'id'), field('MEASURES', ''), field('NAMES_TO', 'variable'), field('VALUES_TO', 'value')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_PIVOT_LONGER_TOOLTIP}' },
+  { type: 'studio_pivot_wider', message0: '%{BKY_STUDIO_PIVOT_WIDER}', args0: [value('DATA'), field('IDS', 'id'), field('NAMES_FROM', 'variable'), field('VALUES_FROM', 'value'), field('PREFIX', '')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_PIVOT_WIDER_TOOLTIP}' },
 
   // ---- visualization (statements) ----
   { type: 'studio_plot_scatter', message0: '%{BKY_STUDIO_PLOT_SCATTER}', args0: [value('DATA'), field('X', 'x'), field('Y', 'y'), field('COLOR', '')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '%{BKY_STUDIO_PLOT_SCATTER_TOOLTIP}' },

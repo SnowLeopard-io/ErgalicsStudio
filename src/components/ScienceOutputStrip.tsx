@@ -10,6 +10,9 @@ import { stageLabHandoff } from '@/core/labHandoff';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+import { useAppStore } from '@/stores/appStore';
+import { industrialStripMetrics } from '@/pages/industrial/labels';
 import { useT } from '@/i18n';
 
 /** Research suites the staged data file can be deep-linked into. */
@@ -104,6 +107,21 @@ export function ScienceOutputStrip() {
 
   const entry = activeId ? outputs[activeId] : undefined;
 
+  // Industrial study facts switch with the active canvas tab: each industrial
+  // suite publishes the parameters that matter to it (geometry → entities /
+  // layers, solver → step / iterations, fingerprint → hash …). Non-industrial
+  // tabs (research plugins, files) contribute no facts and the strip falls
+  // back to the active plugin's metrics only.
+  const activeTab = useAppStore((s) => s.activeTab);
+  const industrialToolId = activeTab?.startsWith('tool:') ? activeTab.slice(5) : null;
+  const engStudy = useEngineeringStore((s) => s.study);
+  const engResult = useEngineeringStore((s) => s.result);
+  const engSolving = useEngineeringStore((s) => s.solving);
+  const engMetrics = useMemo(
+    () => industrialStripMetrics(t, industrialToolId, engStudy, engResult, engSolving),
+    [t, industrialToolId, engStudy, engResult, engSolving],
+  );
+
   // Metrics row: mouse-wheel scrolls it horizontally (deltaY → scrollLeft) so
   // overflowing metrics stay reachable without a visible scrollbar or drag.
   // Native listener with passive:false — React's wheel handler can't
@@ -153,9 +171,9 @@ export function ScienceOutputStrip() {
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [hasEntry]);
+  }, [hasEntry, engMetrics.length]);
 
-  if (!entry || entry.metrics.length === 0) return null;
+  if ((!entry || entry.metrics.length === 0) && engMetrics.length === 0) return null;
 
   // Metrics row mouse-wheel binding lives above (hooks-before-return).
 
@@ -208,7 +226,20 @@ export function ScienceOutputStrip() {
       >
         <span className="science-strip-title">Σ</span>
         <div className="science-strip-items" ref={itemsRef}>
-          {entry.metrics.map((m, i) => (
+          {engMetrics.map((m, i) => (
+            <span
+              key={m.key}
+              className={`science-metric sev-${m.severity ?? 'info'}`}
+              title={m.hint ?? m.label}
+              style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
+            >
+              <span className="science-metric-label">{m.label}</span>
+              <span className="science-metric-value">
+                <AnimatedMetricValue text={String(m.value)} />
+              </span>
+            </span>
+          ))}
+          {entry?.metrics.map((m, i) => (
             <span
               key={m.key}
               className={`science-metric sev-${m.severity ?? 'info'}`}

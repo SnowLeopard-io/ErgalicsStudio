@@ -78,7 +78,7 @@ const DEFAULT_PERF: PerfMetrics = {
 };
 
 /** Which view the standard-mode sidebar shows (driven by the activity bar). */
-export type SidebarView = 'files' | 'search' | 'plugins' | 'git' | 'tools' | 'research';
+export type SidebarView = 'files' | 'search' | 'plugins' | 'git' | 'tools' | 'research' | 'industrial';
 
 /** Kind of the central file preview — decides which view CentralArea renders. */
 export type FilePreviewKind =
@@ -171,6 +171,23 @@ const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
 /** Stable tab key for the embedded settings page. */
 const settingsTabKey = 'settings:app';
 
+/** Focus the editor session that backs a surface tab. Clicking a tab goes
+ *  through `syncSurfaceTabSession`; this covers the programmatic paths —
+ *  closing a tab (fallback to its neighbour) and the mode button focusing an
+ *  existing surface. Without it, closing a code file while a flow file sits
+ *  behind it left `activeSessionId` on the code session, and returning to flow
+ *  mode hydrated the canvas from that session's flowless IR → blank canvas.
+ *  Lazy import keeps appStore free of an editorStore cycle. */
+function bindSurfaceTabSession(tab: CanvasTab | undefined): void {
+  if (!tab || tab.kind !== 'surface') return;
+  if (!tab.sessionId && !tab.path) return;
+  void import('./editorStore').then(({ useEditorStore }) => {
+    const st = useEditorStore.getState();
+    const sid = tab.sessionId ?? st.sessions.find((s) => s.filePath === tab.path)?.id;
+    if (sid) st.setActiveSession(sid);
+  });
+}
+
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
  *  pluginStore cycle. Fire-and-forget: callers never need the result. The
  *  plugin id is remembered (`lastActivePluginId`) so the canvas plugin tab
@@ -247,6 +264,7 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
+  setRightPanelOpen: (open: boolean) => void;
   /** Toggle the bottom terminal drawer (Ctrl+` / activity-bar button). */
   toggleTerminal: () => void;
   /** Show or hide the terminal window (persisted with the panel prefs). */
@@ -342,7 +360,7 @@ const PANEL_DEFAULTS = {
   terminalOpen: false,
 };
 
-const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'search', 'plugins', 'git', 'tools', 'research'];
+const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'search', 'plugins', 'git', 'tools', 'research', 'industrial'];
 
 /** Phone-sized touch viewport (landscape phones match this query — see
  *  core/orientation.ts COMPACT_VIEWPORT_QUERY, which the CSS compact tier
@@ -523,6 +541,13 @@ export const useAppStore = create<AppStore>((set, get) => {
       persistPanelPrefs(next);
       return next;
     }),
+  setRightPanelOpen: (open) =>
+    set((s) => {
+      if (s.rightPanelOpen === open) return s;
+      const next = { ...s, rightPanelOpen: open };
+      persistPanelPrefs(next);
+      return next;
+    }),
   toggleTerminal: () =>
     set((s) => {
       const next = { ...s, terminalOpen: !s.terminalOpen };
@@ -569,6 +594,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
     // The surface tab covers the plugin canvas; stop its rendering loop.
     deactivatePluginLazy();
+    // Mode button without a file focuses an existing surface of that mode —
+    // focus the session bound to it as well.
+    if (!path) {
+      bindSurfaceTabSession(
+        get().canvasTabs.find((tab) => tab.kind === 'surface' && tab.mode === mode),
+      );
+    }
   },
 
   /** Open (or focus) a sample surface: a surface tab bound to an editor
@@ -960,6 +992,11 @@ export const useAppStore = create<AppStore>((set, get) => {
       void import('./editorStore').then((m) => {
         m.useEditorStore.getState().removeSession(sessionId);
       });
+    }
+    // The surface in front owns an editor session; bringing it forward must
+    // bring its session along (otherwise flow hydrates from an unrelated one).
+    if (closed?.kind === 'surface') {
+      bindSurfaceTabSession(get().canvasTabs.find((tab) => tab.key === get().activeTab));
     }
     if (get().activeTab === null) get().showPluginCanvas();
   },

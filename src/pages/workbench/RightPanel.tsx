@@ -17,10 +17,14 @@ import { EmptyState } from '@/components/EmptyState';
 import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
 import { ToolIcon } from '@/components/icons';
 import { getTool } from '@/pages/research/toolRegistry';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+import { formatEngineering } from '@/core/engineering/materials';
+import { metricLabel } from '@/pages/industrial/labels';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useSurfaceChrome } from '@/stores/surfaceChromeStore';
+import { useIndustrialChrome } from '@/stores/industrialChromeStore';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 
 /** Introduction card for the suite currently embedded in the central canvas:
@@ -67,6 +71,75 @@ function SuiteIntro({ toolId }: { toolId: string }) {
           {t('suite.close')}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Engineering summary shown while an industrial tool is embedded. It reads
+ *  the live study so mesh/material/case edits appear without leaving the
+ *  canvas tab. */
+function EngineeringPanel({ toolId }: { toolId: string }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const closeTab = useAppStore((s) => s.closeTab);
+  const study = useEngineeringStore((s) => s.study);
+  const result = useEngineeringStore((s) => s.result);
+  const toolDef = getTool(toolId);
+  // Host for the active industrial page's action bars (import / solve /
+  // export / view presets …). Pages portal into it so no action buttons sit
+  // in the canvas; when this panel is collapsed the host unmounts and the
+  // bars disappear with it.
+  const setActionsHost = useIndustrialChrome((s) => s.setHost);
+  return (
+    <div className="rp-engineering">
+      <div className="suite-intro-head">
+        <span className="suite-intro-icon" aria-hidden="true">
+          {toolDef ? <ToolIcon kind={toolDef.icon} size={18} /> : null}
+        </span>
+        <div className="suite-intro-heading">
+          <div className="suite-intro-name">{toolDef ? t(toolDef.titleKey) : toolId}</div>
+          <span className="tag">{t('industrial.group.' + (toolDef?.group ?? 'mesh'))}</span>
+        </div>
+      </div>
+      <section className="rp-engineering-section">
+        <div className="rp-engineering-section-title">{t('workbench.right.actions')}</div>
+        {/* Every export button row carries its own explicit destination
+            (Download / Save to workspace), so there is no destination toggle
+            to keep in sync. */}
+        <div className="rp-engineering-actions" ref={setActionsHost} />
+      </section>
+      {!study ? (
+        <p className="suite-intro-desc">{t('industrial.no_study_desc')}</p>
+      ) : (
+        <>
+          <section className="rp-engineering-section">
+            {/* Mesh / material / step / solve facts moved to the status bar
+                (StatusBar renders them as chips); only the solver result
+                metrics stay here. */}
+            {result && (
+              <div className="rp-engineering-metrics">
+                {Object.entries(result.metrics)
+                  .filter(([key]) => key !== 'nodeCount' && key !== 'elementCount')
+                  .slice(0, 6)
+                  .map(([key, value]) => (
+                    <div key={key}>
+                      <span>{metricLabel(t, key)}</span>
+                      <strong>{formatEngineering(value)}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
+          <div className="rp-engineering-footer">
+            <button type="button" className="btn btn-sm" onClick={() => navigate('/studio/industrial-report')}>
+              {t('tool.industrial-report.title')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => closeTab(toolTabKey(toolId))}>
+              {t('suite.close')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -382,8 +455,18 @@ export function RightPanel() {
         </div>
       ) : embeddedToolId ? (
         <>
-          <h3 className="panel-title">{t('workbench.right.suite')}</h3>
-          <SuiteIntro toolId={embeddedToolId} />
+          {/* Research and industrial suites share this panel; label it by
+              which kind of tool is actually embedded. */}
+          <h3 className="panel-title">
+            {getTool(embeddedToolId)?.rightPanel === 'engineering'
+              ? t('workbench.right.industrial')
+              : t('workbench.right.suite')}
+          </h3>
+          {getTool(embeddedToolId)?.rightPanel === 'engineering' ? (
+            <EngineeringPanel toolId={embeddedToolId} />
+          ) : (
+            <SuiteIntro toolId={embeddedToolId} />
+          )}
         </>
       ) : filePreview ? (
         <>

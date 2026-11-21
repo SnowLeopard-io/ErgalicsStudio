@@ -17,6 +17,7 @@ import {
 } from '../ops';
 import { dataTableInOut, defineBlock } from './types';
 import type { BlockDefinition } from './types';
+import { pivotLonger, pivotWider } from '@/core/dataeng/reshape';
 
 const TRANSFORM_COLOR = '#FB8C00';
 
@@ -155,10 +156,78 @@ export const sortBlock: BlockDefinition = defineBlock(
   },
 );
 
+export const pivotLongerBlock: BlockDefinition = defineBlock(
+  {
+    id: 'transform.pivot_longer',
+    category: 'transform',
+    name: '宽表转长表',
+    nameI18n: { 'en-US': 'Pivot longer' },
+    description: '把多个测量列堆叠成“变量名 / 值”两列（类似 tidyr::pivot_longer）',
+    descriptionI18n: { 'en-US': 'Stack measure columns into variable / value rows' },
+    color: TRANSFORM_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { idColumns: [], measureColumns: [], namesTo: 'variable', valuesTo: 'value' },
+    paramLabels: {
+      idColumns: { label: '标识列', labelI18n: { 'en-US': 'ID columns' } },
+      measureColumns: { label: '测量列（留空=其余全部）', labelI18n: { 'en-US': 'Measure columns (empty = rest)' } },
+      namesTo: { label: '变量名列', labelI18n: { 'en-US': 'Names column' } },
+      valuesTo: { label: '数值列', labelI18n: { 'en-US': 'Values column' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const idCols = (ctx.getParam('idColumns') as string[] | undefined) ?? [];
+    const measureCols = (ctx.getParam('measureColumns') as string[] | undefined) ?? [];
+    if (idCols.length === 0) throw new Error('Pivot longer needs at least one id column');
+    return pivotLonger(input, {
+      idCols,
+      measureCols: measureCols.length > 0 ? measureCols : undefined,
+      namesTo: String(ctx.getParam('namesTo') ?? 'variable') || 'variable',
+      valuesTo: String(ctx.getParam('valuesTo') ?? 'value') || 'value',
+    });
+  },
+);
+
+export const pivotWiderBlock: BlockDefinition = defineBlock(
+  {
+    id: 'transform.pivot_wider',
+    category: 'transform',
+    name: '长表转宽表',
+    nameI18n: { 'en-US': 'Pivot wider' },
+    description: '把“变量名”列的各个水平展开成新列（类似 tidyr::pivot_wider）',
+    descriptionI18n: { 'en-US': 'Spread a level column into new value columns' },
+    color: TRANSFORM_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { idColumns: [], namesFrom: '', valuesFrom: '', namesPrefix: '' },
+    paramLabels: {
+      idColumns: { label: '标识列', labelI18n: { 'en-US': 'ID columns' } },
+      namesFrom: { label: '变量名列', labelI18n: { 'en-US': 'Names from' } },
+      valuesFrom: { label: '数值列', labelI18n: { 'en-US': 'Values from' } },
+      namesPrefix: { label: '新列前缀', labelI18n: { 'en-US': 'Column prefix' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const idCols = (ctx.getParam('idColumns') as string[] | undefined) ?? [];
+    const namesFrom = String(ctx.getParam('namesFrom') ?? '');
+    const valuesFrom = String(ctx.getParam('valuesFrom') ?? '');
+    if (idCols.length === 0) throw new Error('Pivot wider needs at least one id column');
+    if (!namesFrom || !valuesFrom) throw new Error('Pivot wider needs names and values columns');
+    return pivotWider(input, {
+      idCols,
+      namesFrom,
+      valuesFrom,
+      namesPrefix: String(ctx.getParam('namesPrefix') ?? ''),
+    });
+  },
+);
+
 export const transformBlocks: BlockDefinition[] = [
   selectColumnsBlock,
   renameColumnBlock,
   addColumnBlock,
   normalizeBlock,
   sortBlock,
+  pivotLongerBlock,
+  pivotWiderBlock,
 ];

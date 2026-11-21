@@ -6,14 +6,13 @@
 // edited as comma-separated text.
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useLocale, useT } from '@/i18n';
 import { useGraphStore } from './graphStore';
-import { useProjectStore } from '@/stores/projectStore';
 import { blockRegistry } from '@/blocks/registry';
 import { blockName, blockParamLabel } from '@/blocks/l10n';
-import { listDataFilesGrouped } from '@/core/dataFiles';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 
 function parseArray(text: string): string[] {
   return text
@@ -155,44 +154,17 @@ function ParamInput({ value, onChange }: { value: unknown; onChange: (v: unknown
 }
 
 /**
- * A dropdown of every resolvable data file, grouped into project files
- * (user-uploaded) and bundled examples, for the `source.file` block's
- * fileName parameter. Subscribes to the project store so the list refreshes
- * right after importing/removing a file.
+ * A button-shaped field opening the shared floating data file picker, for the
+ * `source.file` block's fileName parameter. Subscribes to the project store
+ * only through the picker (which refreshes the listing when it opens).
  */
 function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {
-  const t = useT();
-  // Select the (stable) files array reference, then default outside the
-  // selector: `?? []` inside the selector returns a fresh array every call,
-  // which zustand v5 treats as a state change → infinite re-render.
-  const projectFiles = useProjectStore((s) => s.project?.data.files) ?? [];
-  // projectFiles is an intentional memo invalidation trigger: the registry-backed
-  // list must recompute whenever project files change even though the array is
-  // not referenced inside the callback.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const groups = useMemo(() => listDataFilesGrouped(), [projectFiles]);
   return (
-    <select
-      className="input"
+    <DataFilePickField
       value={String(value ?? '')}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">—</option>
-      {groups.project.length > 0 && (
-        <optgroup label={t('datafiles.group_project')}>
-          {groups.project.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </optgroup>
-      )}
-      {groups.examples.length > 0 && (
-        <optgroup label={t('datafiles.group_examples')}>
-          {groups.examples.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </optgroup>
-      )}
-    </select>
+      placeholderKey="blocks.params.pick_file"
+      onChange={(name) => onChange(name)}
+    />
   );
 }
 

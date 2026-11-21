@@ -21,7 +21,10 @@ import { useEditorStore } from '@/stores/editorStore';
 import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
 import { readProjectFile } from '@/core/workspace/project-files';
 import { getVfs } from '@/core/vfs';
+import { vfsBasename as basename } from '@/core/vfs/path';
 import { adoptBibFile, adoptTexFile } from '@/core/publish/adopt';
+import { isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
+import { useEngineeringStore } from '@/stores/engineeringStore';
 import {
   classifyFile,
   isPublishSourceFile,
@@ -52,11 +55,6 @@ export function toProjectPath(path: string): string {
   return p.replace(/^\/+/, '');
 }
 
-function basename(path: string): string {
-  const i = path.lastIndexOf('/');
-  return i >= 0 ? path.slice(i + 1) : path;
-}
-
 /** Size of a workspace file, or undefined when it cannot be read. */
 async function projectFileSize(path: string): Promise<number | undefined> {
   const project = useProjectStore.getState().project;
@@ -84,6 +82,31 @@ export async function openProjectPreview(
   if (!project) return;
   const repoPath = getProjectRepoPath(project);
   const name = basename(rel);
+  // Engineering CAD/CAE files open the industrial suite, not a text preview:
+  // the parser turns bytes into the neutral study and the mesh viewer shows
+  // it immediately (acceptance: Gmsh/Abaqus/VTK import + display).
+  if (isEngineeringExtension(name)) {
+    try {
+      const text = await getVfs().readFile(repoPath, rel);
+      const study = useEngineeringStore.getState().importText(text, name, rel);
+      if (study) {
+        useAppStore.getState().setMode('standard');
+        useAppStore.getState().setEmbeddedTool(
+          isGeometryExtension(name) ? 'geometry-import' : 'mesh-viewer',
+        );
+        // Keep the industrial tool list visible, matching the drop router.
+        useAppStore.getState().setSidebarView('industrial');
+        return;
+      }
+      // The parser rejected the file: surface the store's error, then fall
+      // through to the generic placeholder below so the open still yields a
+      // tab instead of failing silently.
+      const error = useEngineeringStore.getState().error;
+      if (error) useAppStore.getState().notify('error', error);
+    } catch {
+      /* fall through to the generic placeholder below */
+    }
+  }
   const { kind, mime } = classifyFile(name);
 
   if (kind === 'text' || kind === 'markdown') {

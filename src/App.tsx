@@ -12,6 +12,7 @@ import { TourGuide } from '@/components/TourGuide';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ShortcutsDialog } from '@/components/ShortcutsDialog';
 import { PortraitGuard } from '@/components/PortraitGuard';
+import { TouchKeypad } from '@/components/TouchKeypad';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
@@ -81,6 +82,9 @@ function AppShell() {
       {/* Landscape-only layout: blocks portrait on touch devices where the
           platform refused the orientation lock (see core/orientation.ts). */}
       <PortraitGuard />
+      {/* Floating numeric/formula pad for touch screens without a keyboard;
+          inert on desktop (see components/TouchKeypad.tsx). */}
+      <TouchKeypad />
       <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
         {/* Keyed by pathname so each navigation remounts the stage and replays
             the `.route-stage` fade/settle entrance. `loc` is passed through

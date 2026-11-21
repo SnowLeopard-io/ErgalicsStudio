@@ -17,7 +17,7 @@
 <p>
 <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
-<img alt="Tests" src="https://img.shields.io/badge/Tests-4062%2B%20passing-1f2937?style=flat-square" />
+<img alt="Tests" src="https://img.shields.io/badge/Tests-4259%2B%20passing-1f2937?style=flat-square" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
 </p>
 
@@ -28,6 +28,12 @@
 <a href="#gpu-compute--native-core"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust%20core-1f2937?style=flat-square&logo=rust&logoColor=white" /></a>
 <a href="#plugin-system"><img alt="Pyodide" src="https://img.shields.io/badge/Python-Pyodide%20CPython-1f2937?style=flat-square&logo=python&logoColor=white" /></a>
 <a href="#four-workbench-modes"><img alt="webR" src="https://img.shields.io/badge/R-webR%20runtime-1f2937?style=flat-square" /></a>
+</p>
+
+<p>
+<a href="https://www.oschina.net/oa2026/winners"><img alt="4th OpenAtom Competition - Innovation Software Award" src="https://img.shields.io/badge/%F0%9F%8F%86%204th%20OpenAtom%20Competition%202026-Industry%20Solutions%20%C2%B7%20Innovation%20Software%20Award-a9801a?style=for-the-badge&labelColor=8a6716" /></a>
+<br>
+<a href="https://www.oschina.net/os2026/winners"><img alt="2026 Shanghai Open-Source Software Application Innovation Contest - Best Exploration Award" src="https://img.shields.io/badge/%F0%9F%8F%85%202026%20Shanghai%20Open%20Source%20Innovation%20Contest-Best%20Exploration%20Award%20%C2%B7%20COMAC%20CFD-1f6fb2?style=for-the-badge&labelColor=143f68" /></a>
 </p>
 
 </div>
@@ -41,6 +47,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Awards & Recognition 🏆](#awards--recognition)
 - [Getting Started](#getting-started)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
@@ -48,6 +55,7 @@
 - [Project Layout](#project-layout)
 - [Four Workbench Modes](#four-workbench-modes)
 - [Research Modules](#research-modules)
+- [Industrial Suite](#industrial-suite)
 - [Version Control](#version-control-git-backed-projects)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
@@ -79,13 +87,39 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
-| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 189 sample datasets + 11 sample projects |
+| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
-| Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Research          | **35 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Industrial        | **11 engineering tools** on the same workbench (geometry / mesh / materials / cases / solver / post / design scan / quick fluid / fingerprint / report / calculators), 8 CAD/CAE formats parsed into one neutral study, CSV/JSON/SVG/PNG/PDF/HTML exports |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
+
+---
+
+## Awards & Recognition 🏆
+
+Ergalics Studio received two awards from open-source competitions in 2026:
+
+| Award | Competition | Organizer | For |
+| ----- | ----------- | --------- | --- |
+| **Innovation Software Award** | 4th OpenAtom Competition · 2026 Open-Source Industry Solutions Innovation Contest | OpenAtom Foundation, Beijing Municipal Bureau of Economy & IT | The Ergalics Studio platform |
+| **Best Exploration Award** | 2026 Shanghai Open-Source Software Application Innovation Contest | OSCHINA | Fluid 1D/3D bidirectional coupling solver built on Ergalics (COMAC fluid CFD topic) |
+
+The OpenAtom competition evaluates entries on technical innovation, real-world
+deployment, open-source governance, and long-term maintainability (weighted
+30% / 30% / 20% / 20%); the Innovation Software Award recognizes the Ergalics
+Studio platform itself. The Best Exploration Award comes from the COMAC
+(Commercial Aircraft Corporation of China) fluid CFD enterprise topic: the
+awarded solver, hosted at
+[gitee.com/cnt-code/fluid-cfd-coupler](https://gitee.com/cnt-code/fluid-cfd-coupler),
+addresses 1D/3D time-step coordination and bidirectional boundary coupling in
+large-aircraft fluid system simulation.
+
+Full winners lists are published on the official competition pages:
+[OpenAtom 2026 winners](https://www.oschina.net/oa2026/winners) ·
+[Shanghai 2026 winners](https://www.oschina.net/os2026/winners).
 
 ---
 
@@ -132,7 +166,7 @@ Production builds output to `dist/`.
 
 | Capability | Details |
 | --- | --- |
-| **163 built-in plugins** | (153 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **19 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / med / geo / env / astro / materials / engineering / econ / psych / social science / data / computer science / fx / music & art science / fun). |
+| **165 built-in plugins** | (155 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **19 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / med / geo / env / astro / materials / engineering / econ / psych / social science / data / computer science / fx / music & art science / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -179,8 +213,47 @@ Production builds output to `dist/`.
 | Statistics kernel | `src/core/stats/` | Descriptive stats, special functions, hypothesis tests, effect sizes, multiple-comparison corrections, power. |
 | Scientific binary I/O | `src/core/io/` | Single dispatcher for HDF5 / NetCDF / FITS / Parquet / Zarr. |
 | Publication-grade plotting engine | `src/core/plot/` | SVG + PDF. |
-| Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; plus `repro.lock`. |
+| Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; `repro.lock` v2 and one-click reproducibility bundles (via `src/core/package/supplement.ts`). |
+| Causal inference kernel | `src/core/causal/` | DAG d-separation, back-door path enumeration and minimal adjustment sets; IPW (reusing the logistic regression core) and difference-in-differences estimators. |
 | Data-quality engine & unit system | `src/core/data-quality/` · `src/core/units/` | Pandera-style data-quality engine; typed unit system. |
+| GB-scale streaming pipeline | `src/core/bigdata/` | Incremental CSV parser, O(1)-memory streaming statistics (Welford / t-digest / HyperLogLog / histogram), Apache Arrow batch ingestion into DuckDB. |
+| Incremental build system | `src/core/build/` | Content-addressed cache keys (code + inputs + params + environment), bit-exact value codec, IndexedDB persistence, parallel wavefront scheduler, partial recompute, dry-run preview, digest-verifiable build attestations and portable cache snapshots. |
+
+**Data scale & file-size support**
+
+| Size | What works | Path |
+| --- | --- | --- |
+| ≤ 24 MB | Every supported format (CSV / TSV / JSON / HDF5 / NetCDF / FITS / Zarr / Parquet …), full-precision in-memory parsing, profiling, plots, ETL. | Regular file registry (`resolveDataFile`) — whole file read once. |
+| 24 MB – ~2 GB | **CSV / TSV** in the SQL workbench: streamed straight into DuckDB with no full-scan into JS, then join / aggregate / window queries normally. | Large-file import: direct disk read via `FileSystemFileHandle` on Chromium, otherwise incremental CSV → Arrow batches (`insertArrowFromIPCStream`). |
+| ~2 – 10 GB | Same streaming import, bounded by DuckDB's memory budget (`SET memory_limit='2GB'`, automatic disk spill) plus the browser's storage quota — the working set stays one Arrow batch instead of the whole file. | Streaming import only; JSON must be converted to CSV first. |
+| > ~50 GB | Out of browser range (WASM32 heap + tab memory quotas). Planned for the self-hosted / native editions. | Not supported in the web app. |
+
+One reference point: a 1 GB CSV (≈5 million rows × 20 columns) imports as a queryable table with a design target of a `GROUP BY` in about ten seconds, peak JS memory under 500 MB, and no UI freeze — the JS side only ever holds one 32,768-row batch. Streaming statistics run on the same pass, so GB-scale column profiles cost O(1) memory per column.
+
+**Incremental build system (content-addressed computation)**
+
+Flow runs are no longer cached only for the lifetime of one executor. Every block is treated as a pure build step and its cache key is a **content fingerprint**, not a node identity:
+
+```
+key = H(kind, executor-source hash, params, {port → upstream content key}, environment)
+```
+
+`environment` covers the app build version, the key-schema version and optional capability flags (GPU / runtime). Node id, canvas position, tags and file name are deliberately excluded, so a renamed node or re-imported identical table reuses the same entry. A changed parameter (or changed code, or changed upstream data) produces a different key for exactly the affected downstream sub-graph, so a stale value is structurally unreachable rather than merely “invalidated”.
+
+| Piece | Behaviour |
+| --- | --- |
+| `hash.ts` | Streaming two-lane FNV-1a mixer (effective 64-bit); numbers are encoded explicitly little-endian so digests match across platforms; `canonicalize` handles NaN / ±Infinity / -0 and Map/Set ordering. |
+| `key.ts` + `plan.ts` | Four-component keys with a `StepKeyBreakdown` for “why did this rerun?”, Kahn layered topology, cycle reporting, downstream impact and upstream provenance queries. |
+| `codec.ts` | `DataValue` ↔ JSON-safe bytes with real `Float32Array` / `Float64Array` / `Int32Array` / `Uint32Array` round-trips; decoding preserves the content hash bit-for-bit. `RenderedView` is a live handle and is never persisted. |
+| `cache.ts` | Bounded LRU memory store plus a **separate** IndexedDB database (`ergalics-build-cache`) so cache churn never touches the project schema; per-entry size caps and automatic degradation to memory on quota/private-mode failures. |
+| `engine.ts` | Layer-by-layer parallel wavefront (default 4 concurrent steps), cache-hit decode vs. recompute, failure blocks only downstream, `AbortSignal` cancellation, and a per-step decision report (hit / computed / blocked / failed + reason). |
+| `blockAdapter.ts` | Runs a compiled `CompiledRegion` through the engine while preserving `getInput` / `getParam` / GPU / storage / progress and canvas node-status semantics. |
+| `provenance.ts` | Freezes each run into a digest-verifiable attestation (plan, keys, output hashes, decision reasons). Runtime timings are excluded so two machines produce byte-identical attestations. |
+| `bundle.ts` | Exports/imports a portable cache snapshot with per-entry and per-manifest digests, plus an environment-fingerprint guard against foreign keys. |
+
+`blockStore.run()` keeps one build engine per store, so results survive re-runs and reloads. `FLOW_RUN_FINISHED` carries a `build` summary (total / cached / computed / blocked / failed / hit rate / plan + environment fingerprints) that is also written into the persisted run record. The canvas shows the hit-rate summary, per-node hit/recompute/blocked/failed badges, a **dry-run preview** of which nodes the cache can serve, and a **Provenance** button that downloads the run attestation. Settings → Local Storage shows the cache's entry count, byte usage and persistence mode, and can clear, export or import the snapshot. One-click **reproducibility bundles** are built by the existing `buildSupplement()` packager (lock + project + runs + attestation + cache + integrity digests), so there is exactly one archive format.
+
+Acceptance covered by `tests/build/` (10 files): a **10,000-node DAG** computes fully and then hits entirely; a parameter change recomputes only the affected sub-graph; 25 deterministic random DAGs are checked against a cold cache and direct evaluation with zero stale values; typed-array codec round-trips preserve content hashes; corrupt entries are misses; cancellation, failure blocking and concurrency limits are tested. See [`docs/technical/07-scientific-computing-subsystems.md`](docs/technical/07-scientific-computing-subsystems.md).
 
 ---
 
@@ -188,15 +261,15 @@ Production builds output to `dist/`.
 
 | Layer    | Choice                                                        |
 | -------- | ------------------------------------------------------------ |
-| UI       | React 18, react-router-dom 7, Zustand 5                      |
+| UI       | React 19, react-router-dom 7, Zustand 5                      |
 | Language | TypeScript 5.7 (strict)                                      |
-| Build    | Vite 6                                                       |
-| 3D       | Three.js r185 (+ @types/three), GLTF / STL / OBJ / PLY loaders with Draco & meshopt decoding |
+| Build    | Vite 8 (Rolldown)                                            |
+| 3D       | Three.js r187 (+ @types/three), GLTF / STL / OBJ / PLY loaders with Draco & meshopt decoding |
 | Native   | Rust crate `native/ergalics-core` (source-delivered; shipped builds run a generated WASM stub) |
 | GPU      | WebGPU / WGSL via web-sys                                    |
 | SQL      | DuckDB-WASM (lazy) + Apache Arrow                            |
 | VCS      | isomorphic-git 1 + LightningFS (browser) · simple-git (Node, isomorphic fallback) |
-| Testing  | Vitest (unit) + Playwright-core (E2E, headless Edge)          |
+| Testing  | Vitest 5 (unit) + Playwright-core (E2E, headless Edge)        |
 | Docs     | VitePress (separate `docs/` workspace)                       |
 | Packaging| fflate (cspkg ZIP), lz-string (project compression)          |
 
@@ -220,12 +293,12 @@ flowchart TB
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
         D1["Catalog (63 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["Compiler<br/>pure functions · validate ports/types<br/>topo sort · diagnostics"]
-        D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
+        D3["Build engine<br/>content-addressed keys<br/>IndexedDB + memory cache<br/>parallel wavefront · partial recompute"]
         D4["Render bridge<br/>viz.* RenderedView → plugin.loadData<br/>(side-effect-free)"]
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (153 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (155 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -259,10 +332,11 @@ flowchart TB
 ```
 .
 ├── src/                      # frontend
-│   ├── core/                 #   49 subdirectories + 39 root modules: storage, events, compute,
+│   ├── core/                 #   56 subdirectories + 42 root modules: storage, events, compute,
 │   │                         #   gpu, wasm, fileFormat, scene3d, sandbox, cspkg, errors,
 │   │                         #   validation, data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
-│   │                         #   plot, repro, uncertainty, units, experiment, lineage,
+│   │                         #   plot, repro, build (content-addressed incremental engine),
+│   │                         #   bigdata (GB streaming), uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal, sweep,
 │   │                         #   profiler, sql, report, inference, logger, vfs (workspace
 │   │                         #   file system), git (version control), research (science output)
@@ -276,7 +350,7 @@ flowchart TB
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · publish · utils)
-│   ├── plugins/builtin/      #   163 plugins: 153 scientific auto-load + 10 fun (2D + 3D)
+│   ├── plugins/builtin/      #   165 plugins: 155 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -303,9 +377,12 @@ visualize / plot) and run it. Left palette, central canvas (nodes + edges),
 right per-node parameter editor, bottom live result preview that adapts to
 the selected output (`RenderedView` via plugin renderers / `DataTable`
 read-only table / `Scalar` inline). The compiler is pure functions (port/type
-validation + cycle detection + Kahn topological sort); the executor has
-incremental caching with dirty propagation, so editing one block re-runs only
-it and its downstream. Graphs save as `*.flow.json` workspace files
+validation + cycle detection + Kahn topological sort); the executor is a
+content-addressed build engine: every node's cache key hashes its block code,
+parameters, upstream content keys and environment, so editing one block
+re-runs only its affected downstream sub-graph, while unchanged branches are
+served from a persisted IndexedDB cache across runs and reloads. Graphs save
+as `*.flow.json` workspace files
 (`{version, kind: 'ergalics-flow', graph}`) editable in the file explorer's
 Flow editor; data-source blocks can pick inputs straight from project files
 via the data-file picker, and the legacy project `blockGraph` state is still
@@ -348,7 +425,7 @@ prevents node loss) — a round trip fixed by
 
 ## Research Modules
 
-All 33 research tools live in one registry
+All 35 research tools live in one registry
 (`src/pages/research/toolRegistry.ts`) and share the **ToolShell** layout.
 Canonical routes are `/studio/<toolId>` (legacy `/#/<id>` hash routes are
 kept as redirects); every tool can also open **embedded as a tab of the
@@ -362,9 +439,11 @@ page on top, all unit-tested:
 | --- | --- | --- | --- |
 | measure | Uncertainty | `/studio/uncertainty` | Bootstrap CI, Monte Carlo propagation, MCMC — CPU or WGSL GPU engine, R-hat / ESS |
 | measure | Profiler | `/studio/profiler` | Streaming column profiling, correlation matrix, quality score + issue list |
+| measure | Performance | `/studio/performance` | Live frame metrics, GPU kernel samples and last Flow run's per-node timing breakdown |
 | model | Model Lab | `/studio/model-lab` | OLS / logistic / ridge / polynomial regression + coefficient table & residual diagnostics |
 | model | Inference Forge | `/studio/inference` | HMC / NUTS Bayesian inference + WAIC / LOO / PPC + trace & density plots |
 | model | Model Inference | `/studio/model-inference` | Run ONNX models in-browser with WebGPU |
+| model | Causal Lab | `/studio/causal-lab` | Causal DAG back-door adjustment sets, IPW and difference-in-differences from CSV/project data |
 | model | Sweeps | `/studio/sweeps` | Grid / list / Latin-hypercube parameter experiments + response surfaces (requires project) |
 | data | SQL Workbench | `/studio/sql` | DuckDB-WASM queries over project files (join / aggregate / window), results wired into lineage (requires project) |
 | data | Lineage | `/studio/lineage` | File→run DAG rebuilt from runs + imports (SVG canvas) |
@@ -379,8 +458,8 @@ page on top, all unit-tested:
 | signal | Notebook | `/studio/notebook` | Markdown + Python cells persisted in the project, run on a dedicated Pyodide (requires project) |
 | signal | Runs | `/studio/runs` | Auto-recorded run history (source, params, metrics, timings), A/B compare |
 | deliver | Report | `/studio/report` | Narrative + charts + tables + interactive filters → one self-contained HTML (requires project) |
-| deliver | Repro Lock | `/studio/reprolock` | `repro.lock` export / import + drift checks & one-click reproduce |
-| deliver | Supplement | `/studio/supplement` | Paper companion ZIP (`manifest.json` + runs + lineage + data/code/files + optional `repro.lock`) |
+| deliver | Repro Lock | `/studio/reprolock` | `repro.lock` export / import + drift checks, one-click reproduce, and **verified reproducibility bundle export/import** |
+| deliver | Supplement | `/studio/supplement` | Paper companion ZIP (`manifest.json` + runs + lineage + data/code/files + optional `repro.lock`, build attestation, cache snapshot and integrity digests) |
 | deliver | Course | `/studio/course` | Assign homework, collect and offline-grade student lab submissions (requires project) |
 | deliver | Gallery | `/studio/gallery` | Browse and reopen community-shared reproducible works |
 | publish | LaTeX Editor | `/studio/latex-editor` | Author online with live preview, figure and equation insertion, PDF export (requires project) |
@@ -434,6 +513,65 @@ citation.*
 
 ---
 
+## Industrial Suite
+
+The industrial suite is a second capability list built on the same workbench,
+project format and plugin runtime — not a separate application. Its tools are
+registered in the shared tool registry and filtered by
+`domains: ['industrial']`, so an engineering project shows the industrial
+activity bar while the research tools remain available.
+
+| Tool | Route | What it does |
+| ---- | ----- | ------------ |
+| **Geometry** | `/studio/geometry-import` | DXF/STEP import, layer and entity inspection |
+| **Mesh** | `/studio/mesh-viewer` | Gmsh/Abaqus/VTK/Nastran/Ansys/OpenFOAM meshes, groups, field colouring |
+| **Materials** | `/studio/material-library` | Material library, tag assignment, engineering properties |
+| **Load cases** | `/studio/load-cases` | Plane stress/strain, boundary conditions, loads, solver settings, design parameters |
+| **Solver** | `/studio/fea-solver` | 2-D elasticity and steady heat, 3-D tetrahedral heat, analytic benchmarks, pre-solve checklist |
+| **Post-processing** | `/studio/post-processing` | 2-D field maps, 3-D voxel/iso-surface views, field histograms |
+| **Design scan** | `/studio/design-scan` | Parametric sweeps, response curves, scan export |
+| **Quick fluid** | `/studio/quick-fluid` | Channel-flow sample and quick fluid metrics |
+| **Fingerprint** | `/studio/repro-fingerprint` | `repro.lock` v3 engineering fingerprint and drift checks |
+| **Report** | `/studio/industrial-report` | Localized engineering report (HTML/Markdown/PDF) with A4 preview |
+| **Calculators** | `/studio/engineering-calc` | Mesh-free pipe, thermal, beam, fatigue, tolerance and safety-factor checks |
+
+**Quick calculators.** `/studio/engineering-calc` adds six mesh-free checks
+that work without a project or solve step. Every card recomputes live and can
+export its inputs and results as CSV.
+
+| Calculator | Method | Notes |
+| ---------- | ------ | ----- |
+| Pipe pressure drop | Darcy–Weisbach + Swamee–Jain; `f = 64/Re` in laminar flow | Velocity, Reynolds number, friction factor, straight-run and fitting losses |
+| Thermal stack | 1-D series resistance `R = t/(kA)`, optional external film `1/(hA)` | Per-layer hot-face temperatures and total `R` |
+| Beam quick check | Euler–Bernoulli cantilever / simply supported, point or UDL, rectangular or circular section | Max moment, bending stress and deflection |
+| Fatigue life | Basquin S–N anchored at (10³, 0.9Su) and (10⁶, Se) with Miner damage | `Se = 0.5·Su·knockdown`; amplitudes at or below `Se` run out |
+| Tolerance chain | Worst case Σt plus mixed statistical RSS (±3σ normals, linear extremes) | Gap bounds and how much tighter the statistical estimate is |
+| Safety factor | `n = σ_allow / σ_applied` against the required factor | Margin and pass/fail verdict |
+
+Material pickers pull `k`, `E` and `σy` from the active study's material
+library when one is loaded; otherwise every default stays editable.
+
+**Formats.** Gmsh (`.msh`), Abaqus (`.inp`), VTK (`.vtk` / `.vtu`), DXF
+(`.dxf`), STEP (`.step`), Nastran (`.bdf`), Ansys (`.cdb`) and OpenFOAM
+(`.foam`). Every format is parsed into one neutral `EngineeringStudy` — nodes,
+elements, groups, materials, cases and fields — that all tools share.
+
+**Project workspace.** Industrial projects add `geometry/`, `mesh/`,
+`materials/`, `cases/`, `results/` and `study/` to the standard skeleton.
+Engineering files open from the file explorer or the dual-column import
+window (project files on the left, built-in samples on the right), are
+mirrored into the workspace, and `study/engineering.json` snapshots the study
+for reproducibility.
+
+**Output.** Field, mesh, geometry, metrics and design-scan data export as CSV;
+studies as JSON; figures as SVG/PNG/PDF; reports as HTML/Markdown/PDF. Exports
+either download or are written into `results/`, `figures/` and `study/`
+through the right-panel output toggle. Industrial charts can be sent to
+Figure Studio, and the solver can hand material and plane-state data to the
+research **FEM Lab** plugin through the cross-suite bridge.
+
+---
+
 ## Version Control (Git-backed Projects)
 
 Projects are **Git-backed**: `src/core/git/` defines a single `GitAdapter`
@@ -471,7 +609,7 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**153 scientific plugins** auto-load at startup, grouped into **19
+**155 scientific plugins** auto-load at startup, grouped into **19
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
@@ -502,7 +640,7 @@ manifest `nameI18n` values (zh-CN / en-US):
 | QQ Plot | QQ 图（正态检验） | Sample quantiles vs standard-normal quantiles for normality checks. |
 | Error Band | 误差带图 | Line chart with a shaded confidence/error band. |
 
-**Mathematics & Statistics (19)**
+**Mathematics & Statistics (20)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -525,8 +663,9 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Survival Analysis | 生存分析 | Kaplan–Meier curves with Greenwood variance and log-log bands, the k-sample log-rank test, and Cox proportional hazards (Breslow ties, Newton–Raphson) with hazard ratios and Harrell's C. |
 | Meta-Analysis | 元分析 | Inverse-variance fixed-effect pooling, DerSimonian–Laird random effects, Cochran Q, I², τ², forest / funnel data, Egger regression, trim-and-fill and subgroup pooling. |
 | Bayesian Inference | 贝叶斯推断 | Random-walk Metropolis–Hastings, conjugate Gibbs and Hamiltonian Monte Carlo, posterior predictive checks, Savage–Dickey Bayes factors, hierarchical random intercepts and R̂ / ESS diagnostics. |
+| Conformal Prediction | 共形预测 | Split-conformal regression with absolute or locally normalised scores: the exact ⌈(n+1)(1−α)⌉ order statistic, finite-sample coverage vs a Gaussian ±z·σ̂ baseline, and low/high-x tercile coverage under heteroscedastic / skewed noise. |
 
-**Physics (16)**
+**Physics (17)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -546,6 +685,7 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Diffusion Equation Lab | 热传导 / 扩散方程实验室 | FTCS explicit and Crank–Nicolson stepping with a stability gate and Dirichlet / Neumann boundaries. |
 | Diffraction Lab | 衍射实验室 | Numerical Fresnel–Kirchhoff diffraction integral for single- and multi-slit patterns. |
 | Trajectory Kinematics Lab | 轨迹运动学与能量分解实验室 | Trajectory tables → differentiated velocities, KE/PE decomposition and a least-squares projectile fit. |
+| Physics-Informed Neural Network | 物理信息神经网络 (PINN) | Trains a tanh MLP directly on the PDE residual (heat / viscous Burgers) with fourth-order finite-difference stencils, soft IC/BC constraints, inverse diffusivity discovery from 16 interior sensors, and analytic / FD reference comparisons. |
 
 **Chemistry (5)**
 
@@ -1276,13 +1416,13 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**4052 tests (2 skipped) across 258 files**, covering:
+**4259 tests passing (2 skipped) across 286 files**, covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
 the research-grade science-output bus, the block system, three-mode IR sync
 (Block ↔ Flow ↔ Code round-trips), the research modules (uncertainty / units /
 runs / lineage / figures / packaging / notebook / model / profiler / signal /
-sweeps / SQL / report / repro-lock / inference), the reliability core, and
+sweeps / SQL / report / repro-lock / inference / causal), the build engine, the reliability core, and
 the platform.
 
 E2E suite (Playwright-core, headless Edge):
@@ -1335,7 +1475,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
 - [x] Multi-session terminal (Python REPL + shell-style workspace commands), workspace search, Git status badges, drag-in file import & canvas drop-to-disk `data/`, session restore (last-opened project)
-- [x] 163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
@@ -1345,9 +1485,11 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
 - [x] Flow mode (compiler + incremental executor + 63 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
+- [x] Content-addressed build system — 10,000-node DAG, cross-run/session IndexedDB cache, partial recompute, per-step provenance, dry-run preview, verifiable attestations, portable cache snapshots and worker-friendly parallel scheduling
+- [x] Causal inference core — DAG d-separation, back-door adjustment sets, IPW and difference-in-differences (pure TS, reusing the logistic regression kernel)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
-- [x] 33 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
+- [x] 35 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
 - [x] Research-grade reliability layer (error taxonomy + validation + data-quality engine)
 - [x] AI assistant (natural language → `studio.*` draft → run; offline / online modes)
 - [x] Full free-form R runtime (webR + CRAN, falling back to the IR engine when absent)

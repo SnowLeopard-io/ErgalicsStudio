@@ -22,10 +22,14 @@ import { hashString } from './random';
 import { fingerprint } from '@/core/chunked/reader';
 import type { Project } from '@/types/project';
 import type { RunRecord, RunSource } from '@/core/experiment/record';
+import type { EngineeringFingerprint } from '@/core/engineering/study';
+import { engineeringFingerprint } from '@/core/engineering/study';
+import { fromStudySnapshot } from '@/core/engineering/study';
 
 export const LOCK_SCHEMA = 'ergalics.repro-lock';
-/** Bumped on breaking schema changes only (FR6.2). v2 = FR-11 runtime + deps. */
-export const LOCK_VERSION = 2;
+/** Bumped on breaking schema changes only (FR6.2). v2 = FR-11 runtime + deps;
+ *  v3 adds the industrial engineering fingerprint (mesh/materials/case/solver). */
+export const LOCK_VERSION = 3;
 
 /** Same-engine deterministic tolerance; GPU sources widen to 1e-6. */
 export const TOLERANCE_CPU = 1e-9;
@@ -119,6 +123,12 @@ export interface ReproLock {
   runs: LockedRun[];
   /** v2 (FR-11): third-party engine versions + the `app` build-hash entry. */
   dependencies?: LockDependency[];
+  /**
+   * v3: industrial engineering fingerprint. Absent for research projects and
+   * for locks built before v3 — verification treats a missing fingerprint as
+   * unknown, never as drift (same policy as v1 dependencies).
+   */
+  engineering?: EngineeringFingerprint;
 }
 
 export interface BuildLockOptions {
@@ -136,6 +146,8 @@ export interface BuildLockOptions {
   dependencies?: LockDependency[];
   /** v2: override the app build hash embedded as the `app` dependency. */
   buildHash?: string;
+  /** v3: explicit engineering fingerprint (defaults to project.state.engineering). */
+  engineering?: EngineeringFingerprint | null;
   now?: Date;
 }
 
@@ -243,6 +255,18 @@ function normalizeDependencies(deps: LockDependency[]): LockDependency[] {
 }
 
 // --------------------------------------------------------------------------
+// Engineering fingerprint (v3)
+// --------------------------------------------------------------------------
+
+/** Derive the engineering fingerprint from a project's stored study. */
+export function projectEngineeringFingerprint(project: Project): EngineeringFingerprint | null {
+  const stored = project.state?.engineering?.study;
+  if (!stored) return null;
+  const study = fromStudySnapshot(stored);
+  return study ? engineeringFingerprint(study) : null;
+}
+
+// --------------------------------------------------------------------------
 // buildLock
 // --------------------------------------------------------------------------
 
@@ -285,6 +309,9 @@ export function buildLock(project: Project, options: BuildLockOptions = {}): Rep
     { name: APP_DEPENDENCY_NAME, version: options.buildHash ?? appBuildHash() },
   ]);
 
+  const engineering =
+    options.engineering === undefined ? projectEngineeringFingerprint(project) : options.engineering;
+
   const lockedRuns: LockedRun[] = runs.map((run) => {
     const engine = runEngine(run);
     const defaultTolerance = engine === 'gpu' ? TOLERANCE_GPU : TOLERANCE_CPU;
@@ -315,6 +342,7 @@ export function buildLock(project: Project, options: BuildLockOptions = {}): Rep
     code: { hash: aggregateCodeHash(artifacts), artifacts },
     runs: lockedRuns,
     dependencies,
+    ...(engineering ? { engineering } : {}),
   };
 }
 
@@ -396,6 +424,8 @@ export interface VerifyLockOptions {
   versions?: Partial<LockVersions>;
   /** v2: current dependency fingerprints (omit = unknown, never a match). */
   dependencies?: LockDependency[];
+  /** v3: current engineering fingerprint (omit = derive from the project). */
+  engineering?: EngineeringFingerprint | null;
 }
 
 const CATEGORY_ORDER: LockCategory[] = ['data', 'code', 'params', 'seed', 'versions', 'dependency'];
@@ -689,6 +719,55 @@ export function verifyLock(
   // --- dependencies (v2) ---------------------------------------------------
   const { drifts: depDrifts, unknown: depUnknown } = dependencyDrifts(lock, options.dependencies);
   drifts.push(...depDrifts);
+
+  // --- engineering fingerprint (v3) ---------------------------------------
+  if (lock.engineering) {
+    const currentEngineering =
+      options.engineering === undefined ? projectEngineeringFingerprint(project) : options.engineering;
+    if (!currentEngineering) {
+      // The lock recorded an engineering study but none is loaded now: the
+      // fingerprint cannot be checked, so report it as a missing drift with
+      // the same missing=fail semantics as run records — not a silent pass.
+      drifts.push({
+        category: 'code',
+        kind: 'missing',
+        target: 'engineering:fingerprint',
+        message: 'engineering study fingerprint is missing (no study loaded)',
+        severity: 'fail',
+      });
+    } else {
+      const push = (target: string, expected: string, actual: string): void => {
+        if (expected === actual) return;
+        drifts.push({
+          category: 'code',
+          kind: 'changed',
+          target: `engineering:${target}`,
+          message: `engineering ${target} differs from the lock`,
+          expected,
+          actual,
+          severity: 'fail',
+        });
+      };
+      push('mesh', lock.engineering.meshHash, currentEngineering.meshHash);
+      push('case', lock.engineering.caseHash, currentEngineering.caseHash);
+      push(
+        'solver',
+        JSON.stringify(lock.engineering.solver),
+        JSON.stringify(currentEngineering.solver),
+      );
+      const names = new Set([
+        ...Object.keys(lock.engineering.materialHashes),
+        ...Object.keys(currentEngineering.materialHashes),
+      ]);
+      for (const name of names) {
+        push(
+          `material:${name}`,
+          lock.engineering.materialHashes[name] ?? 'missing',
+          currentEngineering.materialHashes[name] ?? 'missing',
+        );
+      }
+    }
+  }
   // A v1 lock recorded no dependency fingerprint — report it as unknown rather
   // than a false pass, and hint the user to rebuild the lock.
   const upgradeHint = lock.lockVersion < LOCK_VERSION;
@@ -999,6 +1078,8 @@ export function diffRuns(a: RunRecord, b: RunRecord, options: DiffRunsOptions = 
     ['seed', a.seed, b.seed],
     ['inputsHash', a.inputsHash, b.inputsHash],
     ['outputsHash', a.outputsHash, b.outputsHash],
+    ['build.planHash', a.build?.planHash, b.build?.planHash],
+    ['build.environment', a.build?.environment, b.build?.environment],
     ['engine', a.params?.engine, b.params?.engine],
     ['durationMs', a.durationMs, b.durationMs],
     ['failed', a.failed ?? false, b.failed ?? false],

@@ -9,7 +9,13 @@
 
 import { useT } from '@/i18n';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
-import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon } from '@/components/icons';
+import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon, ToolIcon, KeyboardIcon } from '@/components/icons';
+import { toggleTouchKeypad } from '@/components/TouchKeypad';
+
+/** Industrial workbench entry glyph (factories are the domain's shorthand). */
+function IndustrialIcon({ size = 20 }: { size?: number }) {
+  return <ToolIcon kind="industrial" size={size} />;
+}
 
 interface ActivityItem {
   view: SidebarView;
@@ -32,6 +38,7 @@ export function ActivityBar() {
     { view: 'plugins', label: t('workbench.activity.plugins'), Icon: LayersIcon },
     { view: 'git', label: t('workbench.activity.git'), Icon: GitBranchIcon },
     { view: 'research', label: t('workbench.activity.research'), Icon: FlaskIcon },
+    { view: 'industrial', label: t('workbench.activity.industrial'), Icon: IndustrialIcon },
     { view: 'tools', label: t('workbench.activity.tools'), Icon: ToolboxIcon },
   ];
 
@@ -59,6 +66,16 @@ export function ActivityBar() {
 
       {/* 终端呼出：固定在设置入口上方；开合状态点亮图标。 */}
       <div className="activity-bar-footer">
+        {/* 触控设备上原生键盘不好呼出：这一入口把浮动键盘叫出来。 */}
+        <button
+          type="button"
+          className="activity-item"
+          aria-label={t('workbench.activity.keypad')}
+          title={t('workbench.activity.keypad')}
+          onClick={toggleTouchKeypad}
+        >
+          <KeyboardIcon size={20} />
+        </button>
         <button
           type="button"
           className={`activity-item${terminalOpen ? ' is-active' : ''}`}

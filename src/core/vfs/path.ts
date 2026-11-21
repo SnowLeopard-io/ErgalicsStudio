@@ -11,6 +11,23 @@
 // exercise browser semantics.
 // ==========================================================================
 
+/** Join a root-relative directory and an entry name with a single '/'. */
+export function joinVfsPath(dir: string, name: string): string {
+  return dir ? `${dir}/${name}` : name;
+}
+
+/** Parent directory of a root-relative path ('' at the root). */
+export function vfsDirname(path: string): string {
+  const i = path.lastIndexOf('/');
+  return i >= 0 ? path.slice(0, i) : '';
+}
+
+/** Last path segment; accepts both '/' and '\\' so Windows input works too. */
+export function vfsBasename(path: string): string {
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] ?? path;
+}
+
 /** Error thrown when a relative path would escape (or corrupt) the root. */
 export class VfsPathError extends Error {
   constructor(message: string) {

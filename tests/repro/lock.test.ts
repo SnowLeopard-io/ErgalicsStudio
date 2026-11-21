@@ -46,7 +46,7 @@ describe('F6 buildLock', () => {
     const project = makeProject();
     const lock = buildLock(project, { runs: [makeRun({ projectId: project.id })] });
     expect(lock.schema).toBe('ergalics.repro-lock');
-    expect(lock.lockVersion).toBe(2);
+    expect(lock.lockVersion).toBe(3);
     expect(lock.projectId).toBe(project.id);
     expect(lock.data).toHaveLength(2);
     expect(lock.data[0]!.hash).toMatch(/^[0-9a-f]{8}$/);

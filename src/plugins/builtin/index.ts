@@ -101,6 +101,7 @@ import { heatEngineManifest } from './physics/heatengine/manifest';
 import { physicsDiffusionManifest } from './physics/diffusion/manifest';
 import { physicsDiffractionManifest } from './physics/diffraction/manifest';
 import { physicsTrajectoryManifest } from './physics/trajectory/manifest';
+import { physicsPinnManifest } from './physics/pinn/manifest';
 import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
@@ -142,6 +143,7 @@ import { statsNonparametricManifest } from './stats/nonparametric/manifest';
 import { statsSurvivalManifest } from './stats/survival/manifest';
 import { statsMetaManifest } from './stats/meta/manifest';
 import { statsBayesManifest } from './stats/bayes/manifest';
+import { statsConformalManifest } from './stats/conformal/manifest';
 import { blackscholesManifest } from './econ/blackscholes/manifest';
 import { evogameManifest } from './econ/evogame/manifest';
 import { sdtManifest } from './psych/sdt/manifest';
@@ -669,6 +671,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
+  {
+    manifest: physicsPinnManifest,
+    load: async () => {
+      const mod = await import('./physics/pinn/plugin');
+      return mod.default();
+    },
+  },
   // ---- Research suite: engineering (research-grade kernels) ------------------
   {
     manifest: engCircuitManifest,
@@ -961,6 +970,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: statsBayesManifest,
     load: async () => {
       const mod = await import('./stats/bayes');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsConformalManifest,
+    load: async () => {
+      const mod = await import('./stats/conformal/plugin');
       return mod.default();
     },
   },

@@ -71,6 +71,8 @@ function BlockCanvasImpl() {
   const viewport = store((s) => s.viewport);
   const selectedIds = store((s) => s.selectedIds);
   const nodeStatus = store((s) => s.nodeStatus);
+  const buildSteps = store((s) => s.buildSteps);
+  const buildPreview = store((s) => s.buildPreview);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState>(null);
@@ -314,6 +316,12 @@ function BlockCanvasImpl() {
             meta={meta}
             selected={selectedIds.includes(inst.id)}
             status={nodeStatus[inst.id] ?? 'idle'}
+            {...(buildSteps[inst.id] ? { build: buildSteps[inst.id] } : {})}
+            {...(!buildSteps[inst.id] && buildPreview
+              ? {
+                  preview: buildPreview.steps.find((step) => step.id === inst.id)?.status,
+                }
+              : {})}
             screenPos={worldToScreen(inst.position, viewport)}
             height={nodeHeight(meta.inputs.length, meta.outputs.length, paramRowsOf(inst))}
             onNodePointerDown={onNodePointerDown}

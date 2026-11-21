@@ -25,6 +25,39 @@ function surface(key: string): SurfaceTab | undefined {
   return tab?.kind === 'surface' ? tab : undefined;
 }
 
+describe('closing a surface tab restores the neighbouring surface session', () => {
+  beforeEach(() => {
+    useAppStore.setState({ canvasTabs: [], activeTab: null, mode: 'standard' });
+    useEditorStore.setState({ sessions: [], activeSessionId: null });
+  });
+
+  it('closing the code file in front falls back to the flow file session', async () => {
+    const graph = { instances: [], connections: [], viewport: { x: 0, y: 0, zoom: 1 } };
+    editorStoreOpenInMode({ mode: 'flow', graph, path: 'flows/a.flow.json' });
+    const flowSid = useEditorStore.getState().activeSessionId;
+
+    editorStoreOpenInMode({
+      mode: 'code',
+      language: 'python',
+      code: 'print(1)',
+      path: 'code/b.py',
+    });
+    const codeKey = 'surface:code:code/b.py';
+    expect(useAppStore.getState().activeTab).toBe(codeKey);
+
+    // Closing the tab in front falls back to the flow tab. Its session must
+    // come along — otherwise flow mode hydrates from the code session's IR
+    // (which has no flow nodes) and the canvas ends up empty.
+    useAppStore.getState().closeTab(codeKey);
+    // Session binding is a lazy import (breaks a store cycle) — flush it.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(useAppStore.getState().mode).toBe('flow');
+    expect(useAppStore.getState().activeTab).toBe('surface:flow:flows/a.flow.json');
+    expect(useEditorStore.getState().activeSessionId).toBe(flowSid);
+  });
+});
+
 describe('sample tabs', () => {
   beforeEach(() => {
     useAppStore.setState({ canvasTabs: [], activeTab: null, mode: 'standard' });

@@ -26,6 +26,24 @@ import { CJK_FONT_FAMILY, NON_LATIN1, registerFont, winAnsiSafe } from '../pdf/f
 import { fitSvgBox, svgAspectRatio } from '../pdf/svg';
 import { rasterizePNG } from '@/core/plot/export';
 
+interface FlowSeg {
+  text: string;
+  cjk: boolean;
+}
+
+/** Split text into runs that share one script, so each run can be drawn with
+ *  its own font (jsPDF cannot mix Latin into a CID/CJK font run reliably). */
+function scriptRuns(text: string): FlowSeg[] {
+  const runs: { text: string; cjk: boolean }[] = [];
+  for (const char of text) {
+    const cjk = NON_LATIN1.test(char);
+    const last = runs[runs.length - 1];
+    if (last && last.cjk === cjk) last.text += char;
+    else runs.push({ text: char, cjk });
+  }
+  return runs;
+}
+
 interface JsPdfDoc {
   setFont(family: string, style?: string): void;
   setFontSize(size: number): void;
@@ -36,6 +54,9 @@ interface JsPdfDoc {
     y: number,
     options?: { align?: 'left' | 'center' | 'right'; baseline?: string },
   ): void;
+  setFillColor(r: number, g: number, b: number): void;
+  setDrawColor(r: number, g: number, b: number): void;
+  rect(x: number, y: number, w: number, h: number, style?: string): void;
   getTextWidth(text: string): number;
   splitTextToSize(text: string, maxWidth: number): string[];
   addPage(): void;
@@ -717,10 +738,12 @@ export async function buildManuscriptPdf(
 
 /** One laid-out block of a plain-text document (notebook / report). */
 export interface PdfTextBlock {
-  kind: 'heading' | 'text' | 'bullet' | 'code';
+  kind: 'heading' | 'text' | 'bullet' | 'code' | 'table';
   text: string;
   /** 1–4 for headings. */
   level?: number;
+  /** Header row first, then data rows — for `table` blocks. */
+  rows?: string[][];
 }
 
 // --------------------------------------------------------------------------
@@ -740,7 +763,11 @@ export async function buildTextPdf(
   }
   const jspdfMod = (await import('jspdf' as any)) as JsPdfModule;
   const doc = new jspdfMod.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const needsCjk = NON_LATIN1.test(title) || blocks.some((block) => NON_LATIN1.test(block.text));
+  const needsCjk = NON_LATIN1.test(title)
+    || blocks.some((block) =>
+      NON_LATIN1.test(block.text)
+      || (block.rows?.some((row) => row.some((cell) => NON_LATIN1.test(cell))) ?? false),
+    );
   const cjkReady = await registerFont(doc, needsCjk);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -753,30 +780,67 @@ export async function buildTextPdf(
     y = MARGIN_MM;
   };
 
+  /** Draw text as font runs: jsPDF's Identity-H encoding loses Latin
+   *  characters that follow a CJK run inside one `text()` call (a line such as
+   *  "生成时间: 2026-11-20" prints as just "生成时间"). Each script therefore
+   *  gets its own font and `text()` call. */
   const write = (
     value: string,
     sizePt: number,
     style: 'normal' | 'bold' | 'italic' = 'normal',
     indentMm = 0,
-    family = 'times',
+    // Sans-serif to match the embedded CJK font (DroidSansFallback) and the
+    // HTML paper preview — Times made every CJK↔Latin switch change typeface.
+    family = 'helvetica',
   ) => {
     const text = cleanText(value);
     if (!text) return;
-    const cjk = cjkReady && NON_LATIN1.test(text);
-    doc.setFont(cjk ? CJK_FONT_FAMILY : family, cjk ? 'normal' : style);
-    doc.setFontSize(sizePt);
-    doc.setTextColor(28, 30, 34);
-    const lines = doc.splitTextToSize(cjkReady ? text : winAnsiSafe(text), maxWidth - indentMm);
+    const source = cjkReady ? text : winAnsiSafe(text);
     const lineHeight = sizePt * PT_TO_MM * 1.45;
-    const fakeBold = cjk && style === 'bold';
+    const left = MARGIN_MM + indentMm;
+    const limit = maxWidth - indentMm;
+    const fakeBold = cjkReady && style === 'bold';
     const boldOffset = sizePt * PT_TO_MM * 0.03;
-    for (const line of lines) {
-      ensureSpace(lineHeight);
-      const x = MARGIN_MM + indentMm;
-      doc.text(line, x, y);
-      if (fakeBold) doc.text(line, x + boldOffset, y);
-      y += lineHeight;
+    let x = left;
+    ensureSpace(lineHeight);
+    for (const run of scriptRuns(source)) {
+      doc.setFont(run.cjk ? CJK_FONT_FAMILY : family, run.cjk ? 'normal' : style);
+      doc.setFontSize(sizePt);
+      doc.setTextColor(28, 30, 34);
+      // CJK wraps per character, Latin per word.
+      const chunks = run.cjk
+        ? Array.from(run.text)
+        : run.text.match(/\S+\s*|\s+/g) ?? [];
+      for (const chunk of chunks) {
+        let pieces = [chunk];
+        // A single token wider than the line (long hash/URL) breaks by char.
+        if (!run.cjk && doc.getTextWidth(chunk) > limit) {
+          pieces = [];
+          let piece = '';
+          for (const char of chunk) {
+            if (piece && doc.getTextWidth(piece + char) > limit) {
+              pieces.push(piece);
+              piece = char;
+            } else {
+              piece += char;
+            }
+          }
+          if (piece) pieces.push(piece);
+        }
+        for (const piece of pieces) {
+          const width = doc.getTextWidth(piece);
+          if (x > left && x + width > left + limit) {
+            y += lineHeight;
+            ensureSpace(lineHeight);
+            x = left;
+          }
+          doc.text(piece, x, y);
+          if (fakeBold) doc.text(piece, x + boldOffset, y);
+          x += width;
+        }
+      }
     }
+    y += lineHeight;
   };
 
   const writeCode = (value: string) => {
@@ -801,6 +865,119 @@ export async function buildTextPdf(
   write(title, 18, 'bold');
   y += 5;
 
+  /** Wrap a cell's mixed-script text into laid-out lines of font runs. */
+  const flowCell = (text: string, limit: number, family: string): FlowSeg[][] => {
+    const lines: FlowSeg[][] = [];
+    let cur: FlowSeg[] = [];
+    let x = 0;
+    for (const run of scriptRuns(text)) {
+      doc.setFont(run.cjk ? CJK_FONT_FAMILY : family, 'normal');
+      const chunks = run.cjk ? Array.from(run.text) : run.text.match(/\S+\s*|\s+/g) ?? [];
+      for (const chunk of chunks) {
+        let pieces = [chunk];
+        if (!run.cjk && doc.getTextWidth(chunk) > limit) {
+          pieces = [];
+          let piece = '';
+          for (const char of chunk) {
+            if (piece && doc.getTextWidth(piece + char) > limit) {
+              pieces.push(piece);
+              piece = char;
+            } else {
+              piece += char;
+            }
+          }
+          if (piece) pieces.push(piece);
+        }
+        for (const piece of pieces) {
+          const width = doc.getTextWidth(piece);
+          if (x > 0 && x + width > limit) {
+            lines.push(cur);
+            cur = [];
+            x = 0;
+          }
+          const last = cur[cur.length - 1];
+          if (last && last.cjk === run.cjk) last.text += piece;
+          else cur.push({ text: piece, cjk: run.cjk });
+          x += width;
+        }
+      }
+    }
+    if (cur.length > 0 || lines.length === 0) lines.push(cur);
+    return lines;
+  };
+
+  /** Draw a bordered grid table (header shaded), matching the HTML paper. */
+  const drawTable = (rows: string[][]) => {
+    const size = 8.5;
+    const pad = 1.6;
+    const cols = Math.max(...rows.map((row) => row.length));
+    doc.setFontSize(size);
+    // Column widths follow the widest cell, capped, then scaled to the page.
+    const natural: number[] = [];
+    for (let c = 0; c < cols; c += 1) {
+      let width = 8;
+      for (const row of rows) {
+        for (const run of scriptRuns(row[c] ?? '')) {
+          doc.setFont(run.cjk ? CJK_FONT_FAMILY : 'helvetica', 'normal');
+          width = Math.max(width, doc.getTextWidth(run.text));
+        }
+      }
+      natural.push(Math.min(width + pad * 2, 110));
+    }
+    const total = natural.reduce((sum, w) => sum + w, 0);
+    const scale = Math.min(1, maxWidth / total);
+    const widths = natural.map((w) => w * scale);
+    const lineHeight = size * PT_TO_MM * 1.3;
+    const rowHeights = rows.map((row) => {
+      let maxLines = 1;
+      for (let c = 0; c < cols; c += 1) {
+        maxLines = Math.max(maxLines, flowCell(row[c] ?? '', widths[c]! - pad * 2, 'helvetica').length);
+      }
+      return maxLines * lineHeight + pad * 2;
+    });
+    const gridWidth = widths.reduce((sum, w) => sum + w, 0);
+    const drawRow = (index: number, top: number) => {
+      const row = rows[index]!;
+      if (index === 0) {
+        doc.setFillColor(238, 242, 246);
+        doc.rect(MARGIN_MM, top, gridWidth, rowHeights[0]!, 'F');
+      }
+      let x = MARGIN_MM;
+      doc.setDrawColor(160, 172, 184);
+      doc.setFontSize(size);
+      for (let c = 0; c < cols; c += 1) {
+        doc.rect(x, top, widths[c]!, rowHeights[index]!, 'S');
+        const lines = flowCell(row[c] ?? '', widths[c]! - pad * 2, 'helvetica');
+        let ty = top + pad + size * PT_TO_MM * 1.05;
+        for (const line of lines) {
+          let tx = x + pad;
+          for (const seg of line) {
+            doc.setFont(seg.cjk ? CJK_FONT_FAMILY : 'helvetica', 'normal');
+            doc.setFontSize(size);
+            doc.setTextColor(28, 30, 34);
+            doc.text(seg.text, tx, ty);
+            tx += doc.getTextWidth(seg.text);
+          }
+          ty += lineHeight;
+        }
+        x += widths[c]!;
+      }
+    };
+    for (let index = 0; index < rows.length; index += 1) {
+      if (y + rowHeights[index]! > pageHeight - MARGIN_MM) {
+        doc.addPage();
+        y = MARGIN_MM;
+        if (index > 0) {
+          drawRow(0, y); // repeat the header row on every new page
+          y += rowHeights[0]!;
+        }
+      }
+      drawRow(index, y);
+      y += rowHeights[index]!;
+    }
+    y += 2;
+  };
+
   for (const block of blocks) {
     if (block.kind === 'heading') {
       y += 2;
@@ -809,11 +986,15 @@ export async function buildTextPdf(
       write(block.text, size, 'bold');
       y += 1;
     } else if (block.kind === 'bullet') {
-      write(`• ${block.text}`, 10, 'normal', 5);
+      // ASCII marker: the embedded CJK font does not reliably carry non-CJK
+      // punctuation such as the U+2022 bullet.
+      write(`- ${block.text}`, 10, 'normal', 5);
     } else if (block.kind === 'code') {
       y += 1;
       writeCode(block.text);
       y += 2;
+    } else if (block.kind === 'table' && block.rows && block.rows.length > 0) {
+      drawTable(block.rows);
     } else {
       write(block.text, 10);
       y += 2;

@@ -13,12 +13,14 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { formatBytes } from '@/core/storage';
 import {
   getSqlEngine,
   hashText,
   trimHistory,
   type SqlEngine,
   type SqlHistoryEntry,
+  type SqlLargeFileProgress,
   type SqlQueryResult,
   type SqlTableSchema,
 } from '@/core/sql/engine';
@@ -31,11 +33,10 @@ const VIRTUAL_DOWNSAMPLE_THRESHOLD = 5000;
 /** CSV export guard from the spec: results ≤ 1e6 rows can be saved. */
 const MAX_SAVE_ROWS = 1_000_000;
 
-const SAMPLE_SQL = `-- Join / aggregate examples over the registered tables
-SELECT c.customer, COUNT(*) AS orders
-FROM orders o JOIN customers c ON o.customer_id = c.id
-GROUP BY c.customer
-ORDER BY orders DESC`;
+const SAMPLE_SQL = `-- Query the registered tables (names in the sidebar)
+SELECT *
+FROM my_table
+LIMIT 20`;
 
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -59,17 +60,21 @@ export default function SqlWorkbenchPage() {
   const [status, setStatus] = useState<EngineStatus>('idle');
   const [statusNote, setStatusNote] = useState('');
   const [schemas, setSchemas] = useState<SqlTableSchema[]>([]);
-  const [sql, setSql] = useState(SAMPLE_SQL);
+  const [sql, setSql] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<SqlQueryResult | null>(null);
   const [history, setHistory] = useState<SqlHistoryEntry[]>([]);
   const [saveName, setSaveName] = useState('');
+  const [importProgress, setImportProgress] = useState<SqlLargeFileProgress | null>(null);
+  const [importName, setImportName] = useState('');
 
   const engineRef = useRef<SqlEngine | null>(null);
   const registeredKeyRef = useRef('');
   const abortRef = useRef<AbortController | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  /** The generated starter query is filled in at most once per page load. */
+  const sampleFilledRef = useRef(false);
 
   /** Load the engine (once) and (re)register the file set when it changes. */
   const prepareEngine = async (): Promise<SqlEngine | null> => {
@@ -101,8 +106,22 @@ export default function SqlWorkbenchPage() {
       ).filter((f): f is { name: string; text: string } => f.text !== undefined);
       const contentKey = files.map((f) => `${f.name}:${hashText(f.text)}`).join('\n');
       if (registeredKeyRef.current !== contentKey) {
-        setSchemas(await engine.registerFiles(files));
+        const registered = await engine.registerFiles(files);
+        setSchemas(registered);
         registeredKeyRef.current = contentKey;
+        // A fresh visit must not greet the user with a "table not found"
+        // error: once a table exists, seed an editor that actually runs.
+        if (registered.length > 0 && !sampleFilledRef.current) {
+          const firstTable = registered[0]?.table;
+          if (firstTable) {
+            sampleFilledRef.current = true;
+            setSql(
+              (prev) =>
+                prev ||
+                `-- Preview the first rows of a registered table\nSELECT *\nFROM ${firstTable}\nLIMIT 20`,
+            );
+          }
+        }
         // The engine owns the table naming — ask it instead of recomputing
         // the names locally (the two could disagree after a removal).
         // Keyed by FILE name → table name.
@@ -186,6 +205,88 @@ export default function SqlWorkbenchPage() {
 
   const cancelQuery = () => abortRef.current?.abort();
 
+  // ---- Large-file (GB-scale) streaming import ------------------------------
+
+  const importFileRef = useRef<HTMLInputElement | null>(null);
+
+  /** Stream a big CSV/TSV straight into DuckDB (never materialized in JS). */
+  const importLargeFile = async (file: File, handle?: FileSystemFileHandle) => {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.json')) {
+      notify('error', t('sql.import_large_hint'));
+      return;
+    }
+    const engine = await prepareEngine();
+    if (!engine) return;
+    setImportName(file.name);
+    setImportProgress({ phase: 'schema', rows: 0, bytes: 0, totalBytes: file.size });
+    try {
+      const registered = await engine.registerLargeFile(
+        {
+          name: file.name,
+          size: file.size,
+          open: () => file.stream(),
+          handle,
+        },
+        (p) => setImportProgress(p),
+      );
+      setSchemas(registered);
+      const map = new Map(tableByFile);
+      const table = engine.tableFor(file.name);
+      if (table) map.set(file.name, table);
+      setTableByFile(map);
+      notify('success', t('sql.import_done', { rows: engine.rowsFor(file.name) ?? 0, name: file.name }));
+    } catch (err) {
+      // A failed import may have terminated the engine (abort semantics) —
+      // drop it so the next prepare spins up a fresh instance.
+      if (engine.isTerminated) {
+        engineRef.current = null;
+        registeredKeyRef.current = '';
+      }
+      notify('error', t('sql.import_failed', { msg: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      setImportProgress(null);
+      setImportName('');
+    }
+  };
+
+  /** Chromium: pick via showOpenFilePicker to get a direct-read file handle. */
+  const pickLargeFile = async () => {
+    type PickerWindow = Window & {
+      showOpenFilePicker?: (opts?: { types?: { description: string; accept: Record<string, string[]> }[] }) => Promise<FileSystemFileHandle[]>;
+    };
+    const w = window as PickerWindow;
+    if (w.showOpenFilePicker) {
+      try {
+        const [handle] = await w.showOpenFilePicker({
+          types: [{ description: 'CSV/TSV', accept: { 'text/csv': ['.csv', '.tsv'] } }],
+        });
+        if (!handle) return;
+        const file = await handle.getFile();
+        await importLargeFile(file, handle);
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return; // user cancelled
+        // fall through to the plain input path
+      }
+    }
+    importFileRef.current?.click();
+  };
+
+  const onImportInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await importLargeFile(file);
+  };
+
+  const importPhaseText = (p: SqlLargeFileProgress): string =>
+    p.phase === 'schema'
+      ? t('sql.import_phase_schema')
+      : p.phase === 'ingest'
+        ? t('sql.import_phase_ingest')
+        : t('sql.import_phase_finalize');
+
   const saveResult = async () => {
     if (!project || !result || result.rows.length === 0 || running) return;
     if (result.rowCount > MAX_SAVE_ROWS) {
@@ -213,6 +314,20 @@ export default function SqlWorkbenchPage() {
       notify('error', err instanceof Error ? err.message : String(err));
     }
   };
+
+  /** Table name → exact row count for large-file tables (engine-tracked). */
+  const rowsByTable = useMemo(() => {
+    const m = new Map<string, number>();
+    const engine = engineRef.current;
+    if (!engine) return m;
+    const rev = new Map([...tableByFile].map(([f, t]) => [t, f]));
+    for (const s of schemas) {
+      const file = rev.get(s.table);
+      const n = file !== undefined ? engine.rowsFor(file) : undefined;
+      if (n !== undefined) m.set(s.table, n);
+    }
+    return m;
+  }, [schemas, tableByFile]);
 
   const statusChip =
     status === 'loading' ? (
@@ -255,6 +370,11 @@ export default function SqlWorkbenchPage() {
                     >
                       {schema.table}
                     </button>
+                    {rowsByTable.has(schema.table) && (
+                      <span className="sql-col-type sql-rows-note">
+                        {t('sql.rows_known', { rows: rowsByTable.get(schema.table) ?? 0 })}
+                      </span>
+                    )}
                     <ul className="sql-col-list">
                       {schema.columns.map((col) => (
                         <li key={col.name}>
@@ -313,7 +433,7 @@ export default function SqlWorkbenchPage() {
               <button
                 type="button"
                 className="btn sql-run-btn"
-                disabled={running || status === 'loading'}
+                disabled={running || status === 'loading' || importProgress !== null}
                 onClick={() => void runQuery()}
               >
                 {t('sql.run')}
@@ -323,7 +443,40 @@ export default function SqlWorkbenchPage() {
                   {t('sql.cancel')}
                 </button>
               )}
+              <button
+                type="button"
+                className="btn"
+                disabled={running || importProgress !== null}
+                title={t('sql.import_large_hint')}
+                onClick={() => void pickLargeFile()}
+              >
+                {t('sql.import_large')}
+              </button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".csv,.tsv,text/csv,text/tab-separated-values"
+                aria-label={t('sql.import_large')}
+                className="sql-import-input"
+                hidden
+                onChange={(e) => void onImportInput(e)}
+              />
             </div>
+
+            {importProgress && (
+              <div className="sql-import-progress">
+                <div className="sql-import-label">
+                  {importPhaseText(importProgress)} · {importName} · {formatBytes(importProgress.bytes)} /{' '}
+                  {formatBytes(importProgress.totalBytes)}
+                  {importProgress.rows > 0 && ` · ${importProgress.rows.toLocaleString()} rows`}
+                </div>
+                <progress
+                  className="sql-import-bar"
+                  max={importProgress.totalBytes || 1}
+                  value={importProgress.bytes}
+                />
+              </div>
+            )}
 
             {error && <pre className="sql-error">{error}</pre>}
 

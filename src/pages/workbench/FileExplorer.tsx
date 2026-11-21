@@ -21,6 +21,11 @@ import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
 import type { GitFileLetter } from '@/core/git/types';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
+import {
+  joinVfsPath as joinPath,
+  vfsDirname as dirname,
+  vfsBasename as basename,
+} from '@/core/vfs/path';
 import type { VfsEntry } from '@/core/vfs';
 import { codeLanguageForFile } from '@/components/editor/fileEditors/shared';
 import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
@@ -48,20 +53,17 @@ const GUIDE: ReadonlyArray<{ match: (p: string) => boolean; key: string }> = [
   { match: (p) => p === 'data' || p.startsWith('data/'), key: 'explorer.dir_data' },
   { match: (p) => p === 'code' || p.startsWith('code/'), key: 'explorer.dir_code' },
   { match: (p) => p === 'manuscript' || p.startsWith('manuscript/'), key: 'explorer.dir_manuscript' },
+  { match: (p) => p === 'geometry' || p.startsWith('geometry/'), key: 'explorer.dir_geometry' },
+  { match: (p) => p === 'mesh' || p.startsWith('mesh/'), key: 'explorer.dir_mesh' },
+  { match: (p) => p === 'materials' || p.startsWith('materials/'), key: 'explorer.dir_materials' },
+  { match: (p) => p === 'cases' || p.startsWith('cases/'), key: 'explorer.dir_cases' },
+  { match: (p) => p === 'results' || p.startsWith('results/'), key: 'explorer.dir_results' },
+  { match: (p) => p === 'study' || p.startsWith('study/'), key: 'explorer.dir_study' },
   { match: (p) => p === '.ergalics' || p.startsWith('.ergalics/'), key: 'explorer.dir_ergalics' },
   { match: (p) => p === '.git' || p.startsWith('.git/'), key: 'explorer.dir_git' },
   { match: (p) => p === '.gitignore' || p === '.gitattributes', key: 'explorer.dir_ignore' },
 ];
 
-const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
-const dirname = (path: string) => {
-  const i = path.lastIndexOf('/');
-  return i >= 0 ? path.slice(0, i) : '';
-};
-const basename = (path: string) => {
-  const i = path.lastIndexOf('/');
-  return i >= 0 ? path.slice(i + 1) : path;
-};
 /** True when `target` is `src` itself or a descendant of `src`. */
 const isSameOrUnder = (src: string, target: string) =>
   target === src || target.startsWith(`${src}/`);

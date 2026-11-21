@@ -10,17 +10,10 @@
 // used here with a deterministic (key-sorted) canonical serialization.
 // ==========================================================================
 
+import { hashString } from '@/core/repro/random';
 import type { IRProgram } from './types';
 
-/** FNV-1a 32-bit hash of a UTF-16 string, returned as 8 hex chars. */
-export function hashString(input: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
+export { hashString };
 
 /**
  * Deterministic serialization: object keys are sorted and `undefined` values
