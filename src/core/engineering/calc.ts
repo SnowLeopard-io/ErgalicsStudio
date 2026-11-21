@@ -124,7 +124,9 @@ export function thermalStack(input: ThermalStackInput): ThermalStackResult | nul
   const layerR: number[] = [];
   for (const layer of layers) {
     const a = layer.areaCm2 * 1e-4;
-    if (!(layer.k > 0) || !(layer.thicknessMm > 0) || !(a > 0)) return null;
+    if (!Number.isFinite(layer.k) || !(layer.k > 0) ||
+        !Number.isFinite(layer.thicknessMm) || !(layer.thicknessMm > 0) ||
+        !Number.isFinite(layer.areaCm2) || !(a > 0)) return null;
     layerR.push(layer.thicknessMm / 1000 / (layer.k * a));
   }
   // External convection acts on the outer (last) layer's surface area.
@@ -133,8 +135,12 @@ export function thermalStack(input: ThermalStackInput): ThermalStackResult | nul
   const totalR = layerR.reduce((a, b) => a + b, 0) + filmR;
   // Layers are ordered hot-side first, so the hot face of layer j sits
   // filmR + Σ_{k≥j} R_k above ambient (suffix sum from the cold end).
-  const suffix = layerR.map((_, j) => layerR.slice(j).reduce((a, b) => a + b, 0));
-  const layerHotC = suffix.map((sum) => ambientC + (filmR + sum) * powerW);
+  const layerHotC = new Array<number>(layerR.length);
+  let suffix = 0;
+  for (let j = layerR.length - 1; j >= 0; j -= 1) {
+    suffix += layerR[j]!;
+    layerHotC[j] = ambientC + (filmR + suffix) * powerW;
+  }
   return { totalR, layerR, layerHotC, coldC: ambientC + filmR * powerW };
 }
 
@@ -257,8 +263,14 @@ export interface FatigueResult {
  */
 export function fatigueLife(input: FatigueInput): FatigueResult | null {
   const { ultimateMPa, knockDown, rows } = input;
-  if (!(ultimateMPa > 0) || !(knockDown > 0) || knockDown > 1) return null;
-  if (!Number.isFinite(ultimateMPa) || !Number.isFinite(knockDown)) return null;
+  if (!Number.isFinite(ultimateMPa) || !(ultimateMPa > 0)) return null;
+  if (!Number.isFinite(knockDown) || !(knockDown > 0) || knockDown > 1) return null;
+  // An invalid spectrum row would otherwise turn the whole Miner sum into NaN
+  // while the UI might still render it as a run-out.
+  for (const row of rows) {
+    if (!Number.isFinite(row.stressMPa) || row.stressMPa < 0) return null;
+    if (!Number.isFinite(row.cycles) || row.cycles < 0) return null;
+  }
   const endurance = 0.5 * ultimateMPa * knockDown;
   // Basquin exponent from the two anchor points.
   const b = Math.log10(endurance / (0.9 * ultimateMPa)) / 3;
@@ -300,7 +312,7 @@ export interface ToleranceChainResult {
   nominalMm: number;
   /** Worst-case tolerance Σ|t_i| [mm]. */
   worstCaseTolMm: number;
-  /** Root-sum-of-squares tolerance 3·√Σ(t_i/3)² [mm]. */
+  /** Mixed estimate: extreme items linearly + 3σ RSS of normal items [mm]. */
   statisticalTolMm: number;
   /** Worst-case gap bounds [mm]. */
   minMm: number;
@@ -310,22 +322,26 @@ export interface ToleranceChainResult {
 }
 
 /**
- * 1-D assembly tolerance chain. Extreme contributions add linearly; normal
- * (3σ-specified) contributions combine as variances, reported at ±3σ.
+ * 1-D assembly tolerance chain. Extreme contributions add linearly in both
+ * methods; normal (3σ-specified) contributions combine as variances, reported
+ * at ±3σ. The mixed estimate therefore never exceeds the worst case.
  */
 export function toleranceChain(items: ToleranceItem[]): ToleranceChainResult | null {
   if (items.length === 0) return null;
   let nominal = 0;
   let worst = 0;
-  let variance = 0;
+  let extreme = 0;
+  let normalVariance = 0;
   for (const item of items) {
-    if (!Number.isFinite(item.nominalMm) || !(item.tolMm >= 0)) return null;
+    if (!Number.isFinite(item.nominalMm) || !Number.isFinite(item.tolMm) || !(item.tolMm >= 0)) return null;
     nominal += item.nominalMm;
     worst += item.tolMm;
-    if (item.distribution === 'normal') variance += (item.tolMm / 3) ** 2;
-    else variance += item.tolMm ** 2;
+    if (item.distribution === 'normal') normalVariance += (item.tolMm / 3) ** 2;
+    else extreme += item.tolMm;
   }
-  const statistical = 3 * Math.sqrt(variance);
+  // Extreme items stay linear (their worst case is the only known bound);
+  // normal items are combined as 3σ variances.
+  const statistical = extreme + 3 * Math.sqrt(normalVariance);
   return {
     nominalMm: nominal,
     worstCaseTolMm: worst,

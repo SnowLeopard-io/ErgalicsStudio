@@ -157,13 +157,24 @@ describe('fatigueLife', () => {
     expect(fatigueLife({ ultimateMPa: 400, knockDown: 0, rows: [] })).toBeNull();
     expect(fatigueLife({ ultimateMPa: 400, knockDown: 1.5, rows: [] })).toBeNull();
   });
+
+  it('rejects invalid spectrum rows instead of poisoning the Miner sum', () => {
+    expect(fatigueLife({
+      ultimateMPa: 400, knockDown: 0.8,
+      rows: [{ stressMPa: -10, cycles: 1e5 }],
+    })).toBeNull();
+    expect(fatigueLife({
+      ultimateMPa: 400, knockDown: 0.8,
+      rows: [{ stressMPa: 200, cycles: Number.NaN }],
+    })).toBeNull();
+  });
 });
 
 describe('toleranceChain', () => {
   // A: 20 ±0.10 extreme, B: 15 ±0.05 normal, C: 8 ±0.05 normal.
-  // Worst: ±0.20. Statistical: σ = 0.05/3 + 0.05/3 (normals) + 0.10 (extreme as 3σ)
-  // → variance = 0.01 + 2.78e-4 + 2.78e-4 = 1.0556e-2 → 3σ = ±0.308. Hmm — the
-  // extreme entry dominates RSS. Use all-normal instead for the textbook case:
+  // Worst: ±0.20. Statistical: extreme stays linear (±0.10) while the two
+  // normal items combine as 3σ RSS: 0.10 + 3·√(2·(0.05/3)²) ≈ 0.171.
+  // Use an all-normal pair for the textbook RSS case.
   const items = [
     { name: 'A', nominalMm: 20, tolMm: 0.1, distribution: 'normal' as const },
     { name: 'B', nominalMm: 15, tolMm: 0.1, distribution: 'normal' as const },
@@ -187,6 +198,16 @@ describe('toleranceChain', () => {
     expect(r.statisticalTolMm).toBeCloseTo(0.1 * Math.SQRT2, 3);
     expect(r.statisticalTolMm).toBeLessThan(r.worstCaseTolMm);
     expect(r.gain).toBeCloseTo(Math.SQRT2, 3);
+  });
+
+  it('mixed chain keeps extremes linear and never exceeds the worst case', () => {
+    const r = toleranceChain([
+      { name: 'A', nominalMm: 20, tolMm: 0.1, distribution: 'extreme' },
+      { name: 'B', nominalMm: 15, tolMm: 0.05, distribution: 'normal' },
+      { name: 'C', nominalMm: 8, tolMm: 0.05, distribution: 'normal' },
+    ])!;
+    expect(r.statisticalTolMm).toBeCloseTo(0.1 + 3 * Math.sqrt(2 * (0.05 / 3) ** 2), 6);
+    expect(r.statisticalTolMm).toBeLessThanOrEqual(r.worstCaseTolMm);
   });
 
   it('returns null for invalid items', () => {

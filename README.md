@@ -92,7 +92,7 @@ What ships today:
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **35 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
-| Industrial        | **10 engineering tools** on the same workbench (geometry / mesh / materials / cases / solver / post / design scan / quick fluid / fingerprint / report), 8 CAD/CAE formats parsed into one neutral study, CSV/JSON/SVG/PNG/PDF/HTML exports |
+| Industrial        | **11 engineering tools** on the same workbench (geometry / mesh / materials / cases / solver / post / design scan / quick fluid / fingerprint / report / calculators), 8 CAD/CAE formats parsed into one neutral study, CSV/JSON/SVG/PNG/PDF/HTML exports |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
 
@@ -533,6 +533,23 @@ activity bar while the research tools remain available.
 | **Quick fluid** | `/studio/quick-fluid` | Channel-flow sample and quick fluid metrics |
 | **Fingerprint** | `/studio/repro-fingerprint` | `repro.lock` v3 engineering fingerprint and drift checks |
 | **Report** | `/studio/industrial-report` | Localized engineering report (HTML/Markdown/PDF) with A4 preview |
+| **Calculators** | `/studio/engineering-calc` | Mesh-free pipe, thermal, beam, fatigue, tolerance and safety-factor checks |
+
+**Quick calculators.** `/studio/engineering-calc` adds six mesh-free checks
+that work without a project or solve step. Every card recomputes live and can
+export its inputs and results as CSV.
+
+| Calculator | Method | Notes |
+| ---------- | ------ | ----- |
+| Pipe pressure drop | Darcy–Weisbach + Swamee–Jain; `f = 64/Re` in laminar flow | Velocity, Reynolds number, friction factor, straight-run and fitting losses |
+| Thermal stack | 1-D series resistance `R = t/(kA)`, optional external film `1/(hA)` | Per-layer hot-face temperatures and total `R` |
+| Beam quick check | Euler–Bernoulli cantilever / simply supported, point or UDL, rectangular or circular section | Max moment, bending stress and deflection |
+| Fatigue life | Basquin S–N anchored at (10³, 0.9Su) and (10⁶, Se) with Miner damage | `Se = 0.5·Su·knockdown`; amplitudes at or below `Se` run out |
+| Tolerance chain | Worst case Σt plus mixed statistical RSS (±3σ normals, linear extremes) | Gap bounds and how much tighter the statistical estimate is |
+| Safety factor | `n = σ_allow / σ_applied` against the required factor | Margin and pass/fail verdict |
+
+Material pickers pull `k`, `E` and `σy` from the active study's material
+library when one is loaded; otherwise every default stays editable.
 
 **Formats.** Gmsh (`.msh`), Abaqus (`.inp`), VTK (`.vtk` / `.vtu`), DXF
 (`.dxf`), STEP (`.step`), Nastran (`.bdf`), Ansys (`.cdb`) and OpenFOAM
