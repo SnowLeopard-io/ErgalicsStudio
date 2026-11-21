@@ -23,20 +23,33 @@ type Mode = 'number' | 'formula';
 /** Keys as shown; insertion text may differ (see KEY_INPUT). */
 const NUMBER_KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '⌫'];
 const FORMULA_KEYS = [
-  '7', '8', '9', '⌫',
-  '4', '5', '6', '×',
-  '1', '2', '3', '÷',
-  '.', '0', '−', '+',
-  '(', ')', '^', 'C',
+  '7', '8', '9', '⌫', 'C',
+  '4', '5', '6', '×', '÷',
+  '1', '2', '3', '+', '−',
+  '(', ')', '.', '0', '^',
+  '√', 'π', 'e', '%', ',',
+  'sin', 'cos', 'tan', 'ln', 'x²',
 ];
 
+/** Shown label → text inserted into the expression. */
 const KEY_INPUT: Record<string, string> = {
   '×': '*',
   '÷': '/',
   '−': '-',
+  '√': 'sqrt(',
+  'π': 'pi',
+  'x²': '^2',
+  sin: 'sin(',
+  cos: 'cos(',
+  tan: 'tan(',
+  ln: 'ln(',
 };
 
 const NUMBER_PATTERN = /^-?(\d+\.?\d*|\.\d*)?$/;
+
+/** Panel widths used for viewport clamping. */
+const PAD_WIDTH = 248;
+const FORMULA_WIDTH = 300;
 
 /** Activity-bar keyboard button asks the pad to show up. */
 const TOGGLE_EVENT = 'ergalics:touch-keypad';
@@ -139,8 +152,8 @@ export function TouchKeypad() {
     // user dragged the pad.
     if (movedRef.current) return;
     const rect = element.getBoundingClientRect();
-    const width = 248;
-    const height = 320;
+    const width = FORMULA_WIDTH;
+    const height = 380;
     const left = Math.min(Math.max(12, rect.left), window.innerWidth - width - 12);
     const below = rect.bottom + 8;
     const top = below + height > window.innerHeight - 12 ? rect.top - height - 8 : below;
@@ -325,14 +338,24 @@ export function TouchKeypad() {
     }
   };
 
+  // Switching layout changes the pad width; keep it inside the viewport.
+  const switchMode = (layout: Mode) => {
+    setMode(layout);
+    setPos((current) => {
+      if (!current) return current;
+      const width = layout === 'formula' ? FORMULA_WIDTH : PAD_WIDTH;
+      return { left: Math.min(current.left, window.innerWidth - width), top: current.top };
+    });
+  };
+
   if (!(enabled || pinned) || !(target || pinned)) return null;
 
   const keys = mode === 'formula' ? FORMULA_KEYS : NUMBER_KEYS;
-  const columns = mode === 'formula' ? 4 : 3;
+  const columns = mode === 'formula' ? 5 : 3;
   return createPortal(
     <div
       ref={panelRef}
-      className={`touch-keypad${pos ? '' : ' is-docked'}`}
+      className={`touch-keypad${pos ? '' : ' is-docked'}${mode === 'formula' ? ' is-formula' : ''}`}
       style={pos ? { left: pos.left, top: pos.top } : undefined}
       role="dialog"
       aria-label={mode === 'formula' ? '公式键盘' : '数字键盘'}
@@ -356,7 +379,7 @@ export function TouchKeypad() {
                 event.preventDefault();
                 event.stopPropagation();
               }}
-              onClick={() => setMode(layout)}
+              onClick={() => switchMode(layout)}
             >
               {layout === 'number' ? '数字' : '公式'}
             </button>
@@ -384,8 +407,10 @@ export function TouchKeypad() {
             key={key}
             type="button"
             className={`touch-keypad-key${
-              /^[+\-−×÷^().]$/.test(key) ? ' is-op' : ''
-            }${key === '⌫' || key === 'C' ? ' is-util' : ''}`}
+              /^[+\-−×÷^%().,√π]$/.test(key) ? ' is-op' : ''
+            }${/^(sin|cos|tan|ln|x²|e)$/.test(key) ? ' is-fn' : ''}${
+              key === '⌫' || key === 'C' ? ' is-util' : ''
+            }`}
             disabled={!target}
             onClick={() => press(key)}
           >

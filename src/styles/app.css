@@ -12747,13 +12747,6 @@ input[data-keypad-active] {
   bottom: 72px;
 }
 
-.touch-keypad-label {
-  flex: 1;
-  text-align: center;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
 .touch-keypad-key:disabled {
   opacity: 0.35;
   cursor: default;
@@ -12787,4 +12780,12 @@ input[data-keypad-active] {
 .touch-keypad-mode.is-active {
   background: var(--color-accent-soft);
   color: var(--color-accent);
+}
+.touch-keypad.is-formula {
+  width: min(300px, calc(100vw - 24px));
+}
+
+.touch-keypad-key.is-fn {
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
