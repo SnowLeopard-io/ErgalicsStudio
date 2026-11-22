@@ -11,7 +11,6 @@
 // "允许哪些"，不负责"定义什么"。定义和授权分开，才不会长出第二套 schema。
 // ==========================================================================
 
-import { useMemo } from 'react';
 import { ensureHostToolsRegistered, toolRegistry } from '@/core/ai/tools';
 import { isMutatingTool, isReadOnlyTool } from '@/core/ai/tools/registry';
 import { useAiToolPolicyStore } from '@/stores/aiToolPolicyStore';
@@ -25,9 +24,19 @@ export function AgentCapabilityPanel() {
 
   // 注册表是运行期注册的；面板打开时确保 host 工具已就位。
   ensureHostToolsRegistered();
-  const tools = useMemo(() => toolRegistry.list(), [disabledTools]);
+  const tools = toolRegistry.list();
 
   const enabled = tools.filter((tool) => !disabledTools.includes(tool.name)).length;
+
+  /**
+   * 工具名与描述写给模型看（英文），面板则面向用户：优先取 i18n，
+   * 未登记的工具回退到注册表里的 title / description。
+   */
+  const localized = (name: string, field: 'name' | 'desc', fallback: string) => {
+    const key = `agent.tool.${name}.${field}`;
+    const text = t(key);
+    return text === key ? fallback : text;
+  };
 
   return (
     <div className="agent-capabilities" data-testid="agent-capability-panel">
@@ -51,8 +60,12 @@ export function AgentCapabilityPanel() {
                   onChange={(e) => toggleTool(tool.name, e.target.checked)}
                 />
                 <span className="agent-cap-main">
-                  <span className="agent-cap-name">{tool.name}</span>
-                  <span className="agent-cap-desc">{tool.description}</span>
+                  <span className="agent-cap-name" title={tool.name}>
+                    {localized(tool.name, 'name', tool.title ?? tool.name)}
+                  </span>
+                  <span className="agent-cap-desc">
+                    {localized(tool.name, 'desc', tool.description)}
+                  </span>
                 </span>
                 <span className={`agent-cap-tag${readOnly ? ' is-safe' : mutating ? ' is-write' : ''}`}>
                   {readOnly
@@ -75,7 +88,6 @@ export function AgentCapabilityPanel() {
 
       <p className="agent-cap-note">{t('agent.cap.mcp_note')}</p>
       <p className="agent-cap-note">{t('agent.cap.hidden_note')}</p>
-      <p className="agent-cap-note">{t('ai.tools_available', { n: enabled })}</p>
     </div>
   );
 }

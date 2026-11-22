@@ -20,11 +20,13 @@
 // `run_code` tool reuses that editor's own runtime.
 // ==========================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
 import { parseCodeToIR } from '@/editor/code/parse';
+import { mdToHtml } from '@/core/notebook/notebook';
+import { enhanceMarkdownDom } from '@/core/markdown/enhance';
 import type { AiRunResult } from '@/stores/aiPanelStore';
 import {
   adviseOnRunError,
@@ -43,6 +45,7 @@ import {
 import { matchIntent, synthesizeCode, type IntentKind, type IntentSlots } from '@/core/ai/intents';
 import { availableTools, runAgentChat, type AgentToolCallLog } from '@/core/ai/chat';
 import { AgentCapabilityPanel } from './AgentCapabilityPanel';
+import { SparklesIcon } from './icons';
 
 interface AiAssistantPanelProps {
   /** Host editor's insert-and-run hook (Pyodide / IR interpreter). */
@@ -113,14 +116,36 @@ function summarizeArgs(args: Record<string, unknown>): string {
   return parts.join(', ');
 }
 
-export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {  const t = useT();
+/**
+ * Assistant replies are markdown: headings, lists, tables, code fences and
+ * TeX all render through the shared mdToHtml pipeline (marked + DOMPurify),
+ * with mermaid/KaTeX upgraded in place by the async enhancer.
+ */
+function MarkdownBody({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const html = useMemo(() => mdToHtml(text), [text]);
+  useEffect(() => {
+    if (ref.current) void enhanceMarkdownDom(ref.current);
+  }, [html]);
+  return (
+    <div
+      ref={ref}
+      className="ai-md nb-md"
+      // mdToHtml sanitizes through DOMPurify; raw HTML never executes.
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
+  const t = useT();
   const { locale } = useLocale();
 
-  /** 对话 / 能力: the same two surfaces the old /agent dock offered, now in
+  /** 对话 / 能力 / 设置: the same surfaces the old /agent dock offered, now in
    *  the original right-hand popup. Keeping this local means the conversation
    *  state survives tab switches and panel close/open (the overlay stays
    *  mounted while hidden). */
-  const [tab, setTab] = useState<'chat' | 'capabilities'>('chat');
+  const [tab, setTab] = useState<'chat' | 'capabilities' | 'settings'>('chat');
 
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -131,7 +156,6 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
   const [authorized, setAuthorized] = useState<boolean>(() => isOnlineAuthorized());
   const [configured, setConfigured] = useState<boolean>(() => isOnlineConfigured());
   const [operate, setOperate] = useState<boolean>(() => isOperateAuthorized());
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [form, setForm] = useState<AiProviderConfig>(() => getProviderConfig());
   /** Tool calls of the in-flight agent turn (live activity list). */
   const [liveCalls, setLiveCalls] = useState<AgentToolCallLog[]>([]);
@@ -139,6 +163,7 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
   const [liveNote, setLiveNote] = useState<string | null>(null);
   const lastRequestRef = useRef<{ prompt: string; kind: IntentKind; slots: IntentSlots } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   /** True when the next turn will be answered by the agent (not the rule engine). */
   const agentReady = mode === 'online' && authorized && configured;
@@ -146,6 +171,14 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [history, advice, liveCalls]);
+
+  // Composer grows with the draft (up to ~5 lines) and shrinks back on send.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [prompt, tab]);
 
   const notify = (kind: 'info' | 'success' | 'warning' | 'error', message: string) => {
     useAppStore.getState().notify(kind, message);
@@ -276,9 +309,9 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
         setOnlineAuthorized(true);
         setAuthorized(true);
       }
-      // Online without a configured endpoint can never answer — open the
-      // settings form right away so the user sees what to fill in.
-      if (!isOnlineConfigured()) setSettingsOpen(true);
+      // Online without a configured endpoint can never answer — stay on the
+      // settings tab so the API fields are right there.
+      if (!isOnlineConfigured()) setTab('settings');
     }
     setAssistantMode(next);
     setMode(getAssistantMode());
@@ -304,12 +337,20 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
   return (
     <aside className="ai-panel" data-testid="ai-assistant-panel">
       <div className="ai-panel-head">
-        <span className="ai-panel-title">{t('ai.title')}</span>
-        <span className="ai-panel-head-actions">
-          <span className={`ai-mode-pill ${mode === 'online' ? 'is-online' : 'is-offline'}`}>
-            {mode === 'online' ? t('ai.mode.online') : t('ai.mode.offline')}
+        <span className="ai-panel-identity">
+          <span className="ai-panel-avatar" aria-hidden="true">
+            <SparklesIcon size={14} />
           </span>
-          {onClose && (
+          <span className="ai-panel-heading">
+            <span className="ai-panel-title">{t('ai.title')}</span>
+            <span className={`ai-panel-status${mode === 'online' ? ' is-online' : ' is-offline'}`}>
+              <span className="ai-panel-status-dot" aria-hidden="true" />
+              {mode === 'online' ? t('ai.mode.online') : t('ai.mode.offline')}
+            </span>
+          </span>
+        </span>
+        {onClose && (
+          <span className="ai-panel-head-actions">
             <button
               type="button"
               className="icon-btn ai-panel-close"
@@ -321,8 +362,8 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
             </button>
-          )}
-        </span>
+          </span>
+        )}
       </div>
 
       <div className="ai-panel-tabs" role="tablist" aria-label={t('agent.title')}>
@@ -344,82 +385,88 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
         >
           {t('agent.tab_capabilities')}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'settings'}
+          className={`ai-panel-tab${tab === 'settings' ? ' is-active' : ''}`}
+          onClick={() => setTab('settings')}
+        >
+          {t('agent.tab_settings')}
+        </button>
       </div>
 
-      {tab === 'chat' && (
-        <>
-      <div className="ai-panel-policy">
-        <div className="ai-mode-seg" role="group" aria-label={t('ai.title')}>
-          <button
-            type="button"
-            className={`ai-mode-seg-btn${mode === 'offline' ? ' is-active' : ''}`}
-            aria-pressed={mode === 'offline'}
-            onClick={() => selectMode('offline')}
-          >
-            {t('ai.mode.offline')}
-          </button>
-          <button
-            type="button"
-            className={`ai-mode-seg-btn${mode === 'online' ? ' is-active' : ''}`}
-            aria-pressed={mode === 'online'}
-            onClick={() => selectMode('online')}
-          >
-            {t('ai.mode.online')}
-          </button>
-        </div>
+      {tab === 'chat' && mode === 'online' && !agentReady && (
+        <button type="button" className="ai-chat-banner" onClick={() => setTab('settings')}>
+          <span className="ai-chat-banner-dot" aria-hidden="true" />
+          <span className="ai-chat-banner-text">{t('ai.settings_banner')}</span>
+          <span className="ai-chat-banner-go">{t('ai.settings_open')}</span>
+        </button>
+      )}
 
-        {mode === 'online' && (
-          <>
-            <label className="ai-policy-row">
-              <input
-                type="checkbox"
-                checked={authorized}
-                onChange={(e) => toggleAuthorize(e.target.checked)}
-              />
-              <span>{t('ai.authorize_online')}</span>
-            </label>
-
-            <label className="ai-policy-row">
-              <input
-                type="checkbox"
-                checked={operate}
-                onChange={(e) => toggleOperate(e.target.checked)}
-                disabled={!authorized}
-              />
-              <span>{t('ai.authorize_operate')}</span>
-            </label>
-            {operate && agentReady && (
-              <p className="ai-policy-note ai-policy-tools">
-                {t('ai.tools_available', { n: availableTools().length })}
-              </p>
-            )}
-
-            <div className="ai-service">
+      {tab === 'settings' && (
+        <div className="ai-settings">
+          <section className="ai-setting-group">
+            <h3 className="ai-setting-title">{t('ai.settings_mode')}</h3>
+            <div className="ai-mode-seg" role="group" aria-label={t('ai.settings_mode')}>
               <button
                 type="button"
-                className="ai-service-toggle"
-                aria-expanded={settingsOpen}
-                onClick={() => setSettingsOpen((v) => !v)}
+                className={`ai-mode-seg-btn${mode === 'offline' ? ' is-active' : ''}`}
+                aria-pressed={mode === 'offline'}
+                onClick={() => selectMode('offline')}
               >
-                <span>{t('ai.service_settings')}</span>
-                <span className={`ai-service-state${configured ? ' is-ready' : ''}`}>
-                  {configured ? t('ai.config_ready') : t('ai.config_not_ready')}
-                </span>
-                <svg
-                  className={`ai-service-caret${settingsOpen ? ' is-open' : ''}`}
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
+                {t('ai.mode.offline')}
               </button>
-              {settingsOpen && (
+              <button
+                type="button"
+                className={`ai-mode-seg-btn${mode === 'online' ? ' is-active' : ''}`}
+                aria-pressed={mode === 'online'}
+                onClick={() => selectMode('online')}
+              >
+                {t('ai.mode.online')}
+              </button>
+            </div>
+            <p className="ai-policy-note">
+              {mode === 'offline' ? t('ai.privacy_note') : t('ai.privacy_note_online')}
+            </p>
+          </section>
+
+          {mode === 'online' && (
+            <>
+              <section className="ai-setting-group">
+                <h3 className="ai-setting-title">{t('ai.settings_auth')}</h3>
+                <label className="ai-policy-row">
+                  <input
+                    type="checkbox"
+                    checked={authorized}
+                    onChange={(e) => toggleAuthorize(e.target.checked)}
+                  />
+                  <span>{t('ai.authorize_online')}</span>
+                </label>
+
+                <label className="ai-policy-row">
+                  <input
+                    type="checkbox"
+                    checked={operate}
+                    onChange={(e) => toggleOperate(e.target.checked)}
+                    disabled={!authorized}
+                  />
+                  <span>{t('ai.authorize_operate')}</span>
+                </label>
+                {operate && agentReady && (
+                  <p className="ai-policy-note ai-policy-tools">
+                    {t('ai.tools_available', { n: availableTools().length })}
+                  </p>
+                )}
+              </section>
+
+              <section className="ai-setting-group">
+                <div className="ai-setting-head">
+                  <h3 className="ai-setting-title">{t('ai.settings_service')}</h3>
+                  <span className={`ai-setting-status${configured ? ' is-ready' : ''}`}>
+                    {configured ? t('ai.config_ready') : t('ai.config_not_ready')}
+                  </span>
+                </div>
                 <div className="ai-service-form">
                   <label className="ai-field">
                     <span>{t('ai.endpoint')}</span>
@@ -466,20 +513,27 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
                     {t('ai.save_config')}
                   </button>
                 </div>
-              )}
-            </div>
-            <p className="ai-policy-note">{t('ai.privacy_note_online')}</p>
-          </>
-        )}
+              </section>
+            </>
+          )}
+        </div>
+      )}
 
-        {mode === 'offline' && <p className="ai-policy-note">{t('ai.privacy_note')}</p>}
-      </div>
-
+      {tab === 'chat' && (
+        <>
       <div className="ai-chat" ref={listRef}>
-        {history.length === 0 && <p className="ai-chat-empty">{t('ai.empty_hint')}</p>}
+        {history.length === 0 && (
+          <div className="ai-chat-empty">
+            <p className="ai-chat-empty-text">{t('ai.empty_hint')}</p>
+          </div>
+        )}
         {history.map((m, i) => (
           <div key={i} className={`ai-msg ai-msg-${m.role}`}>
-            <div className="ai-msg-text">{m.text}</div>
+            {m.role === 'assistant' ? (
+              <MarkdownBody text={m.text} />
+            ) : (
+              <div className="ai-msg-text">{m.text}</div>
+            )}
             {m.role === 'assistant' && m.calls && m.calls.length > 0 && (
               <ToolCallList calls={m.calls} label={t('ai.tools_used')} />
             )}
@@ -495,6 +549,11 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
           </div>
         )}
         {busy && liveNote && <div className="ai-msg-meta ai-msg-note">{liveNote}</div>}
+        {busy && liveCalls.length === 0 && (
+          <div className="ai-typing" role="status" aria-label={t('ai.thinking')}>
+            <span /><span /><span />
+          </div>
+        )}
       </div>
 
       {draft !== null && (
@@ -537,20 +596,30 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) { 
       )}
 
       <div className="ai-panel-input">
-        <input
-          type="text"
-          className="input"
+        <textarea
+          ref={composerRef}
+          className="ai-composer"
+          rows={1}
           value={prompt}
           placeholder={t('ai.placeholder')}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
             // Ignore Enter while an IME composition is in flight (candidate
             // confirmation must not submit the uncommitted pinyin text).
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit();
+            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+            // Shift+Enter inserts a newline; plain Enter sends.
+            if (e.shiftKey) return;
+            e.preventDefault();
+            void submit();
           }}
           disabled={busy}
         />
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => void submit()} disabled={busy || !prompt.trim()}>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary ai-send"
+          onClick={() => void submit()}
+          disabled={busy || !prompt.trim()}
+        >
           {busy ? '…' : t('ai.send')}
         </button>
       </div>

@@ -12795,26 +12795,52 @@ input[data-keypad-active] {
 .ai-panel-tabs {
   flex: none;
   display: flex;
-  gap: 4px;
-  padding: 2px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-bg-primary);
+  gap: 18px;
+  margin: 0 12px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
 }
 
 .ai-panel-tab {
-  flex: 1;
-  padding: 6px 0;
+  position: relative;
+  flex: none;
+  padding: 8px 2px 7px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text-secondary);
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.ai-panel-tab.is-active { color: #fff; background: var(--color-accent); }
+.ai-panel-tab:hover { color: var(--color-text-primary); }
+
+.ai-panel-tab.is-active { color: var(--color-accent-text); }
+
+.ai-panel-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--color-accent);
+  animation: ai-tab-underline 0.18s ease-out;
+}
+
+@keyframes ai-tab-underline {
+  from { transform: scaleX(0.35); opacity: 0.4; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-panel-tab.is-active::after { animation: none; }
+}
 
 /* 能力面板 */
 .agent-capabilities {
@@ -12823,40 +12849,61 @@ input[data-keypad-active] {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  scrollbar-gutter: stable;
 }
 
-.agent-cap-head { display: flex; align-items: baseline; justify-content: space-between; }
-.agent-cap-title { font-size: 13px; font-weight: 800; color: var(--color-text-primary); }
-.agent-cap-count { font-size: 11px; color: var(--color-text-secondary); }
+.agent-cap-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.agent-cap-title { font-size: 12px; font-weight: 700; color: var(--color-text-primary); }
+.agent-cap-count {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+}
 
-.agent-cap-list { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.agent-cap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 
 .agent-cap-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 8px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-primary);
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
-.agent-cap-row:hover { background: var(--color-bg-primary); }
+.agent-cap-row:hover { border-color: var(--color-border-strong); background: var(--color-bg-elevated); }
+
+.agent-cap-row:has(input:not(:checked)) { opacity: 0.55; }
+
+.agent-cap-row input {
+  flex: none;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+}
+
 .agent-cap-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.agent-cap-name { font-size: 12px; font-weight: 700; color: var(--color-text-primary); font-family: var(--font-mono, monospace); }
-.agent-cap-desc { font-size: 11px; line-height: 1.45; color: var(--color-text-secondary); }
+.agent-cap-name { font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
+.agent-cap-desc { font-size: 11px; line-height: 1.5; color: var(--color-text-tertiary); }
 
 .agent-cap-tag {
   flex: none;
-  font-size: 10px;
+  font-size: 9px;
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
 }
 
-.agent-cap-tag.is-safe { color: #16a34a; border-color: #16a34a; }
-.agent-cap-tag.is-write { color: #d97706; border-color: #d97706; }
+.agent-cap-tag.is-safe { color: #16a34a; border-color: rgba(22, 163, 74, 0.5); background: rgba(22, 163, 74, 0.08); }
+.agent-cap-tag.is-write { color: #d97706; border-color: rgba(217, 119, 6, 0.5); background: rgba(217, 119, 6, 0.08); }
 
 .agent-cap-foot { display: flex; justify-content: flex-end; }
-.agent-cap-note { font-size: 11px; line-height: 1.6; color: var(--color-text-secondary); margin: 0; }
+.agent-cap-note { font-size: 10px; line-height: 1.6; color: var(--color-text-tertiary); margin: 0; }
