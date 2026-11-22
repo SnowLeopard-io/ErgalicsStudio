@@ -112,6 +112,8 @@ interface LoadedTable {
   table: DataTable;
   numericCols: string[];
   allCols: string[];
+  /** Raw file text, kept for header metadata (e.g. `# sampling_rate=2048`). */
+  text: string;
 }
 
 /** Resolve + parse a data file; throws with a readable message on failure. */
@@ -122,7 +124,7 @@ export async function loadTable(name: string): Promise<LoadedTable> {
   const numericCols = table.columns
     .filter((c) => isNumericType(c.type))
     .map((c) => c.name);
-  return { table, numericCols, allCols: table.columns.map((c) => c.name) };
+  return { table, numericCols, allCols: table.columns.map((c) => c.name), text };
 }
 
 /**

@@ -310,8 +310,8 @@ const engSignal: SubjectTemplate = {
     step(
       '这个项目在算什么',
       'What this project computes',
-      'vibration-accel.csv 是 2048 Hz 采样、1024 点的衰减振动信号。用 Welch 法估计功率谱密度找到固有频率，再用带通滤波分离两个振动模态。',
-      'vibration-accel.csv is a 1024-point damped vibration record sampled at 2048 Hz. Estimate the PSD with Welch’s method to find the natural frequency, then band-pass to separate the two modes.',
+      'vibration-accel.csv 是 2048 Hz 采样、1024 点的衰减振动信号，含 time_s 与 accel_g 两列。用 Welch 法估计功率谱密度找到固有频率，再用带通滤波分离两个振动模态。',
+      'vibration-accel.csv is a 1024-point damped vibration record sampled at 2048 Hz, with time_s and accel_g columns. Estimate the PSD with Welch’s method to find the natural frequency, then band-pass to separate the two modes.',
       '/workbench',
     ),
     step(
@@ -324,8 +324,8 @@ const engSignal: SubjectTemplate = {
     step(
       '第 2 步 · Welch PSD 估计',
       'Step 2 · Welch PSD estimate',
-      '把信号分窗做 FFT 再平均，得到噪声底下的两个谱峰：≈49 Hz 与 ≈123 Hz，即一阶与二阶固有频率。',
-      'Window the signal, FFT each segment and average: two peaks at ≈49 Hz and ≈123 Hz emerge from the noise floor — the first and second natural frequencies.',
+      '时间轴选 time_s，采样率留空由时间列自动推断（2048 Hz）或直接填 2048；把信号分窗做 FFT 再平均，得到噪声底下的两个谱峰：≈49 Hz 与 ≈123 Hz，即一阶与二阶固有频率。',
+      'Pick time_s as the time axis and leave the sample rate blank to infer it (2048 Hz), or type 2048. Window the signal, FFT each segment and average: two peaks at ≈49 Hz and ≈123 Hz emerge from the noise floor — the first and second natural frequencies.',
       '/studio/signal',
     ),
     step(

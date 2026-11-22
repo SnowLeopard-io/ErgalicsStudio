@@ -246,11 +246,15 @@ async function convertToSiblingFile(target: ConvertTarget): Promise<void> {
   // Unbound sessions have no location to write a sibling file to; apply the
   // language switch in memory and let the mode surface take over.
   if (!sess.filePath) {
-    if (target.kind === 'language') {
-      const text = codegen(ir, codegenLang(target.language));
+    // Entering code from flow/block must publish the generated program to the
+    // session; setMode alone only swaps the surface and leaves an empty (or
+    // stale) buffer, so the flow→code conversion looked like it lost the code.
+    if (target.kind === 'language' || targetMode === 'code') {
+      const language = target.kind === 'language' ? target.language : targetLanguage;
+      const text = codegen(ir, codegenLang(language));
       st.applyLanguageWithCode(
         sess.id,
-        target.language,
+        language,
         text.trim() !== '' ? text : sess.lastCode,
       );
     }

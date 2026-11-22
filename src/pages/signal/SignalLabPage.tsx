@@ -27,6 +27,8 @@ import {
   pacf,
   decomposeAdditive,
   suggestPeriod,
+  inferSampleRate,
+  parseSamplingRateMetadata,
   WINDOW_KINDS,
   type WindowKind,
 } from '@/core/signal';
@@ -76,7 +78,7 @@ function lineSpec(
   title: string,
   xLabel: string,
   yLabel: string,
-  seriesDefs: Array<{ name: string; color: string; xs: ArrayLike<number>; ys: ArrayLike<number>; dash?: number[] }>,
+  seriesDefs: Array<{ name: string; color: string; xs: ArrayLike<number>; ys: ArrayLike<number>; dash?: number[]; kind?: 'line' | 'scatter' }>,
 ): PlotSpec {
   return {
     width: 620,
@@ -88,12 +90,25 @@ function lineSpec(
     legend: seriesDefs.length > 1,
     series: seriesDefs.map((s) => ({
       name: s.name,
-      kind: 'line' as const,
+      kind: s.kind ?? ('line' as const),
       color: s.color,
       dash: s.dash,
       points: downsample(s.xs, s.ys),
     })),
   };
+}
+
+/** Index of the largest sample, ignoring the DC bin. */
+function argMaxIndex(values: ArrayLike<number>, from = 1): number {
+  let best = Math.min(from, Math.max(0, values.length - 1));
+  let bestV = -Infinity;
+  for (let i = from; i < values.length; i += 1) {
+    if (values[i]! > bestV) {
+      bestV = values[i]!;
+      best = i;
+    }
+  }
+  return best;
 }
 
 export default function SignalLabPage() {
@@ -106,7 +121,7 @@ export default function SignalLabPage() {
   const [timeCol, setTimeCol] = useState('');
   const [valueCol, setValueCol] = useState('');
   const [op, setOp] = useState<Op>('spectrum');
-  const [sampleRate, setSampleRate] = useState('1');
+  const [sampleRate, setSampleRate] = useState('');
   const [windowKind, setWindowKind] = useState<WindowKind>('hann');
   const [segLen, setSegLen] = useState('256');
   const [filterKind, setFilterKind] = useState<FilterKind>('sg');
@@ -157,7 +172,7 @@ export default function SignalLabPage() {
     // may touch state, or a slow run could overwrite a fresh one's results.
     const gen = ++computeGen.current;
     try {
-      const { table } = await loadTable(file);
+      const { table, text } = await loadTable(file);
       if (gen !== computeGen.current) return;
       const xRaw = Array.from(
         (table.getColumn(valueCol) as Float64Array | undefined) ?? [],
@@ -177,22 +192,53 @@ export default function SignalLabPage() {
       const tVals: number[] = tRaw
         ? keep.map((i) => Number((tRaw as ArrayLike<number>)[i]))
         : keep.slice();
-      const rate = Number(sampleRate) || 1;
+
+      // A frequency axis is only in hertz once fs is known. Resolve it from
+      // the field, then the file header, then the time column; refuse to plot
+      // rather than mislabeling a 0–0.5 normalized axis as "Hz".
+      let rate = 1;
+      let freqAxis = t('signal.frequency');
+      if (op === 'spectrum' || op === 'welch') {
+        const typed = Number(sampleRate);
+        if (Number.isFinite(typed) && typed > 0) {
+          rate = typed;
+        } else {
+          const resolved = parseSamplingRateMetadata(text)
+            ?? (timeCol ? inferSampleRate(tVals) : null);
+          if (resolved === null) {
+            setError(t('signal.need_rate'));
+            return;
+          }
+          rate = resolved;
+          setSampleRate(String(Math.round(resolved * 1000) / 1000));
+        }
+        if (!timeCol && rate === 1) freqAxis = t('signal.frequency_normalized');
+      }
 
       if (op === 'spectrum') {
         const r = spectrum(x, rate, windowKind);
         // peakFrequency already returns the dominant frequency in Hz — it must
         // not be indexed into the frequency array a second time.
         const peak = peakFrequency(r);
+        const peakBin = argMaxIndex(r.magnitude);
         const spec = lineSpec(
           `${t('signal.op_spectrum')} — ${valueCol}`,
-          t('signal.frequency'),
+          freqAxis,
           t('signal.power'),
-          [{ name: '|X(f)|', color: COLORS[0]!, xs: r.freqs, ys: r.magnitude }],
+          [
+            { name: '|X(f)|', color: COLORS[0]!, xs: r.freqs, ys: r.magnitude },
+            {
+              name: `${t('signal.peak_freq')} ${fmt(peak)} Hz`,
+              color: COLORS[1]!,
+              kind: 'scatter',
+              xs: [peak],
+              ys: [r.magnitude[peakBin]!],
+            },
+          ],
         );
         setResult({
           charts: [{ key: 'spectrum', title: t('signal.op_spectrum'), spec }],
-          summary: `${t('signal.peak_freq')}: ${fmt(peak)} Hz`,
+          summary: `${t('signal.peak_freq')}: ${fmt(peak)} Hz · fs = ${fmt(rate)} Hz`,
           columns: [
             { name: 'frequency_hz', values: Array.from(r.freqs) },
             { name: 'magnitude', values: Array.from(r.magnitude) },
@@ -204,15 +250,26 @@ export default function SignalLabPage() {
 
       if (op === 'welch') {
         const r = welch(x, rate, Math.max(4, Number(segLen) || 256), windowKind);
+        const peakBin = argMaxIndex(r.psd);
+        const peak = r.freqs[peakBin]!;
         const spec = lineSpec(
           `PSD (Welch) — ${valueCol}`,
-          t('signal.frequency'),
+          freqAxis,
           t('signal.power'),
-          [{ name: 'PSD', color: COLORS[0]!, xs: r.freqs, ys: r.psd }],
+          [
+            { name: 'PSD', color: COLORS[0]!, xs: r.freqs, ys: r.psd },
+            {
+              name: `${t('signal.peak_freq')} ${fmt(peak)} Hz`,
+              color: COLORS[1]!,
+              kind: 'scatter',
+              xs: [peak],
+              ys: [r.psd[peakBin]!],
+            },
+          ],
         );
         setResult({
           charts: [{ key: 'welch', title: 'Welch PSD', spec }],
-          summary: `nfft=${r.nfft}, segments=${r.segments}`,
+          summary: `${t('signal.peak_freq')}: ${fmt(peak)} Hz · fs = ${fmt(rate)} Hz · nfft=${r.nfft}, segments=${r.segments}`,
           columns: [
             { name: 'frequency_hz', values: Array.from(r.freqs) },
             { name: 'psd', values: Array.from(r.psd) },
@@ -371,8 +428,12 @@ export default function SignalLabPage() {
 
           {(op === 'spectrum' || op === 'welch') && (
             <>
-              <input className="input research-num" title={t('signal.sampling_rate')} value={sampleRate}
-                onChange={(e) => setSampleRate(e.target.value)} />
+              <label className="research-field">
+                <span className="research-field-label">{t('signal.sampling_rate')}</span>
+                <input className="input research-num" inputMode="decimal"
+                  placeholder={t('signal.sampling_rate_auto')} value={sampleRate}
+                  onChange={(e) => setSampleRate(e.target.value)} />
+              </label>
               <select className="input" value={windowKind} onChange={(e) => setWindowKind(e.target.value as WindowKind)}>
                 {WINDOW_KINDS.map((w) => <option key={w} value={w}>{w}</option>)}
               </select>

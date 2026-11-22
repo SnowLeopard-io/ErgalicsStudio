@@ -5294,6 +5294,22 @@
   max-width: 80px !important;
 }
 
+/* Labelled numeric field: the unit-bearing inputs (sample rate, …) need a
+   visible name, not just a hover title. */
+.research-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.research-field-label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
 .research-check {
   display: inline-flex;
   align-items: center;
