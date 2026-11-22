@@ -94,6 +94,17 @@ button { font: inherit; cursor: pointer; }
   position: relative; display: flex; align-items: center;
   min-height: 640px; padding: 72px 0 116px; overflow: hidden;
   margin-inline: calc(50% - 50vw);
+  /* The hero always sits on the dark black-hole canvas, so its ink stays
+     light in both themes; only the bottom fade follows the page background. */
+  --color-text-primary: #e8eef6;
+  --color-text-secondary: #b6c4d4;
+  --color-text-tertiary: #8b9cb0;
+  --color-border: rgb(255 255 255 / 0.18);
+  --color-accent: #2dd4bf;
+  --color-accent-hover: #5eead4;
+  --color-accent-text: #5eead4;
+  --color-accent-soft: rgb(45 212 191 / 0.12);
+  --color-text-inverse: #04161a;
 }
 .hero-bg { position: absolute; inset: 0; z-index: 0; }
 /* legibility veil: dark on the text side, fades into the page at the bottom */
@@ -103,7 +114,7 @@ button { font: inherit; cursor: pointer; }
     linear-gradient(90deg, rgb(4 7 12 / 0.78) 0%, rgb(4 7 12 / 0.5) 34%, rgb(4 7 12 / 0.08) 64%, rgb(4 7 12 / 0) 100%),
     linear-gradient(180deg, rgb(4 7 12 / 0.35) 0%, rgb(4 7 12 / 0) 25%, rgb(4 7 12 / 0) 60%, var(--color-bg-primary) 100%);
 }
-.hero-inner { position: relative; z-index: 1; max-width: 640px; margin-inline: max(var(--space-5), calc(50vw - 580px)); }
+.hero-inner { position: relative; z-index: 1; max-width: 640px; margin-inline: max(var(--space-5), calc(50vw - 580px)); color: var(--color-text-primary); }
 .hero-art-badge {
   position: absolute; right: max(var(--space-5), calc(50vw - 580px)); bottom: 20px; z-index: 1;
   font-family: var(--font-mono); font-size: var(--font-size-xs); color: var(--color-text-tertiary);

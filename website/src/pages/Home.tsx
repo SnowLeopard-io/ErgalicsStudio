@@ -24,12 +24,13 @@ const MODE_SHOTS: Record<ModeId, string> = {
   code: modeCodeShot,
 };
 
-/** 33 built-in research tools in seven groups — names mirrored from the
+/** 35 built-in research tools in seven groups — names mirrored from the
  *  workstation's src/pages/research/toolRegistry.ts (single source of truth)
- *  and its i18n dicts. Group counts: 2 + 4 + 9 + 3 + 5 + 4 + 6 = 33. */
+ *  and its i18n dicts. Group counts: 3 + 5 + 9 + 3 + 5 + 4 + 6 = 35.
+ *  Industrial tools live in their own suite and are not counted here. */
 const TOOL_GROUPS: { id: string; count: string; tools: string[] }[] = [
-  { id: 'measure', count: '02', tools: ['uncertainty', 'profiler'] },
-  { id: 'model', count: '04', tools: ['model-lab', 'inference', 'model-inference', 'sweeps'] },
+  { id: 'measure', count: '03', tools: ['uncertainty', 'profiler', 'performance'] },
+  { id: 'model', count: '05', tools: ['model-lab', 'inference', 'model-inference', 'causal-lab', 'sweeps'] },
   { id: 'data', count: '09', tools: ['sql', 'etl', 'schema', 'synth', 'lineage', 'figures', 'analysis', 'cleaning', 'files'] },
   { id: 'signal', count: '03', tools: ['signal', 'notebook', 'runs'] },
   { id: 'deliver', count: '05', tools: ['report', 'reprolock', 'supplement', 'course', 'gallery'] },
@@ -356,7 +357,7 @@ export function Home() {
         </div>
       </section>
 
-      {/* 6 — research toolbelt: 33 tools in seven groups */}
+      {/* 6 — research toolbelt: 35 tools in seven groups */}
       <section className="toolbelt" aria-labelledby="toolbelt-title">
         <div className="section-head reveal">
           <h2 className="section-title" id="toolbelt-title">{t('toolbelt.title')}</h2>

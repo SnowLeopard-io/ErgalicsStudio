@@ -80,8 +80,8 @@ const chapters: TechDoc[] = [
     file: '05-research-toolset.md',
     title: { zh: '05 · 科研工具集', en: '05 · Research Tool Suite' },
     desc: {
-      zh: '33 个科研工具的功能分组与使用方式。',
-      en: 'The 33 research tools, grouped by function, with usage notes.',
+      zh: '35 个科研工具的功能分组与使用方式。',
+      en: 'The 35 research tools, grouped by function, with usage notes.',
     },
     formats: ['md'],
   },
