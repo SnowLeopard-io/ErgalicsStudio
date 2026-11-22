@@ -38,6 +38,11 @@ const TOOL_GROUPS: { id: string; count: string; tools: string[] }[] = [
   { id: 'utils', count: '06', tools: ['unit-convert', 'calc', 'format-convert', 'sigfig', 'molar-mass', 'quick-stats'] },
 ];
 
+/** Industrial suite: a six-stage solve chain plus companion tools, mirroring
+ *  src/pages/industrial — the ids double as i18n keys. */
+const IND_STEPS = ['geometry', 'mesh', 'materials', 'cases', 'solver', 'post'] as const;
+const IND_MORE = ['design_scan', 'fluid', 'fingerprint', 'report', 'calc'] as const;
+
 const CAPABILITY_ROWS = ['plugins', 'tools', 'flow', 'blocks', 'formats', 'runtimes', 'gpu', 'tests', 'samples'] as const;
 const SCENARIOS = ['research', 'teaching', 'simulation', 'open'] as const;
 const START_CARDS = ['s1', 's2', 's3', 's4'] as const;
@@ -382,6 +387,35 @@ export function Home() {
           ))}
         </div>
         <Link to="/plugins" className="tb-more reveal">{t('toolbelt.more')} →</Link>
+      </section>
+
+      {/* 7 — industrial suite: one study, six-stage chain */}
+      <section className="industry" aria-labelledby="industry-title">
+        <div className="section-head reveal">
+          <h2 className="section-title" id="industry-title">{t('industry.title')}</h2>
+          <p className="section-desc">{t('industry.desc')}</p>
+        </div>
+        <ol className="ind-chain reveal">
+          {IND_STEPS.map((id, i) => (
+            <li key={id} className="ind-step">
+              <span className="ind-step-n">{String(i + 1).padStart(2, '0')}</span>
+              <h3 className="ind-step-t">{t(`industry.step.${id}`)}</h3>
+              <p className="ind-step-d">{t(`industry.step.${id}.d`)}</p>
+            </li>
+          ))}
+        </ol>
+        <div className="ind-more reveal">
+          <h3 className="ind-more-title">{t('industry.more.title')}</h3>
+          <ul className="ind-more-list">
+            {IND_MORE.map((id) => (
+              <li key={id} className="ind-more-item">
+                <span className="ind-more-name">{t(`industry.more.${id}`)}</span>
+                <span className="ind-more-d">{t(`industry.more.${id}.d`)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="ind-note reveal">{t('industry.note')}</p>
       </section>
 
       {/* 4 — kernels & runtimes: spec-sheet split */}

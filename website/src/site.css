@@ -443,6 +443,48 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
 }
 .tb-more:hover { text-decoration: underline; }
 
+/* 7 — industrial suite: six-stage chain + companion tools */
+.industry { padding: var(--space-6) 0; }
+.ind-chain {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.ind-step {
+  position: relative; padding-top: var(--space-4);
+  border-top: 2px solid var(--color-border);
+}
+.ind-step::before {
+  content: ''; position: absolute; top: -2px; left: 0;
+  width: 28px; height: 2px; background: var(--color-accent);
+}
+.ind-step-n { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-tertiary); }
+.ind-step-t { margin: var(--space-2) 0 var(--space-1); font-size: var(--font-size-md); }
+.ind-step-d { margin: 0; font-size: var(--font-size-sm); line-height: 1.65; color: var(--color-text-secondary); }
+
+.ind-more { margin-top: var(--space-5); }
+.ind-more-title {
+  margin: 0 0 var(--space-3); font-family: var(--font-mono);
+  font-size: var(--font-size-xs); letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+.ind-more-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.ind-more-item {
+  display: flex; flex-direction: column; gap: 3px;
+  padding-top: var(--space-3); border-top: 1px solid var(--color-border);
+}
+.ind-more-name { font-size: var(--font-size-sm); }
+.ind-more-d { font-size: var(--font-size-xs); line-height: 1.6; color: var(--color-text-secondary); }
+
+.ind-note {
+  margin: var(--space-4) 0 0; max-width: 72ch;
+  font-size: var(--font-size-sm); line-height: 1.7; color: var(--color-text-tertiary);
+}
+
 /* 4 — kernels & runtimes: spec sheet, no cards */
 .kernel { padding: var(--space-6) 0; }
 .spec {
@@ -684,6 +726,8 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
   .spec { grid-template-columns: 1fr; }
   .spec-kernel { border-right: 0; border-bottom: 1px solid var(--color-border); }
   .overview-body, .disc-layout { grid-template-columns: 1fr; }
+  .ind-chain { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ind-more-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .start-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 680px) {
@@ -702,5 +746,7 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
   .cap-table th, .cap-table td { padding: 12px var(--space-4); }
   .cap-table tbody th { width: 38%; }
   .scenario-grid, .start-grid { grid-template-columns: 1fr; }
+  .ind-chain { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
+  .ind-more-list { grid-template-columns: 1fr; }
   .scenario-card, .start-card { min-height: 0; }
 }
