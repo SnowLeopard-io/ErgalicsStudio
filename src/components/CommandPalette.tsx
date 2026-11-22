@@ -64,6 +64,7 @@ export function CommandPalette() {
   const open = useCommandPaletteStore((s) => s.open);
   const setOpen = useCommandPaletteStore((s) => s.setOpen);
   const [query, setQuery] = useState('');
+  const [composing, setComposing] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -84,6 +85,7 @@ export function CommandPalette() {
   useEffect(() => {
     if (open) {
       setQuery('');
+      setComposing(false);
       setActive(0);
       // Defer so the input exists after the conditional render.
       requestAnimationFrame(() => inputRef.current?.focus());
@@ -95,7 +97,8 @@ export function CommandPalette() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // Escape during an IME composition only cancels the candidate window.
+      if (e.key === 'Escape' && !e.isComposing) {
         e.stopPropagation();
         setOpen(false);
       }
@@ -194,12 +197,16 @@ export function CommandPalette() {
   }, [t, navigate, pathname]);
 
   const results = useMemo(() => {
+    // While an IME composition is in flight the query is still uncommitted
+    // pinyin, which matches nothing; keep the full list steady instead of
+    // flashing "no results" and filter once the characters are chosen.
+    const search = composing ? '' : query;
     const scored = commands
-      .map((c) => ({ c, score: fuzzyScore(query, `${c.label} ${c.keywords ?? ''}`) }))
+      .map((c) => ({ c, score: fuzzyScore(search, `${c.label} ${c.keywords ?? ''}`) }))
       .filter((x): x is { c: PaletteCommand; score: number } => x.score >= 0)
       .sort((a, b) => a.score - b.score || a.c.label.localeCompare(b.c.label));
     return scored.map((x) => x.c);
-  }, [commands, query]);
+  }, [commands, query, composing]);
 
   // Keep the highlighted row in view when navigating with the keyboard.
   useEffect(() => {
@@ -255,7 +262,16 @@ export function CommandPalette() {
               setQuery(e.target.value);
               setActive(0);
             }}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={(e) => {
+              setComposing(false);
+              setQuery(e.currentTarget.value);
+              setActive(0);
+            }}
             onKeyDown={(e) => {
+              // Arrow keys and Enter belong to the IME candidate window while
+              // composing; hijacking them makes Chinese input unusable.
+              if (e.nativeEvent.isComposing || e.key === 'Process') return;
               if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setActive((a) => Math.min(a + 1, results.length - 1));
