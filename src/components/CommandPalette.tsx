@@ -36,8 +36,10 @@ interface PaletteCommand {
 const MODES: WorkbenchMode[] = ['standard', 'flow', 'block', 'code'];
 
 /** Subsequence fuzzy match: every query char appears in order. Returns a
- *  score (lower = better) or -1 when the query is not a subsequence. */
-function fuzzyScore(query: string, target: string): number {
+ *  score (lower = better) or null when the query is not a subsequence.
+ *  The score may be negative (prefix/word-start bonuses), so callers must
+ *  test against null rather than a >= 0 threshold. */
+function fuzzyScore(query: string, target: string): number | null {
   if (!query) return 0;
   const q = query.toLowerCase();
   const s = target.toLowerCase();
@@ -52,7 +54,7 @@ function fuzzyScore(query: string, target: string): number {
       qi += 1;
     }
   }
-  return qi === q.length ? score : -1;
+  return qi === q.length ? score : null;
 }
 
 const GROUP_ORDER: CommandGroup[] = ['tools', 'modes', 'actions', 'panel', 'nav'];
@@ -203,7 +205,7 @@ export function CommandPalette() {
     const search = composing ? '' : query;
     const scored = commands
       .map((c) => ({ c, score: fuzzyScore(search, `${c.label} ${c.keywords ?? ''}`) }))
-      .filter((x): x is { c: PaletteCommand; score: number } => x.score >= 0)
+      .filter((x): x is { c: PaletteCommand; score: number } => x.score !== null)
       .sort((a, b) => a.score - b.score || a.c.label.localeCompare(b.c.label));
     return scored.map((x) => x.c);
   }, [commands, query, composing]);
