@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && tsc --noEmit",
     "lint:eslint": "eslint .",
+    "sync": "node scripts/sync-push.mjs",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",
