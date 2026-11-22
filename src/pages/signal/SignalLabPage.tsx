@@ -29,6 +29,8 @@ import {
   suggestPeriod,
   inferSampleRate,
   parseSamplingRateMetadata,
+  analysePeak,
+  type PeakEstimate,
   WINDOW_KINDS,
   type WindowKind,
 } from '@/core/signal';
@@ -215,12 +217,24 @@ export default function SignalLabPage() {
         if (!timeCol && rate === 1) freqAxis = t('signal.frequency_normalized');
       }
 
+      // Peak uncertainty: the bin spacing is the hard floor; the half-power
+      // width turns into a damping ratio for a lightly damped mode.
+      const peakLine = (pk: PeakEstimate | null, raw: number, extra = ''): string => {
+        const base = pk
+          ? `${t('signal.peak_freq')}: ${fmt(pk.frequency)} Hz ± ${fmt(pk.uncertainty)} Hz · Δf = ${fmt(pk.resolution)} Hz`
+            + (pk.bandwidth !== null ? ` · ${t('signal.bandwidth')} = ${fmt(pk.bandwidth)} Hz` : '')
+            + (pk.damping !== null ? ` · ${t('signal.damping')} ≈ ${pk.damping.toFixed(3)}` : '')
+          : `${t('signal.peak_freq')}: ${fmt(raw)} Hz`;
+        return `${base} · fs = ${fmt(rate)} Hz${extra}`;
+      };
+
       if (op === 'spectrum') {
         const r = spectrum(x, rate, windowKind);
         // peakFrequency already returns the dominant frequency in Hz — it must
         // not be indexed into the frequency array a second time.
-        const peak = peakFrequency(r);
-        const peakBin = argMaxIndex(r.magnitude);
+        const pk = analysePeak(r.freqs, r.magnitude, { halfPower: 'amplitude' });
+        const peak = pk?.frequency ?? peakFrequency(r);
+        const peakY = pk?.height ?? r.magnitude[argMaxIndex(r.magnitude)]!;
         const spec = lineSpec(
           `${t('signal.op_spectrum')} — ${valueCol}`,
           freqAxis,
@@ -228,17 +242,19 @@ export default function SignalLabPage() {
           [
             { name: '|X(f)|', color: COLORS[0]!, xs: r.freqs, ys: r.magnitude },
             {
-              name: `${t('signal.peak_freq')} ${fmt(peak)} Hz`,
+              name: pk
+                ? `${t('signal.peak_freq')} ${fmt(peak)} ± ${fmt(pk.uncertainty)} Hz`
+                : `${t('signal.peak_freq')} ${fmt(peak)} Hz`,
               color: COLORS[1]!,
               kind: 'scatter',
               xs: [peak],
-              ys: [r.magnitude[peakBin]!],
+              ys: [peakY],
             },
           ],
         );
         setResult({
           charts: [{ key: 'spectrum', title: t('signal.op_spectrum'), spec }],
-          summary: `${t('signal.peak_freq')}: ${fmt(peak)} Hz · fs = ${fmt(rate)} Hz`,
+          summary: peakLine(pk, peak),
           columns: [
             { name: 'frequency_hz', values: Array.from(r.freqs) },
             { name: 'magnitude', values: Array.from(r.magnitude) },
@@ -250,8 +266,9 @@ export default function SignalLabPage() {
 
       if (op === 'welch') {
         const r = welch(x, rate, Math.max(4, Number(segLen) || 256), windowKind);
+        const pk = analysePeak(r.freqs, r.psd, { halfPower: 'power' });
         const peakBin = argMaxIndex(r.psd);
-        const peak = r.freqs[peakBin]!;
+        const peak = pk?.frequency ?? r.freqs[peakBin]!;
         const spec = lineSpec(
           `PSD (Welch) — ${valueCol}`,
           freqAxis,
@@ -259,17 +276,19 @@ export default function SignalLabPage() {
           [
             { name: 'PSD', color: COLORS[0]!, xs: r.freqs, ys: r.psd },
             {
-              name: `${t('signal.peak_freq')} ${fmt(peak)} Hz`,
+              name: pk
+                ? `${t('signal.peak_freq')} ${fmt(peak)} ± ${fmt(pk.uncertainty)} Hz`
+                : `${t('signal.peak_freq')} ${fmt(peak)} Hz`,
               color: COLORS[1]!,
               kind: 'scatter',
               xs: [peak],
-              ys: [r.psd[peakBin]!],
+              ys: [pk?.height ?? r.psd[peakBin]!],
             },
           ],
         );
         setResult({
           charts: [{ key: 'welch', title: 'Welch PSD', spec }],
-          summary: `${t('signal.peak_freq')}: ${fmt(peak)} Hz · fs = ${fmt(rate)} Hz · nfft=${r.nfft}, segments=${r.segments}`,
+          summary: peakLine(pk, peak, ` · nfft=${r.nfft}, segments=${r.segments}`),
           columns: [
             { name: 'frequency_hz', values: Array.from(r.freqs) },
             { name: 'psd', values: Array.from(r.psd) },

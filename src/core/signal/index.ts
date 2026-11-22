@@ -8,3 +8,4 @@ export * from './filter';
 export * from './correlation';
 export * from './decompose';
 export * from './sampling';
+export * from './peaks';

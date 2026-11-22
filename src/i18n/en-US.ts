@@ -1332,6 +1332,8 @@ export const enUS: LocaleDictionary = {
   'signal.run': 'Compute',
   'signal.result': 'Result',
   'signal.peak_freq': 'Peak frequency',
+  'signal.bandwidth': 'Half-power bandwidth',
+  'signal.damping': 'Damping ratio ζ',
   'signal.frequency': 'Frequency (Hz)',
   'signal.power': 'Power / amplitude',
   'signal.lag': 'Lag',

@@ -1333,6 +1333,8 @@ export const zhCN: LocaleDictionary = {
   'signal.run': '计算',
   'signal.result': '结果',
   'signal.peak_freq': '主频',
+  'signal.bandwidth': '半功率带宽',
+  'signal.damping': '阻尼比 ζ',
   'signal.frequency': '频率 (Hz)',
   'signal.power': '功率 / 幅度',
   'signal.lag': '滞后',
