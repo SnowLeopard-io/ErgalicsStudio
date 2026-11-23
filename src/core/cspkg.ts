@@ -13,6 +13,7 @@ import {
   verifyPackageSignature,
   type SignatureCheckResult,
 } from './plugin-signing';
+import { validateManifestDataSchema } from './data-schema/schema-guard';
 
 const REQUIRED_MANIFEST_FIELDS = ['id', 'entry', 'name', 'version'] as const;
 
@@ -116,6 +117,9 @@ function validateManifest(manifest: PluginManifest): void {
       throw new Error(`cspkg: research tier "${manifest.id}" must declare non-empty benchmarks`);
     }
   }
+  // Declarative dataSchema safety & structural validation (no external $ref,
+  // bounded depth, safe regexes). Pure-TS check — zero Zod import here.
+  validateManifestDataSchema(manifest.dataSchema);
 }
 
 /** Rebuild the unzipped file map with normalized, validated keys. Zip entries
