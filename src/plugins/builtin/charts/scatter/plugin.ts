@@ -364,7 +364,9 @@ function short(v: number): string {
   const a = Math.abs(v);
   if (a >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
   if (a >= 1e4) return `${(v / 1e3).toFixed(1)}k`;
-  if (a >= 100) return v.toFixed(0);
+  // Non-integer ticks on a narrow domain (100.9 / 101.1 / 101.3) must not all
+  // collapse to "101" — keep enough precision to tell them apart.
+  if (a >= 100) return Number.isInteger(v) ? v.toFixed(0) : v.toPrecision(4);
   if (a >= 1) return v.toFixed(1);
   return v.toFixed(2);
 }
