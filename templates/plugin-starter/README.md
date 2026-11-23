@@ -36,6 +36,7 @@ npm.cmd run check        # 类型检查（sdk.d.ts + src/index.ts）
 - `isolated` 沙箱（缺省）里没有 DOM / window / three / gpu；
   `getParam` / `setParam` / `cache.*` 一律 `await`。
 - 生命周期只有 `manifest` / `init` / `getParams` 必需，其余按需实现。
+- 若插件接收数据，建议在 `manifest.json` 中声明 `dataSchema`（可引用共享预设如 `{ "preset": "ergalics:tabular/xy-series" }` 或内联纯 JSON Schema Draft 2020-12）：宿主会自动生成右侧数据契约卡片、Zod v4 导入预检、智能列映射及**在线表格/JSON 编辑器**；未实现 `loadValidatedData` 时宿主会自动把校验与编辑后的数据转为规范 `File` 交给 `loadData`。
 
 ### 2. 构建
 
