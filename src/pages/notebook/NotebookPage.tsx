@@ -137,7 +137,9 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
         <span className="nb-cell-meta">
           {cell.durationMs !== undefined && (
             <span className={cell.ok ? 'nb-ok' : 'nb-fail'}>
-              {cell.ok ? '✓' : '✗'} {cell.durationMs} ms
+              {/* Round at render: cells persisted before the store-side
+                  rounding carry raw performance.now() floats. */}
+              {cell.ok ? '✓' : '✗'} {Math.round(cell.durationMs)} ms
             </span>
           )}
         </span>
