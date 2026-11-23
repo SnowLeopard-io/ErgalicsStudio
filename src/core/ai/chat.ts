@@ -107,7 +107,7 @@ export async function runAgentChat(options: AgentChatOptions): Promise<AgentChat
       locale,
       prompt,
       history: options.history,
-      tools: toolRegistry.list(),
+      tools: toolRegistry.list().filter((t) => isToolEnabled(t.name)),
       canOperate,
       vision,
       onEvent: forward,

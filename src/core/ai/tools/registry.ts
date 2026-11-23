@@ -21,6 +21,7 @@ import { errorResult } from './types';
 const READ_ONLY_TOOLS = new Set([
   'list_plugins',
   'get_plugin_params',
+  'get_plugin_data_schema',
   'get_canvas_snapshot',
   'list_data_files',
   'read_data_file',
@@ -39,6 +40,10 @@ const MUTATING_TOOLS = new Set([
   'activate_plugin',
   'set_plugin_params',
   'press_plugin_action',
+  'set_plugin_data',
+  'patch_plugin_data',
+  'load_data_file_to_plugin',
+  'write_data_file',
   'run_code',
   'notify_user',
 ]);

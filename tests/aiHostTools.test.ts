@@ -79,15 +79,20 @@ describe('host tools', () => {
     expect(names).toEqual([
       'activate_plugin',
       'get_canvas_snapshot',
+      'get_plugin_data_schema',
       'get_plugin_params',
       'get_science_outputs',
       'list_data_files',
       'list_plugins',
+      'load_data_file_to_plugin',
       'notify_user',
+      'patch_plugin_data',
       'press_plugin_action',
       'read_data_file',
       'run_code',
+      'set_plugin_data',
       'set_plugin_params',
+      'write_data_file',
     ]);
     for (const tool of HOST_TOOLS) {
       expect(tool.definition.source).toBe('host');
