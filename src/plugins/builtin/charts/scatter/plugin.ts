@@ -37,6 +37,8 @@ export class ScatterPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private rows: Row[] = [];
+  /** Column names captured from a leading header line, used as axis titles. */
+  private headers: string[] | null = null;
   private cMin = 0;
   private cMax = 1;
   private state: State = { size: 2, colorBy: 'auto', showTrendline: false, hasData: false };
@@ -197,8 +199,11 @@ export class ScatterPlugin implements Plugin {
     setScienceOutputs(this.manifest.id, metrics);
   }
 
-  /** Parse delimited numeric columns: x y [c]. */
+  /** Parse delimited numeric columns: x y [c]. Header lines and non-numeric
+   *  tokens are skipped, but a leading non-numeric line is captured as the
+   *  column names for axis titles. */
   private parse(text: string): Row[] {
+    this.headers = extractHeaders(text);
     return parseScatter(text);
   }
 
@@ -257,6 +262,21 @@ export class ScatterPlugin implements Plugin {
       g.fillText(short(xv), px(xv), h - margin.bottom + 14);
       g.fillText(short(yv), margin.left - 8, py(yv) + 3);
     }
+
+    // Axis titles: real column names when the data carried a header row,
+    // generic x/y otherwise.
+    const titleColor = 'rgba(226, 232, 240, 0.9)';
+    const titleFont = `11px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+    const xTitle = this.headers?.[0] ?? 'x';
+    const yTitle = this.headers?.[1] ?? 'y';
+    g.fillStyle = titleColor;
+    g.font = titleFont;
+    g.fillText(xTitle, margin.left + plotW / 2, h - 6);
+    g.save();
+    g.translate(12, margin.top + plotH / 2);
+    g.rotate(-Math.PI / 2);
+    g.fillText(yTitle, 0, 0);
+    g.restore();
 
     // Points.
     const size = this.state.size;
@@ -326,6 +346,22 @@ export function parseScatter(text: string): Row[] {
     });
   }
   return rows;
+}
+
+/**
+ * Capture axis titles from the first line when it is a header row: a
+ * non-empty line whose tokens are all non-numeric (e.g. `time_s displacement_m`).
+ * Returns null when the file starts directly with numbers.
+ */
+export function extractHeaders(text: string): string[] | null {
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split(/[\s,]+/).filter(Boolean);
+    if (parts.length < 2) return null;
+    return parts.every((p) => !Number.isFinite(parseFloat(p))) ? parts : null;
+  }
+  return null;
 }
 
 /** Ordinary least-squares fit y = a + b*x. Null when x is degenerate. */

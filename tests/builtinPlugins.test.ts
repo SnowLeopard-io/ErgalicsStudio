@@ -1,7 +1,7 @@
 // Built-in plugin logic tests — Contour grid normalization & Scatter parsing
 import { describe, it, expect } from 'vitest';
 import { normalizeGrid } from '@/plugins/builtin/charts/contour/plugin';
-import { parseScatter } from '@/plugins/builtin/charts/scatter/plugin';
+import { parseScatter, extractHeaders } from '@/plugins/builtin/charts/scatter/plugin';
 import { normalizeGridUniform } from '@/plugins/builtin/charts/heatmap/plugin';
 import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
 import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
@@ -84,6 +84,15 @@ describe('scatter parseScatter', () => {
     const rows = parseScatter('-1.5e2 2.5e-1 1\n');
     expect(rows[0]?.x).toBeCloseTo(-150);
     expect(rows[0]?.y).toBeCloseTo(0.25);
+  });
+
+  it('extractHeaders captures a non-numeric header row', () => {
+    expect(extractHeaders('time_s displacement_m\n1 2\n3 4\n')).toEqual([
+      'time_s',
+      'displacement_m',
+    ]);
+    expect(extractHeaders('1 2\n3 4\n')).toBeNull();
+    expect(extractHeaders('x\n1 2\n')).toBeNull();
   });
 });
 
