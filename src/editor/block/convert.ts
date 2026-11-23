@@ -10,8 +10,8 @@
 // IR → block uses `irToBlockJSON` / `irToWorkspaceJSON`.
 // ==========================================================================
 
-import { makeProgram, type BinaryOperator, type IRNode, type IRProgram } from '../ir/types';
-import { codegenJS } from '../codegen/js';
+import { makeProgram, type BinaryOperator, type IRNode, type IRProgram, type SourceLang } from '../ir/types';
+import { codegen } from '../codegen';
 import { BLOCK_DEFS } from './blocks';
 
 // ---- Blockly JSON shapes (loosely typed — Blockly's serializer is untyped) ----
@@ -773,11 +773,22 @@ export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statem
   }
 }
 
-/** Degrade an IR node the blocks cannot express to a `studio_raw` block. */
+/**
+ * Language used by `rawFallback` for the workspace being generated right now.
+ * Module-level because `irToBlockJSON` recurses through many call sites and
+ * threading a language parameter through all of them is not worth the churn;
+ * the UI generates one workspace at a time, and `irToWorkspaceJSON` (the only
+ * entry point) sets it from the program's source language.
+ */
+let currentRawLang: SourceLang = 'js';
+
+/** Degrade an IR node the blocks cannot express to a `studio_raw` block.
+ *  The embedded text is generated in the *program's* language — a Python
+ *  session used to show JS syntax like `(nums).length` here. */
 function rawFallback(node: IRNode, ctx: 'value' | 'statement' = 'statement'): BlockJSON {
   let text: string;
   try {
-    text = codegenJS(makeProgram([node], [], 'js'));
+    text = codegen(makeProgram([node], [], currentRawLang), currentRawLang);
   } catch (err) {
     // Some nodes (e.g. GpuRun) cannot be generated at all; keep the raw block
     // meaningful instead of letting the failure escape the workspace round-trip.
@@ -788,9 +799,9 @@ function rawFallback(node: IRNode, ctx: 'value' | 'statement' = 'statement'): Bl
     // `output` connection) so it can legally sit in a value input — a statement
     // `studio_raw` there would trigger Blockly's "missing output connection"
     // warning on every load.
-    return valueBlock('studio_raw_value', { LANG: 'js', TEXT: text });
+    return valueBlock('studio_raw_value', { LANG: currentRawLang, TEXT: text });
   }
-  return statementBlock('studio_raw', { TEXT: text });
+  return statementBlock('studio_raw', { LANG: currentRawLang, TEXT: text });
 }
 
 /**
@@ -801,6 +812,8 @@ function rawFallback(node: IRNode, ctx: 'value' | 'statement' = 'statement'): Bl
  * here" block (even for an empty program).
  */
 export function irToWorkspaceJSON(program: IRProgram): WorkspaceJSON {
+  // Raw-code fallbacks must render in the program's dialect (see rawFallback).
+  currentRawLang = program.sourceLang ?? 'js';
   const runBlock: BlockJSON = { type: 'studio_run' };
   // Functions cannot be expressed as blocks, so they degrade to raw blocks;
   // chain them before the body so they survive a workspace round-trip instead

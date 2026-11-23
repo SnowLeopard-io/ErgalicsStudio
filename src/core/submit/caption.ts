@@ -94,10 +94,14 @@ function describeChart(kind: ChartKind, columns: string[], lang: NarrativeLang):
 }
 
 /**
- * Derive a correlation narrative from the first line/scatter panel that has
- * enough points (n >= 3). Returns null when no panel supports it (bar /
- * histogram data, or too few points) so the draft degrades to a description
- * only — never a fabricated statistic.
+ * Derive a correlation narrative from the first *scatter* panel that has
+ * enough points (n >= 3). Scatter is the one chart type where "relationship
+ * between two measured variables" is what the user drew; a line chart's
+ * points are a *sequence* (time / frequency / sample index), so a Pearson r
+ * over its adjacent samples is statistically meaningless — announcing
+ * "frequency vs power: significant negative correlation" for a PSD is
+ * pseudo-science. Line (and other) charts return null so the draft degrades
+ * to a description only — never a fabricated statistic.
  */
 export function deriveStatsFromPanels(
   panels: Array<{ spec: PlotSpec }>,
@@ -105,7 +109,7 @@ export function deriveStatsFromPanels(
   for (const panel of panels) {
     const series = panel.spec.series[0];
     if (!series?.points || series.points.length < 3) continue;
-    if (series.kind !== 'line' && series.kind !== 'scatter') continue;
+    if (series.kind !== 'scatter') continue;
     const xs = series.points.map((p) => p.x);
     const ys = series.points.map((p) => p.y);
     const n = series.points.length;

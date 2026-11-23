@@ -457,11 +457,11 @@ export default function FigureStudioPage() {
         <button type="button" className="btn btn-sm btn-danger" onClick={handleDeleteSheet}>
           {t('figure.delete_sheet')}
         </button>
-        <button type="button" className="btn btn-sm" onClick={() => setCaptionOpen(true)}
+        <button type="button" className="btn btn-sm" onClick={() => { setCheckOpen(false); setCaptionOpen(true); }}
           data-tour="figure-caption">
           {t('submit.caption_generate')}
         </button>
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setCheckOpen(true)}>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => { setCaptionOpen(false); setCheckOpen(true); }}>
           {t('submit.check')}
         </button>
       </>

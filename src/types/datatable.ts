@@ -199,12 +199,15 @@ export function createDataTable(
   return new MemoryDataTable(id, columns, opts);
 }
 
-/** Runtime type guards for narrowing `DataValue`. */
-export function isDataTable(value: DataValue | undefined): value is DataTable {
+/** Runtime type guards for narrowing `DataValue`. All of them accept `null`
+ *  (an unconnected input / absent output flows as null) and return false
+ *  instead of throwing — `'kind' in null` used to crash the whole run. */
+export function isDataTable(value: DataValue | undefined | null): value is DataTable {
   // Structural check, not just "has no kind": a plain dict (e.g. a runtime
   // `{x: 1}` object) also lacks a `kind` but is not a table — treating it as
   // one previously let a non-table flow into column accessors and crash.
   return (
+    value !== null &&
     value !== undefined &&
     typeof value === 'object' &&
     !Array.isArray(value) &&
@@ -216,16 +219,18 @@ export function isDataTable(value: DataValue | undefined): value is DataTable {
   );
 }
 
-export function isScalar(value: DataValue | undefined): value is Scalar {
-  return value !== undefined && 'kind' in value && value.kind === 'scalar';
+export function isScalar(value: DataValue | undefined | null): value is Scalar {
+  return value !== null && value !== undefined && 'kind' in value && value.kind === 'scalar';
 }
 
-export function isRenderedView(value: DataValue | undefined): value is RenderedView {
-  return value !== undefined && 'kind' in value && value.kind === 'rendered-view';
+export function isRenderedView(value: DataValue | undefined | null): value is RenderedView {
+  return (
+    value !== null && value !== undefined && 'kind' in value && value.kind === 'rendered-view'
+  );
 }
 
-export function isDataset(value: DataValue | undefined): value is Dataset {
-  return value !== undefined && 'kind' in value && value.kind === 'dataset';
+export function isDataset(value: DataValue | undefined | null): value is Dataset {
+  return value !== null && value !== undefined && 'kind' in value && value.kind === 'dataset';
 }
 
 /**
