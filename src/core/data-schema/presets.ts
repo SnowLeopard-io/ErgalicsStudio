@@ -17,6 +17,7 @@ import type {
 } from '@/types/dataSchema';
 import type { PluginManifest } from '@/types/plugin';
 import { isPresetRef } from './schema-guard';
+import { BUILTIN_PLUGIN_DATA_SCHEMAS } from './builtin-bindings';
 
 export interface TabularColumnDescriptor {
   key: string;
@@ -669,10 +670,13 @@ export function resolveDataSchemaSpec(spec: PluginDataSchemaSpec): PluginDataSch
 
 /** Resolve all declared `PluginDataSchema` entries for a plugin manifest. */
 export function resolvePluginDataSchemas(
-  manifest: Pick<PluginManifest, 'dataSchema'> | null | undefined,
+  manifest: Pick<PluginManifest, 'dataSchema'> & { id?: string } | null | undefined,
 ): PluginDataSchema[] {
-  if (!manifest?.dataSchema) return [];
-  const raw = Array.isArray(manifest.dataSchema) ? manifest.dataSchema : [manifest.dataSchema];
+  const specSource =
+    manifest?.dataSchema ??
+    (manifest?.id ? BUILTIN_PLUGIN_DATA_SCHEMAS[manifest.id] : undefined);
+  if (!specSource) return [];
+  const raw = Array.isArray(specSource) ? specSource : [specSource];
   const resolved: PluginDataSchema[] = [];
   for (const spec of raw) {
     const concrete = resolveDataSchemaSpec(spec);

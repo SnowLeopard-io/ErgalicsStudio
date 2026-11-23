@@ -10,7 +10,7 @@
 // per-file actions on top, so the two surfaces never drift apart again.
 // ==========================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { FilesManagerModal } from './FilesManagerModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -23,13 +23,17 @@ import {
 } from '@/components/FilePicker';
 import { collectProjectFiles, listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { DATA_FILE_ACCEPT, isSupportedDataFileName } from '@/core/fileFormat';
+import { resolvePluginDataSchemas } from '@/core/data-schema/presets';
+import { assessFileCompatibility } from '@/core/data-schema/profile-cache';
 import { downloadText } from '@/core/plot/export';
 import { logger } from '@/core/logger';
 import { formatBytes } from '@/core/storage';
 import { useAppStore } from '@/stores/appStore';
 import { useChunkStore } from '@/stores/chunkStore';
+import { useDataEditorStore } from '@/stores/dataEditorStore';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
+import type { CompatibilityAssessment, PluginDataSchema } from '@/types/dataSchema';
 import type { FileEntry } from '@/types/project';
 
 interface DataFileGroups {
@@ -87,11 +91,14 @@ export function DataFilePickerBody({ value, onChoose }: PickerBodyProps) {
 
 interface ManagerColumnArgs {
   t: (key: string, params?: Record<string, string | number>) => string;
+  zh: boolean;
   project: string[];
   examples: string[];
   entryOf: (name: string) => FileEntry | undefined;
+  compatOf: (name: string) => CompatibilityAssessment | null;
   canChunk: (name: string) => boolean;
   loadIntoActive: (name: string) => void | Promise<void>;
+  editFile: (entry: FileEntry) => void;
   setDeleteFile: (entry: FileEntry) => void;
   startIngest: (entry: FileEntry, chunkSize: number) => unknown;
   chunkRunning: boolean;
@@ -99,14 +106,39 @@ interface ManagerColumnArgs {
   downloadExample: (name: string) => void | Promise<void>;
 }
 
+function CompatBadge({ compat, zh }: { compat: CompatibilityAssessment; zh: boolean }) {
+  if (compat.level === 'compatible') {
+    return (
+      <span className="pds-compat-badge is-ok" title={compat.reason}>
+        {zh ? '✓ 兼容' : '✓ Compatible'}
+      </span>
+    );
+  }
+  if (compat.level === 'needs_mapping') {
+    return (
+      <span className="pds-compat-badge is-map" title={compat.reason}>
+        {zh ? '⇄ 需映射' : '⇄ Map Cols'}
+      </span>
+    );
+  }
+  return (
+    <span className="pds-compat-badge is-bad" title={compat.reason}>
+      {zh ? '✕ 不匹配' : '✕ Mismatch'}
+    </span>
+  );
+}
+
 /** Manager rows = picker rows + per-file actions. */
 function managerColumns({
   t,
+  zh,
   project,
   examples,
   entryOf,
+  compatOf,
   canChunk,
   loadIntoActive,
+  editFile,
   setDeleteFile,
   startIngest,
   chunkRunning,
@@ -119,12 +151,25 @@ function managerColumns({
       empty: t('workbench.example.files_empty'),
       items: project.map((name): FilePickerItem => {
         const entry = entryOf(name);
+        const compat = compatOf(name);
         return {
           id: name,
           name,
           meta: entry ? formatBytes(entry.size) : undefined,
           actions: (
             <>
+              {compat && <CompatBadge compat={compat} zh={zh} />}
+              {entry && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={zh ? '在线编辑' : 'Edit online'}
+                  aria-label={zh ? '在线编辑' : 'Edit online'}
+                  onClick={() => editFile(entry)}
+                >
+                  <span aria-hidden="true" style={{ fontSize: 12, lineHeight: 1 }}>✎</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="icon-btn"
@@ -202,10 +247,11 @@ function managerColumns({
   ];
 }
 
-/** Manage mode: the same two-column list, plus import / load / delete. */
-function DataFilesManagerBody() {
+/** Manage mode: the same two-column list, plus import / load / edit / delete. */
+function DataFilesManagerBody({ onClose }: { onClose: () => void }) {
   const t = useT();
   const { locale } = useLocale();
+  const zh = locale.toLowerCase().startsWith('zh');
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const addDataFile = useProjectStore((s) => s.addDataFile);
@@ -214,6 +260,7 @@ function DataFilesManagerBody() {
   const registry = usePluginStore((s) => s.registry);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteFile, setDeleteFile] = useState<FileEntry | null>(null);
+  const [onlyCompatible, setOnlyCompatible] = useState(false);
   // Names of the last import batch that replaced same-name files — shown as
   // an inline banner inside this window (not a global toast).
   const [replacedNames, setReplacedNames] = useState<string[]>([]);
@@ -230,10 +277,56 @@ function DataFilesManagerBody() {
 
   const activeEntry = registry.find((e) => e.id === activeId) ?? null;
   const activeName = activeEntry?.nameI18n?.[locale] ?? activeEntry?.name ?? '';
+  const activeSchemas = useMemo(
+    () => resolvePluginDataSchemas(activeEntry?.plugin?.manifest),
+    [activeEntry],
+  );
+  const primarySchema: PluginDataSchema | null = activeSchemas[0] ?? null;
 
   /** Imported files carry their own entry (delete/chunk); workspace files don't. */
   const entryOf = (name: string): FileEntry | undefined =>
     project?.data.files.find((f) => f.name === name);
+
+  /** Best compatibility assessment across all schemas declared by the active plugin. */
+  const compatOf = (name: string): CompatibilityAssessment | null => {
+    if (activeSchemas.length === 0) return null;
+    const entry = entryOf(name);
+    if (!entry) return null;
+    let best: CompatibilityAssessment | null = null;
+    for (const s of activeSchemas) {
+      const a = assessFileCompatibility(entry.name, entry.content, s, locale);
+      if (!best || a.score > best.score) best = a;
+    }
+    return best;
+  };
+
+  const visibleProjectFiles = useMemo(() => {
+    if (!onlyCompatible || activeSchemas.length === 0) return groups.project;
+    return groups.project.filter((name) => {
+      const entry = project?.data.files.find((f) => f.name === name);
+      if (!entry) return true;
+      return activeSchemas.some(
+        (s) => assessFileCompatibility(entry.name, entry.content, s, locale).level !== 'incompatible',
+      );
+    });
+  }, [onlyCompatible, activeSchemas, groups.project, project, locale]);
+
+  const editFile = (entry: FileEntry) => {
+    const ext = entry.name.slice(entry.name.lastIndexOf('.')).toLowerCase();
+    const matchedSchema =
+      activeSchemas.find((s) => s.extensions.map((e) => e.toLowerCase()).includes(ext)) ??
+      null;
+    useDataEditorStore.getState().openEditor({
+      pluginId: matchedSchema && activeEntry ? activeEntry.id : null,
+      schema: matchedSchema,
+      fileName: entry.name,
+      text: entry.content,
+      origin: 'project-file',
+      fileId: entry.id,
+      layout: 'modal',
+    });
+    onClose();
+  };
 
   const handleImportFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -269,7 +362,10 @@ function DataFilesManagerBody() {
   /** Send a project or workspace file into the currently active plugin. */
   const loadIntoActive = async (name: string) => {
     const plugin = activeEntry?.plugin;
-    if (!plugin || typeof plugin.loadData !== 'function') {
+    if (
+      !plugin ||
+      (typeof plugin.loadData !== 'function' && typeof plugin.loadValidatedData !== 'function')
+    ) {
       notify('warning', t('workbench.files.no_active_plugin'));
       return;
     }
@@ -280,10 +376,21 @@ function DataFilesManagerBody() {
         notify('error', t('workbench.files.load_failed', { reason: name }));
         return;
       }
+      if (activeSchemas.length > 0 && activeEntry) {
+        const outcome = await useDataEditorStore.getState().ingestForPlugin({
+          pluginId: activeEntry.id,
+          fileName: name,
+          text,
+          origin: entry ? 'project-file' : 'example',
+          fileId: entry?.id,
+        });
+        if (outcome.pending) onClose();
+        return;
+      }
       const blob = new File([text], name, {
         type: entry?.mimeType ?? 'text/plain',
       });
-      await plugin.loadData(blob);
+      await plugin.loadData?.(blob);
       // The import may have changed the plugin's own parameter set.
       refreshParamDefs(activeEntry?.id ?? '');
       notify('success', t('workbench.files.loaded', { plugin: activeName || name }));
@@ -321,6 +428,26 @@ function DataFilesManagerBody() {
       </div>
       <div className="project-files-hint">{t('workbench.files.load_hint')}</div>
 
+        {primarySchema && (
+          <div className="pds-compat-banner">
+            <span className="pds-compat-info">
+              <span className="pds-card-dot" aria-hidden="true" />
+              <span>
+                {zh ? '当前插件' : 'Active plugin'}: <strong>{activeName}</strong> ·{' '}
+                {primarySchema.titleI18n?.[locale] ?? primarySchema.title}
+              </span>
+            </span>
+            <label className="pds-livesync-toggle">
+              <input
+                type="checkbox"
+                checked={onlyCompatible}
+                onChange={(e) => setOnlyCompatible(e.target.checked)}
+              />
+              <span>{zh ? '仅显示兼容文件' : 'Compatible only'}</span>
+            </label>
+          </div>
+        )}
+
         {replacedNames.length > 0 && (
           <div className="project-files-warning">
             ⚠ {t('workbench.files.duplicate_replaced', { names: replacedNames.join('、') })}
@@ -331,11 +458,14 @@ function DataFilesManagerBody() {
         <FilePickerPanel
           columns={managerColumns({
             t,
-            project: groups.project,
+            zh,
+            project: visibleProjectFiles,
             examples: groups.examples,
             entryOf,
+            compatOf,
             canChunk,
             loadIntoActive,
+            editFile,
             setDeleteFile,
             startIngest,
             chunkRunning: Boolean(chunkState?.running),
@@ -453,7 +583,7 @@ export function DataFilePickerModal({
       bodyClassName={manage ? 'project-files data-file-manager' : ''}
     >
       {manage ? (
-        <DataFilesManagerBody />
+        <DataFilesManagerBody onClose={onClose} />
       ) : (
         <DataFilePickerBody
           value={value}

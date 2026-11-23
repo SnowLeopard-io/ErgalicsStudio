@@ -20,6 +20,7 @@ import {
 } from '@/core/storage';
 import { OpfsChunkStore } from '@/core/opfs';
 import { logger } from '@/core/logger';
+import { hashTextContent } from '@/core/data-schema/profile-cache';
 import { useSettingsStore } from './settingsStore';
 import { usePluginStore } from './pluginStore';
 import { BLOCK_GRAPH_CHANGED, useBlockStore } from './blockStore';
@@ -104,6 +105,10 @@ interface ProjectStore {
   /** Register a data file (text content) into the project. Resolves to the
    *  new FileEntry id (null without a project / on unsupported format). */
   addDataFile: (file: File) => Promise<string | null>;
+  /** Overwrite an existing project data file's text content in place (keeping
+   *  its `id` stable), mirroring to VFS `data/` and broadcasting a sync event
+   *  so bound plugins/suites can detect the update. */
+  updateDataFile: (id: string, content: string, sourcePluginId?: string) => Promise<boolean>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
   /** Rename a data-file entry in place (workspace explorer rename/move sync;
@@ -970,7 +975,45 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       logger.warn('io', 'workspace data/ mirror failed', err);
     }
     void readWorkspaceDataFiles(current).then(setWorkspaceSnapshot).catch(() => undefined);
+    emit('project:data-file:updated', {
+      fileId: entry.id,
+      name: entry.name,
+      hash: hashTextContent(content),
+      replaced: Boolean(existing),
+    });
     return entry.id;
+  },
+
+  updateDataFile: async (id, content, sourcePluginId) => {
+    const current = get().project;
+    if (!current) return false;
+    const existing = current.data.files.find((f) => f.id === id);
+    if (!existing) return false;
+    const bytes = new TextEncoder().encode(content).byteLength;
+    const entry: FileEntry = {
+      ...existing,
+      size: bytes,
+      content,
+    };
+    const files = current.data.files.map((f) => (f.id === id ? entry : f));
+    set({ project: { ...current, data: { ...current.data, files } } });
+    get().setDirty(true);
+    setProjectFiles(files);
+    try {
+      await getVfs().writeFile(getProjectRepoPath(current), `data/${entry.name}`, content);
+      useAppStore.getState().bumpFileOps();
+    } catch (err) {
+      logger.warn('io', 'workspace data/ update mirror failed', err);
+    }
+    void readWorkspaceDataFiles(current).then(setWorkspaceSnapshot).catch(() => undefined);
+    emit('project:data-file:updated', {
+      fileId: entry.id,
+      name: entry.name,
+      hash: hashTextContent(content),
+      replaced: true,
+      sourcePluginId,
+    });
+    return true;
   },
 
   removeDataFile: (id) => {

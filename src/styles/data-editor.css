@@ -1,0 +1,734 @@
+/* ==========================================================================
+   Ergalics Studio — Plugin Data Schema Card, Mapping Modal & Online Editor
+   Matches the graphite "instrument console" aesthetic and theme tokens.
+   ========================================================================== */
+
+/* ---- RightPanel Data Contract Card ---- */
+.pds-card {
+  margin: 0 0 var(--space-3) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.pds-card-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--color-bg-tertiary);
+  border: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pds-card-head:hover {
+  background: var(--color-bg-hover);
+}
+
+.pds-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pds-card-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.pds-card-chevron {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.pds-card-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pds-slot-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.pds-slot-tab {
+  flex: 1;
+  padding: 3px 6px;
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.pds-slot-tab.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-weight: 600;
+}
+
+.pds-binding-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.pds-binding-name {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pds-binding-badge {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 10px;
+}
+
+.pds-stale-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.pds-stale-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pds-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.pds-col-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pds-col-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, auto);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  font-size: var(--font-size-xs);
+}
+
+.pds-col-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pds-col-key code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-primary);
+}
+
+.pds-req {
+  color: #f87171;
+  font-weight: 700;
+  margin-left: 1px;
+}
+
+.pds-col-type {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-accent-text);
+  white-space: nowrap;
+}
+
+.pds-col-extra {
+  font-size: 10.5px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 96px;
+}
+
+.pds-schema-note {
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.pds-ext-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pds-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.pds-actions .btn {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.btn-xs {
+  padding: 2px 7px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ---- Column Mapping & Validation Error Modals ---- */
+.pds-modal-footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pds-modal-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pds-mapping-body,
+.pds-error-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pds-mapping-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pds-mapping-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 20px minmax(220px, 1.4fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.pds-mapping-target {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+}
+
+.pds-mapping-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.pds-mapping-arrow {
+  text-align: center;
+  color: var(--color-text-tertiary);
+}
+
+.pds-warning-bar {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.pds-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pds-preview-head {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.pds-preview-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: auto;
+  max-height: 220px;
+}
+
+.pds-error-table-wrap {
+  max-height: 340px;
+}
+
+.pds-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+}
+
+.pds-preview-table th,
+.pds-preview-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.pds-preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.pds-row-num {
+  color: var(--color-text-tertiary);
+  width: 44px;
+  text-align: right;
+}
+
+.pds-error-summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+.pds-error-row {
+  cursor: pointer;
+}
+
+.pds-error-row:hover {
+  background: var(--color-bg-hover);
+}
+
+.pds-actual-cell {
+  color: #f87171;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Dual-Mode Online Data Editor (Docked Drawer + Modal) ---- */
+.pds-dock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-strong);
+  background: var(--color-bg-primary);
+  position: relative;
+  min-height: 180px;
+  z-index: 6;
+}
+
+.pds-dock-resize {
+  height: 5px;
+  cursor: ns-resize;
+  background: transparent;
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+}
+
+.pds-dock-resize:hover {
+  background: var(--color-accent-soft);
+}
+
+.pds-dock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.pds-dock-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pds-dock-file {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.pds-dock-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pds-livesync-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pds-dock-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pds-modal-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  height: min(68vh, 580px);
+  gap: 8px;
+}
+
+.pds-modal-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pds-modal-editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.pds-editor-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.pds-editor-surface {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pds-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pds-editor-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pds-paste-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* ---- Spreadsheet Table ---- */
+.pds-sheet-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--color-bg-primary);
+}
+
+.pds-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.pds-sheet-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-strong);
+  border-right: 1px solid var(--color-border);
+  padding: 5px 8px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.pds-sheet-th {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pds-sheet-th-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+.pds-sheet-th-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+
+.pds-sheet-rowhead {
+  width: 42px;
+  text-align: right;
+  padding: 0 6px;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  user-select: none;
+  position: relative;
+}
+
+.pds-row-err-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f87171;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.pds-sheet-delhead,
+.pds-sheet-delcell {
+  width: 28px;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pds-sheet-cell {
+  padding: 0;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  min-width: 110px;
+}
+
+.pds-sheet-cell.is-focused {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+
+.pds-sheet-cell.is-invalid {
+  box-shadow: inset 0 0 0 1.5px #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.pds-cell-input {
+  width: 100%;
+  height: 28px;
+  padding: 0 7px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+}
+
+.pds-cell-input option {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+/* ---- Monaco Text/JSON Container ---- */
+.pds-monaco-wrap {
+  flex: 1;
+  min-height: 140px;
+  width: 100%;
+}
+
+/* ---- Editor Footer ---- */
+.pds-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.pds-editor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
+.pds-status-ok {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.pds-status-err {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #f87171;
+  font-weight: 500;
+}
+
+.pds-status-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+  text-align: left;
+}
+
+.pds-status-err-msg {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+.pds-editor-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pds-saveas-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pds-saveas-input {
+  width: 170px;
+  height: 26px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+/* ---- Global Data Modal Schema Compatibility Banner & Badges ---- */
+.pds-compat-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.pds-compat-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.pds-compat-info strong {
+  color: var(--color-text-primary);
+}
+
+.pds-compat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pds-compat-badge.is-ok {
+  background: rgba(52, 211, 153, 0.14);
+  color: #34d399;
+}
+
+.pds-compat-badge.is-map {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+}
+
+.pds-compat-badge.is-bad {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--color-text-tertiary);
+}
