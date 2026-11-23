@@ -69,6 +69,7 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
   const runCell = useNotebookStore((s) => s.runCell);
   const stopRun = useNotebookStore((s) => s.stopRun);
   const runningCellId = useNotebookStore((s) => s.runningCellId);
+  const bootingRuntime = useNotebookStore((s) => s.bootingRuntime);
   const hasProject = useProjectStore((s) => !!s.project);
 
   const [editing, setEditing] = useState(index === 0 && cell.source === '');
@@ -129,6 +130,9 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
           >
             {t('common.stop')}
           </button>
+        )}
+        {running && bootingRuntime && (
+          <span className="nb-cell-meta nb-booting">{t('notebook.booting')}</span>
         )}
         <span className="nb-cell-meta">
           {cell.durationMs !== undefined && (

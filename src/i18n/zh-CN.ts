@@ -1203,6 +1203,7 @@ export const zhCN: LocaleDictionary = {
   'notebook.toggle_type': '切换单元格类型',
   'notebook.run': '运行',
   'notebook.running': '运行中…',
+  'notebook.booting': '正在启动 Python 运行时（首次约需 1–3 分钟，请稍候）…',
   'notebook.move_up': '上移',
   'notebook.move_down': '下移',
   'notebook.add_md_below': '在下方插入 MD 单元格',

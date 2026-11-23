@@ -1202,6 +1202,7 @@ export const enUS: LocaleDictionary = {
   'notebook.toggle_type': 'Toggle cell type',
   'notebook.run': 'Run',
   'notebook.running': 'Running…',
+  'notebook.booting': 'Starting the Python runtime (first run takes 1–3 minutes)…',
   'notebook.move_up': 'Move up',
   'notebook.move_down': 'Move down',
   'notebook.add_md_below': 'Insert markdown cell below',

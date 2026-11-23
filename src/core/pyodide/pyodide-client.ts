@@ -104,11 +104,14 @@ export class PyodideClient {
   ) => void;
 
   /**
-   * Boot timeout. Pyodide pulls several MB of WASM from a CDN on first use,
-   * so this is deliberately generous — but a blocked/offline CDN must not
-   * leave the Run button spinning forever with no diagnostics.
+   * Boot timeout. Pyodide pulls several MB of WASM from a CDN on first use —
+   * on slow connections that download alone runs past a minute (code mode
+   * regularly takes ~60s), so anything below 3 minutes turned "first cell run"
+   * into a guaranteed timeout with no retry feedback. Deliberately generous;
+   * a blocked/offline CDN is surfaced by the worker's own init-failed event,
+   * which rejects immediately instead of waiting out this watchdog.
    */
-  private static readonly BOOT_TIMEOUT_MS = 60_000;
+  private static readonly BOOT_TIMEOUT_MS = 180_000;
   /**
    * Default deadline for host-internal RPCs (package list / reset). These
    * never run user code and must always answer quickly; without a deadline a

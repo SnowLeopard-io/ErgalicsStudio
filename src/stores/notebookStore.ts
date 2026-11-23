@@ -23,6 +23,11 @@ import { logger } from '@/core/logger';
 
 interface NotebookStore {
   runningCellId: string | null;
+  /** True while the very first run of a session is still booting the Python
+   *  runtime (worker spawn + WASM download) — the cell UI shows a booting
+   *  hint instead of a bare "running" so a slow first run doesn't read as a
+   *  hang. */
+  bootingRuntime: boolean;
   /** Add a cell (markdown/code) after `afterId`, or at the end. */
   addCell: (type: 'md' | 'code', afterId?: string) => void;
   removeCell: (id: string) => void;
@@ -87,6 +92,7 @@ function varPreview(name: string, snapshot: VariableSnapshot): { name: string; p
 
 export const useNotebookStore = create<NotebookStore>((set, get) => ({
   runningCellId: null,
+  bootingRuntime: false,
 
   addCell: (type, afterId) => {
     mutateCells((cells) => {
@@ -134,6 +140,9 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     set({ runningCellId: id });
     const started = performance.now();
     streamBuf = { stdout: [], stderr: [] };
+    // First run of a session boots the Pyodide worker — surface that distinctly.
+    const firstBoot = runtime === null;
+    if (firstBoot) set({ bootingRuntime: true });
     let outputs: NotebookCellOutput[];
     let ok: boolean;
     let durationMs: number;
@@ -169,6 +178,10 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       ok = false;
       outputs = [{ kind: 'error', text: String(err) }];
       logger.error('notebook', 'cell execution failed', err);
+    } finally {
+      // A superseded run (`!isCurrent()`) must not leave the flag stuck on —
+      // the next run sets it again if it is still the first boot.
+      if (firstBoot) set({ bootingRuntime: false });
     }
 
     if (!isCurrent()) return;
@@ -198,7 +211,7 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     // rejection must never be written into the cell as an error.
     ++runSeq;
     ensureRuntime().interrupt();
-    set({ runningCellId: null });
+    set({ runningCellId: null, bootingRuntime: false });
   },
 
   disposeRuntime: () => {
@@ -206,7 +219,7 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     ++runtimeGen;
     const previous = runtime;
     runtime = null;
-    set({ runningCellId: null });
+    set({ runningCellId: null, bootingRuntime: false });
     previous?.dispose();
   },
 }));
