@@ -1243,7 +1243,9 @@ export function generateSynthetic(original: SynthTable, opts: SynthOptions): Syn
     report: qualityMetrics(original, table),
     skipped,
     privacy,
-    runtimeMs: performance.now() - startedAt,
+    // Round to whole ms — performance.now() float noise (19.30000001192093)
+    // must not leak into the UI.
+    runtimeMs: Math.round(performance.now() - startedAt),
     seed: opts.seed,
     mode: opts.mode,
     requestedRows: rows,

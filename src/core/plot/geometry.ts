@@ -8,11 +8,11 @@
 import type { PlotSpec, PlotSeries, FieldData } from './types';
 import {
   MARGIN,
-  TICK_LEN,
   COLORBAR_SPACE,
   estTickWidth,
   wrapTitle,
   autoDomain,
+  computeLeftMargin,
 } from './svg';
 import { makeScale, niceTicks, formatTick, type Scale } from './scale';
 
@@ -54,7 +54,7 @@ export function plotGeometry(spec: PlotSpec): PlotGeometry {
   const xTicksInfo = niceTicks(xDomain[0], xDomain[1], spec.ticks ?? 5);
   const yTicksInfo = niceTicks(yDomain[0], yDomain[1], spec.ticks ?? 5);
   const yTickMaxW = Math.max(0, ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t, yTicksInfo.step))));
-  const left = Math.max(MARGIN.LEFT_FLOOR, Math.ceil(yTickMaxW + TICK_LEN + 40));
+  const left = computeLeftMargin(width, yTickMaxW);
   const plotW = width - left - MARGIN.right - (firstField ? COLORBAR_SPACE : 0);
 
   const xDom: [number, number] = firstField

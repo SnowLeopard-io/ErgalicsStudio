@@ -2803,6 +2803,13 @@
   line-height: 18px;
 }
 
+.data-file-picker-filter {
+  margin: 6px 12px 0;
+  width: calc(100% - 24px);
+  font-size: var(--font-size-sm);
+  padding: 4px 8px;
+}
+
 .data-file-picker-list {
   flex: 1;
   max-height: 320px;
@@ -4209,6 +4216,17 @@
   animation: shimmer 1.4s linear infinite;
 }
 
+/* Route swaps use the View Transitions API (App.tsx) purely to atomically
+   swap the DOM. The browser's default *cross-fade* renders old and new page
+   simultaneously — which reads as two pages stacked ("旧标题 + 新内容").
+   Disable both snapshots' animations so the swap is a hard cut; the page
+   chrome never overlaps. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 /* Mode-level lazy-load fallback (WorkbenchPage.tsx) �?fills the workbench
    body, centred. The workbench body IS a flex container, so flex:1 works. */
 .workbench-loading {
@@ -5477,6 +5495,13 @@
 .sql-side-note {
   font-size: var(--font-size-sm);
   color: var(--color-text-tertiary);
+}
+
+.sql-table-filter {
+  margin: var(--space-2) 0;
+  width: 100%;
+  font-size: var(--font-size-sm);
+  padding: 4px 8px;
 }
 
 .sql-table-list,

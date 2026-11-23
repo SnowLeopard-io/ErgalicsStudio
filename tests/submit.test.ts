@@ -228,8 +228,9 @@ describe('draftCaption', () => {
     expect(en).toBe('Figure 1. A scatter plot.');
   });
 
-  it('deriveStatsFromPanels folds the first eligible line/scatter panel', () => {
+  it('deriveStatsFromPanels folds the first eligible scatter panel', () => {
     const perfect = linePanel();
+    perfect.spec.series[0]!.kind = 'scatter';
     perfect.spec.series[0]!.points = [
       { x: 0, y: 0 },
       { x: 1, y: 1 },
@@ -242,6 +243,17 @@ describe('draftCaption', () => {
       expect(derived!.r).toBeCloseTo(1, 5);
       expect(derived!.n).toBe(3);
     }
+  });
+
+  it('deriveStatsFromPanels never narrates line charts (sequences, not pairs)', () => {
+    // A PSD / spectrum line chart: correlating adjacent samples is meaningless.
+    const psd = linePanel();
+    psd.spec.series[0]!.points = [
+      { x: 0, y: 1 },
+      { x: 1, y: 0.2 },
+      { x: 2, y: 0.8 },
+    ];
+    expect(deriveStatsFromPanels([psd])).toBeNull();
   });
 
   it('deriveStatsFromPanels returns null for bars/histograms or tiny samples', () => {

@@ -560,7 +560,15 @@ export async function buildReport(
     }
   }
 
-  const generated = (context.now ?? new Date()).toISOString();
+  // Localized generation date — the raw ISO string is for storage, not prose.
+  const now = context.now ?? new Date();
+  const generated = now.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
   const html = `<!doctype html>
 <html lang="${lang}" data-theme="${theme}">
 <head>

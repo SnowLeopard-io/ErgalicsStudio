@@ -1580,6 +1580,8 @@ export const zhCN: LocaleDictionary = {
   'sql.engine_failed': 'DuckDB 加载失败',
   'sql.retry': '重试',
   'sql.tables': '数据表',
+  'sql.filter_tables': '筛选表 / 列名…',
+  'files.filter_placeholder': '搜索文件…',
   'sql.tables_empty': '尚无已注册的数据表',
   'sql.insert_hint': '点击表名或列名插入到编辑器',
   'sql.run': '运行 (Ctrl+Enter)',

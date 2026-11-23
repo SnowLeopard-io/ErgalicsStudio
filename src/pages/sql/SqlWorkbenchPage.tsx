@@ -60,6 +60,9 @@ export default function SqlWorkbenchPage() {
   const [status, setStatus] = useState<EngineStatus>('idle');
   const [statusNote, setStatusNote] = useState('');
   const [schemas, setSchemas] = useState<SqlTableSchema[]>([]);
+  /** Sidebar filter over table (and column) names — 160+ registered tables
+   *  made the list unusable without one. */
+  const [tableFilter, setTableFilter] = useState('');
   const [sql, setSql] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
@@ -354,13 +357,31 @@ export default function SqlWorkbenchPage() {
           <aside className="sql-sidebar">
             {statusChip}
             <h3 className="sql-side-title">{t('sql.tables')}</h3>
+            {schemas.length > 6 && (
+              <input
+                type="search"
+                className="input sql-table-filter"
+                placeholder={t('sql.filter_tables')}
+                value={tableFilter}
+                onChange={(e) => setTableFilter(e.target.value)}
+              />
+            )}
             {schemas.length === 0 ? (
               <div className="sql-side-note">
                 {status === 'loading' ? t('sql.engine_loading') : t('sql.tables_empty')}
               </div>
             ) : (
               <div className="sql-table-list">
-                {schemas.map((schema) => (
+                {schemas
+                  .filter((schema) =>
+                    tableFilter.trim() === ''
+                      ? true
+                      : schema.table.toLowerCase().includes(tableFilter.trim().toLowerCase()) ||
+                        schema.columns.some((col) =>
+                          col.name.toLowerCase().includes(tableFilter.trim().toLowerCase()),
+                        ),
+                  )
+                  .map((schema) => (
                   <div key={schema.table} className="sql-table-item">
                     <button
                       type="button"

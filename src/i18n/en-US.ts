@@ -1580,6 +1580,8 @@ export const enUS: LocaleDictionary = {
   'sql.engine_failed': 'Failed to load DuckDB',
   'sql.retry': 'Retry',
   'sql.tables': 'Tables',
+  'sql.filter_tables': 'Filter tables / columns…',
+  'files.filter_placeholder': 'Filter files…',
   'sql.tables_empty': 'No tables registered yet',
   'sql.insert_hint': 'Click a table or column to insert it into the editor',
   'sql.run': 'Run (Ctrl+Enter)',

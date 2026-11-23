@@ -13,6 +13,18 @@ const FONT = "'Helvetica Neue', Arial, sans-serif";
 const FONT_AXIS = "'Helvetica Neue', Arial, sans-serif";
 const FONT_TITLE = "'Helvetica Neue', Arial, sans-serif";
 export const MARGIN = { top: 36, right: 20, bottom: 48, LEFT_FLOOR: 60 };
+
+/** Left margin shared by the SVG renderer and the interactive geometry
+ *  (geometry.ts must stay in sync). On narrow canvases (figure-studio cells,
+ *  IEEE single-column ≈ 300px) the desktop-sized floor + 40px label padding
+ *  ate a third of the width — the plot looked pushed to the right against a
+ *  large blank gutter. Narrow canvases use proportionally smaller allowances. */
+export function computeLeftMargin(width: number, yTickMaxW: number): number {
+  const narrow = width < 420;
+  const floor = narrow ? Math.min(MARGIN.LEFT_FLOOR, Math.round(width * 0.18)) : MARGIN.LEFT_FLOOR;
+  const labelPad = narrow ? 26 : 40;
+  return Math.max(floor, Math.ceil(yTickMaxW + TICK_LEN + labelPad));
+}
 export const TICK_LEN = 6;
 
 /**
@@ -440,7 +452,7 @@ export function renderSVG(spec: PlotSpec): string {
     ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t, yTicksInfo.step))),
     ...(spec.yTicksOverride ?? []).map((t) => estTickWidth(t.label)),
   );
-  const left = Math.max(MARGIN.LEFT_FLOOR, Math.ceil(yTickMaxW + TICK_LEN + 40));
+  const left = computeLeftMargin(width, yTickMaxW);
   const yLabelX = Math.max(14, Math.round(left - yTickMaxW - TICK_LEN - 6 - 14));
   // Reserve a right-hand legend column, but never squeeze the plot below a
   // usable width — narrow panels fall back to a clipped (still inside-canvas)

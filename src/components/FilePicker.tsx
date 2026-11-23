@@ -7,7 +7,8 @@
 // render this exact component, so their layout never drifts apart.
 // ==========================================================================
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useT } from '@/i18n';
 
 /** Monochrome glyph per file format. */
 export function fileIcon(name: string): string {
@@ -74,6 +75,102 @@ interface FilePickerPanelProps {
   className?: string;
 }
 
+/** Below this count a filter input costs more than scrolling. */
+const FILTER_THRESHOLD = 12;
+
+/** One column with an optional name filter (185 bundled examples made the
+ *  plain list unusable). The filter matches names case-insensitively. */
+function PickerColumn({
+  column,
+  value,
+  onChoose,
+}: {
+  column: FilePickerColumn;
+  value?: string;
+  onChoose: (item: FilePickerItem, column: FilePickerColumn) => void;
+}) {
+  const t = useT();
+  const [filter, setFilter] = useState('');
+  const needle = filter.trim().toLowerCase();
+  const items =
+    needle === ''
+      ? column.items
+      : column.items.filter((item) => item.name.toLowerCase().includes(needle));
+  return (
+    <section className="data-file-picker-col">
+      <div className="data-file-picker-head">
+        <span>{column.title}</span>
+        <span className="data-file-picker-count">{items.length}</span>
+      </div>
+      {column.items.length > FILTER_THRESHOLD && (
+        <input
+          type="search"
+          className="input data-file-picker-filter"
+          placeholder={t('files.filter_placeholder')}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      )}
+      <div className="data-file-picker-list" role="listbox">
+        {items.map((item) => {
+          const current = value !== undefined && value === item.id;
+          const className = [
+            'data-file-picker-item',
+            current ? 'is-current' : '',
+            item.readonly ? 'is-readonly' : '',
+            item.description ? 'has-description' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          const body = (
+            <>
+              <span className="data-file-picker-icon">{item.icon ?? fileIcon(item.name)}</span>
+              <span className="data-file-picker-text">
+                <span className="data-file-picker-name">{item.name}</span>
+                {item.description && (
+                  <span className="data-file-picker-desc">{item.description}</span>
+                )}
+              </span>
+              {item.meta && <span className="data-file-row-meta">{item.meta}</span>}
+            </>
+          );
+
+          if (item.actions) {
+            return (
+              <div key={item.id} className={className} title={item.title ?? item.name}>
+                {body}
+                <span className="data-file-row-actions">{item.actions}</span>
+              </div>
+            );
+          }
+          if (item.readonly) {
+            return (
+              <div key={item.id} className={className} title={item.title ?? item.name}>
+                {body}
+              </div>
+            );
+          }
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="option"
+              aria-selected={current}
+              className={className}
+              disabled={item.disabled}
+              title={item.title ?? item.name}
+              onClick={() => onChoose(item, column)}
+            >
+              {body}
+            </button>
+          );
+        })}
+        {items.length === 0 && <div className="empty-hint">{column.empty}</div>}
+      </div>
+    </section>
+  );
+}
+
 /** The two-column listing shared by every file window. */
 export function FilePickerPanel({
   columns,
@@ -84,68 +181,7 @@ export function FilePickerPanel({
   return (
     <div className={className ? `data-file-picker ${className}` : 'data-file-picker'}>
       {columns.map((column) => (
-        <section key={column.key} className="data-file-picker-col">
-          <div className="data-file-picker-head">
-            <span>{column.title}</span>
-            <span className="data-file-picker-count">{column.items.length}</span>
-          </div>
-          <div className="data-file-picker-list" role="listbox">
-            {column.items.map((item) => {
-              const current = value !== undefined && value === item.id;
-              const className = [
-                'data-file-picker-item',
-                current ? 'is-current' : '',
-                item.readonly ? 'is-readonly' : '',
-                item.description ? 'has-description' : '',
-              ]
-                .filter(Boolean)
-                .join(' ');
-              const body = (
-                <>
-                  <span className="data-file-picker-icon">{item.icon ?? fileIcon(item.name)}</span>
-                  <span className="data-file-picker-text">
-                    <span className="data-file-picker-name">{item.name}</span>
-                    {item.description && (
-                      <span className="data-file-picker-desc">{item.description}</span>
-                    )}
-                  </span>
-                  {item.meta && <span className="data-file-row-meta">{item.meta}</span>}
-                </>
-              );
-
-              if (item.actions) {
-                return (
-                  <div key={item.id} className={className} title={item.title ?? item.name}>
-                    {body}
-                    <span className="data-file-row-actions">{item.actions}</span>
-                  </div>
-                );
-              }
-              if (item.readonly) {
-                return (
-                  <div key={item.id} className={className} title={item.title ?? item.name}>
-                    {body}
-                  </div>
-                );
-              }
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="option"
-                  aria-selected={current}
-                  className={className}
-                  disabled={item.disabled}
-                  title={item.title ?? item.name}
-                  onClick={() => onChoose(item, column)}
-                >
-                  {body}
-                </button>
-              );
-            })}
-            {column.items.length === 0 && <div className="empty-hint">{column.empty}</div>}
-          </div>
-        </section>
+        <PickerColumn key={column.key} column={column} value={value} onChoose={onChoose} />
       ))}
     </div>
   );
