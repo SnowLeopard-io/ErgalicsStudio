@@ -109,11 +109,18 @@ export function makeScale(
   };
 }
 
-/** Format a tick label compactly (avoids 0.30000000000000004 noise). */
-export function formatTick(v: number): string {
+/** Format a tick label compactly (avoids 0.30000000000000004 noise).
+ *  `step` (the axis tick spacing) makes the precision adaptive: without it a
+ *  narrow domain like 100.9–101.3 with step 0.1 rounded every label to the
+ *  integer "101", so adjacent ticks became indistinguishable. */
+export function formatTick(v: number, step?: number): string {
   if (v === 0) return '0';
   const abs = Math.abs(v);
   if (abs >= 1e4 || abs < 1e-3) return v.toExponential(1);
+  if (step !== undefined && step > 0 && step < 1) {
+    const decimals = Math.min(6, Math.ceil(-Math.log10(step) - 1e-9) + 1);
+    return Number(v.toFixed(decimals)).toString();
+  }
   const digits = abs >= 100 ? 0 : abs >= 1 ? 1 : 2;
   return Number(v.toFixed(digits)).toString();
 }

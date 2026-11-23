@@ -5842,11 +5842,48 @@
 
 .report-preview-wrap {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: var(--space-3);
 }
 
+.report-preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex: none;
+}
+
+.report-preview-zoom-label,
+.report-preview-zoom-value {
+  font-size: 12px;
+  color: var(--color-text-secondary, inherit);
+  min-width: 44px;
+}
+
+.report-preview-zoom-value {
+  text-align: center;
+  min-width: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-preview-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+}
+
+/* Fixed A4 paper width (@96dpi) — the preview no longer reflows with the
+   panel width; the zoom control scales it instead. */
+.report-paper {
+  width: 794px;
+  flex: none;
+}
+
 .report-preview {
-  width: 100%;
   height: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);

@@ -53,7 +53,7 @@ export function plotGeometry(spec: PlotSpec): PlotGeometry {
     spec.yDomain ?? (firstField ? [0, firstField.field.rows] : autoDomain(spec.series, 'y')) ?? [0, 1];
   const xTicksInfo = niceTicks(xDomain[0], xDomain[1], spec.ticks ?? 5);
   const yTicksInfo = niceTicks(yDomain[0], yDomain[1], spec.ticks ?? 5);
-  const yTickMaxW = Math.max(0, ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t))));
+  const yTickMaxW = Math.max(0, ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t, yTicksInfo.step))));
   const left = Math.max(MARGIN.LEFT_FLOOR, Math.ceil(yTickMaxW + TICK_LEN + 40));
   const plotW = width - left - MARGIN.right - (firstField ? COLORBAR_SPACE : 0);
 

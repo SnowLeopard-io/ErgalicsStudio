@@ -1566,6 +1566,7 @@ export const enUS: LocaleDictionary = {
   'report.filter_range': 'Numeric range',
   'report.filter_categorical': 'Categorical multi-select',
   'report.preview': 'Preview',
+  'report.zoom': 'Zoom',
   'report.export': 'Export HTML',
   'report.export_done': 'Report downloaded',
   'report.export_failed': 'Report generation failed: {reason}',

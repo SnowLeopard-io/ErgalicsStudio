@@ -437,7 +437,7 @@ export function renderSVG(spec: PlotSpec): string {
   // a fixed 14px gap left of the widest tick text.
   const yTickMaxW = Math.max(
     0,
-    ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t))),
+    ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t, yTicksInfo.step))),
     ...(spec.yTicksOverride ?? []).map((t) => estTickWidth(t.label)),
   );
   const left = Math.max(MARGIN.LEFT_FLOOR, Math.ceil(yTickMaxW + TICK_LEN + 40));
@@ -602,14 +602,14 @@ export function renderSVG(spec: PlotSpec): string {
         `<line x1="${px.toFixed(1)}" y1="${topV + plotH}" x2="${px.toFixed(1)}" y2="${(topV + plotH + TICK_LEN).toFixed(1)}" stroke="#222" stroke-width="1"/>`,
       );
       parts.push(
-        `<text x="${px.toFixed(1)}" y="${topV + plotH + TICK_LEN + 16}" font-size="13" text-anchor="middle" fill="#222">${escapeText(formatTick(t))}</text>`,
+        `<text x="${px.toFixed(1)}" y="${topV + plotH + TICK_LEN + 16}" font-size="13" text-anchor="middle" fill="#222">${escapeText(formatTick(t, xTicksInfo.step))}</text>`,
       );
     }
   }
   // Y ticks + labels (categorical overrides drive forest-plot study names).
   const yTickDefs = spec.yTicksOverride?.length
     ? spec.yTicksOverride.map((t) => ({ value: t.pos, label: t.label }))
-    : yTicksInfo.ticks.map((t) => ({ value: t, label: formatTick(t) }));
+    : yTicksInfo.ticks.map((t) => ({ value: t, label: formatTick(t, yTicksInfo.step) }));
   for (const t of yTickDefs) {
     const py = y.toPixel(t.value);
     if (py < topV - 0.5 || py > topV + plotH + 0.5) continue;
@@ -651,8 +651,11 @@ export function renderSVG(spec: PlotSpec): string {
       `<rect x="${cbX}" y="${topV}" width="${COLORBAR_W}" height="${plotH}" fill="none" stroke="#222" stroke-width="1"/>`,
     );
     const lbl = (v: number, py: number) => {
+      // Adaptive precision from the colorbar span — endpoints of a narrow
+      // range (e.g. 100.9–101.3) used to both round to "101".
+      const cbStep = (fMax - fMin) / COLORBAR_STEPS;
       parts.push(
-        `<text x="${cbX + COLORBAR_W + 4}" y="${(py + 4).toFixed(1)}" font-size="11" fill="#222">${escapeText(formatTick(v))}</text>`,
+        `<text x="${cbX + COLORBAR_W + 4}" y="${(py + 4).toFixed(1)}" font-size="11" fill="#222">${escapeText(formatTick(v, cbStep))}</text>`,
       );
     };
     lbl(fMax, topV);

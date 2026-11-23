@@ -1566,6 +1566,7 @@ export const zhCN: LocaleDictionary = {
   'report.filter_range': '数值区间',
   'report.filter_categorical': '分类多选',
   'report.preview': '预览',
+  'report.zoom': '缩放',
   'report.export': '导出 HTML',
   'report.export_done': '报告已下载',
   'report.export_failed': '报告生成失败：{reason}',

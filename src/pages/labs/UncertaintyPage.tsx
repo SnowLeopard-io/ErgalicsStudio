@@ -39,16 +39,18 @@ function fmt(v: number): string {
   return Number.isNaN(v) ? '—' : String(Number(v.toPrecision(6)));
 }
 
-/** Histogram SVG of a numeric sample, styled like the analysis previews. */
-function sampleHistogram(x: ArrayLike<number>, title: string): SampleChart | null {
+/** Histogram SVG of a numeric sample, styled like the analysis previews.
+ *  `xLabel` names the plotted quantity (statistic, draw value …) so the axis
+ *  does not show a bare "x". */
+function sampleHistogram(x: ArrayLike<number>, title: string, xLabel: string): SampleChart | null {
   const finite = Array.from(x).filter(Number.isFinite);
   if (finite.length < 2) return null;
   const table = createDataTable(
     'uncertainty-preview',
-    [{ name: 'x', type: 'f64', data: Float64Array.from(finite) }],
+    [{ name: xLabel, type: 'f64', data: Float64Array.from(finite) }],
     { provenance: 'uncertainty' },
   );
-  const spec = dataTableToHistogram(table, 'x', { title, bins: 30 });
+  const spec = dataTableToHistogram(table, xLabel, { title, bins: 30 });
   return { spec, payload: { svg: true, markup: renderSVG(spec), title } };
 }
 
@@ -285,7 +287,7 @@ export default function UncertaintyPage() {
           .filter(Boolean)
           .join('\n'),
       );
-      setBsChart(sampleHistogram(r.replicates, `bootstrap ${bsStat}(${bsCol})`));
+      setBsChart(sampleHistogram(r.replicates, `bootstrap ${bsStat}(${bsCol})`, `${bsStat}(${bsCol})`));
       if (recordEnabled && project) {
         await recordRun({
           source: 'uncertainty',
@@ -337,7 +339,7 @@ export default function UncertaintyPage() {
           `ci95 = [${fmt(r.ci95[0]!)}, ${fmt(r.ci95[1]!)}]`,
         ].join('\n'),
       );
-      setMcChart(sampleHistogram(r.samples, `MC draws (${dist})`));
+      setMcChart(sampleHistogram(r.samples, `MC draws (${dist})`, `${dist} draw`));
     } catch (err) {
       setMcResult(err instanceof Error ? err.message : String(err));
       setMcChart(null);
@@ -407,7 +409,7 @@ export default function UncertaintyPage() {
           .filter(Boolean)
           .join('\n'),
       );
-      setMcmcChart(sampleHistogram(muDraws, `posterior μ (${mcmcCol})`));
+      setMcmcChart(sampleHistogram(muDraws, `posterior μ (${mcmcCol})`, `μ (${mcmcCol})`));
       if (recordEnabled && project) {
         await recordRun({
           source: 'uncertainty',

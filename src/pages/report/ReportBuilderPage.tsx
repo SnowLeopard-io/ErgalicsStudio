@@ -139,6 +139,8 @@ export default function ReportBuilderPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  /** Preview paper zoom (scales the fixed-width A4 paper, not the layout). */
+  const [zoom, setZoom] = useState(1);
 
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
@@ -445,8 +447,49 @@ export default function ReportBuilderPage() {
           </aside>
 
           <section className="report-preview-wrap">
+            {/* Fixed A4-width paper (794 px @96dpi): the preview used to shrink
+                with the side panel and reflow into a single-column layout. A
+                zoom control scales the paper instead of the layout. */}
+            <div className="report-preview-toolbar">
+              <span className="report-preview-zoom-label">{t('report.zoom')}</span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setZoom((z) => Math.max(0.4, Math.round((z - 0.1) * 10) / 10))}
+                aria-label="-"
+              >
+                −
+              </button>
+              <span className="report-preview-zoom-value">{Math.round(zoom * 100)}%</span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setZoom((z) => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
+                aria-label="+"
+              >
+                +
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => setZoom(1)}>
+                100%
+              </button>
+            </div>
             {html ? (
-              <iframe key={buildId} className="report-preview" title={t('report.preview')} srcDoc={html} sandbox="allow-scripts" />
+              <div className="report-preview-scroll">
+                <div className="report-paper" style={{ height: `calc(100% / ${zoom})` }}>
+                  <iframe
+                    key={buildId}
+                    className="report-preview"
+                    title={t('report.preview')}
+                    srcDoc={html}
+                    sandbox="allow-scripts"
+                    style={{
+                      width: '794px',
+                      transform: `scale(${zoom})`,
+                      transformOrigin: 'top left',
+                    }}
+                  />
+                </div>
+              </div>
             ) : (
               <div className="empty-hint">{t('report.no_reports')}</div>
             )}
