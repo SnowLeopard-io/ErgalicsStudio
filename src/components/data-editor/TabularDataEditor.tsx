@@ -34,6 +34,7 @@ import { formatZodIssues } from '@/core/data-schema/error-l10n';
 import { splitDelimitedLine } from '@/core/io/delimited';
 import { downloadText } from '@/core/plot/export';
 import { useDataEditorStore, type DataEditorSession } from '@/stores/dataEditorStore';
+import { usePluginStore } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 
@@ -401,7 +402,12 @@ export function TabularDataEditor({ session }: { session: DataEditorSession }) {
       const csv = serializeGrid(grid, schema);
       const projectStore = useProjectStore.getState();
       if (!projectStore.project) {
+        const prevActiveId = usePluginStore.getState().activeId ?? session.pluginId;
         await projectStore.createProject('');
+        if (prevActiveId && usePluginStore.getState().activeId !== prevActiveId) {
+          await usePluginStore.getState().activate(prevActiveId);
+          useAppStore.getState().showPluginCanvas();
+        }
       }
 
       if (mode === 'overwrite' && session.fileId && session.origin === 'project-file') {

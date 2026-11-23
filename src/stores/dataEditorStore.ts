@@ -408,6 +408,7 @@ export const useDataEditorStore = create<DataEditorStore>((set, get) => ({
 
     // Deliver validated payload to plugin inside tracked run history.
     try {
+      const prevNotifId = useAppStore.getState().notifications.at(-1)?.id;
       await runTracked(
         {
           pluginId: opts.pluginId,
@@ -423,6 +424,7 @@ export const useDataEditorStore = create<DataEditorStore>((set, get) => ({
           await deliverValidatedPayload(plugin, result.payload);
         },
       );
+      const pluginNotified = useAppStore.getState().notifications.at(-1)?.id !== prevNotifId;
       refreshParamDefs(opts.pluginId);
 
       const appliedText = await result.payload.file.text();
@@ -483,7 +485,7 @@ export const useDataEditorStore = create<DataEditorStore>((set, get) => ({
               ? `已载入 ${opts.fileName}${pairs ? `（自动映射：${pairs}）` : ''}`
               : `Loaded ${opts.fileName}${pairs ? ` (auto-mapped: ${pairs})` : ''}`,
           );
-        } else {
+        } else if (!pluginNotified) {
           notify(
             'success',
             zh ? `已载入 ${opts.fileName}` : `Loaded ${opts.fileName}`,
@@ -570,5 +572,20 @@ on<{
 
   if (changed) {
     useDataEditorStore.setState({ staleBindings: nextStale });
+  }
+});
+
+// Close plugin-bound docked editor cleanly when switching to a different plugin
+// so the previous plugin's table/JSON never lingers under a newly activated one.
+usePluginStore.subscribe((state, prev) => {
+  if (state.activeId === prev.activeId) return;
+  const session = useDataEditorStore.getState().editorSession;
+  if (
+    session &&
+    session.layout === 'docked' &&
+    session.pluginId !== null &&
+    session.pluginId !== state.activeId
+  ) {
+    useDataEditorStore.getState().closeEditor();
   }
 });

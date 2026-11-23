@@ -17,6 +17,7 @@ import {
   type DataEditorSession,
 } from '@/stores/dataEditorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { usePluginStore } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type * as MonacoNS from 'monaco-editor';
@@ -226,7 +227,12 @@ export function TextDataEditor({ session }: { session: DataEditorSession }) {
     try {
       const projectStore = useProjectStore.getState();
       if (!projectStore.project) {
+        const prevActiveId = usePluginStore.getState().activeId ?? session.pluginId;
         await projectStore.createProject('');
+        if (prevActiveId && usePluginStore.getState().activeId !== prevActiveId) {
+          await usePluginStore.getState().activate(prevActiveId);
+          useAppStore.getState().showPluginCanvas();
+        }
       }
       if (mode === 'overwrite' && session.fileId && session.origin === 'project-file') {
         const ok = await useProjectStore
