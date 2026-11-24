@@ -314,7 +314,15 @@ def _is_num(t):
 
 
 def _split_tokens(line):
-    return [t for t in re.split(r"[\\s,]+", line.strip()) if t]
+    # Keep empty tokens: a trailing comma marks a missing value ('0,' in a
+    # 2-column file). Dropping empties collapses that row to one token, the
+    # width then locks to 1 and every full row is silently discarded — the
+    # parser returned ONLY the broken rows. Leading delimiters still yield a
+    # spurious empty first token, so strip exactly that one.
+    tokens = re.split(r"[\\s,]+", line.strip())
+    if tokens and tokens[0] == "":
+        tokens = tokens[1:]
+    return tokens
 
 
 def _default_name(i):
@@ -327,40 +335,40 @@ def _xyz_name(i):
 
 def _parse_delimited(text, default_names):
     """Parse whitespace/comma-delimited numeric columns, matching the JS
-    parseDelimitedColumns: a non-numeric header supplies names, malformed or
-    ragged rows are skipped, and the width comes from the first data row."""
+    parseDelimitedColumns: a non-numeric header supplies names, empty tokens
+    are missing values (NaN), the width comes from the header when present
+    (else the widest row), short rows are padded with NaN, and only rows
+    wider than the width are skipped."""
     # Comment lines (# or //) are metadata, not a header. Scientific data
     # files routinely start with one, and treating it as the header produced
     # nonsense column names (e.g. "# Illustrative demo data ..." -> "#").
     lines = [l.strip() for l in text.splitlines()]
     lines = [l for l in lines if l and not l.startswith("#") and not l.startswith("//")]
     header = []
-    columns = []
-    width = 0
-    started = False
+    rows = []
     for line in lines:
         tokens = _split_tokens(line)
         if not tokens:
             continue
-        # Only the first non-numeric line can be the header; later annotation
-        # lines must not be appended to it.
-        if not started and not header and any(not _is_num(t) for t in tokens):
+        # The first data-bearing line is a header when it contains any
+        # non-empty non-numeric token (matching the JS parser); a data row
+        # like '0,' has only numeric + empty tokens and stays data.
+        if not header and not rows and any(t != "" and not _is_num(t) for t in tokens):
             header = tokens
             continue
         try:
-            values = [float(t) for t in tokens]
+            rows.append([float(t) if t else float("nan") for t in tokens])
         except (ValueError, TypeError):
             continue
-        if not started:
-            width = len(values)
-            columns = [[] for _ in range(width)]
-            started = True
-        if len(values) != width:
-            continue
-        for i, v in enumerate(values):
-            columns[i].append(v)
-    if not started:
+    if not rows:
         raise ValueError("no numeric data found")
+    width = len(header) if header else max(len(r) for r in rows)
+    columns = [[] for _ in range(width)]
+    for r in rows:
+        if len(r) > width:
+            continue
+        for i in range(width):
+            columns[i].append(r[i] if i < len(r) else float("nan"))
     names = [header[i] if i < len(header) else default_names(i) for i in range(width)]
     return DataTable("data", list(zip(names, columns)), provenance="load")
 
