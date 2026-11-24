@@ -575,6 +575,8 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
               className="btn btn-sm btn-primary"
               onClick={() => void runDraft()}
               disabled={!runCode || busy}
+              title={runCode ? undefined : t('ai.run_disabled_hint')}
+              aria-label={runCode ? undefined : t('ai.run_disabled_hint')}
             >
               {t('ai.run')}
             </button>
