@@ -205,8 +205,12 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
     notify: postNotify,
   });
 
-  py.setStdout({ batched: (text: string) => postLog(text) });
-  py.setStderr({ batched: (text: string) => postMessage({ type: 'stderr', text }) });
+  // Pyodide's `batched` mode calls back once per line WITHOUT the trailing
+  // newline — two consecutive print() calls would render glued together
+  // ("42['t','x']"). Restore the newline at the boundary; internal log calls
+  // go through postLog directly and already carry their own '\n'.
+  py.setStdout({ batched: (text: string) => postLog(`${text}\n`) });
+  py.setStderr({ batched: (text: string) => postMessage({ type: 'stderr', text: `${text}\n` }) });
 
   await py.runPythonAsync(STUDIO_PYTHON_SOURCE);
   ready = true;
