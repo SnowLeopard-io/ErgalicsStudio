@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
+import { listAiDataFiles } from '@/core/dataFiles';
 import { parseCodeToIR } from '@/editor/code/parse';
 import { mdToHtml } from '@/core/notebook/notebook';
 import { enhanceMarkdownDom } from '@/core/markdown/enhance';
@@ -281,7 +282,7 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
     if (req) {
       // Re-synthesize the same intent, re-extracting slots from the prompt.
       const fresh = matchIntent(req.prompt, locale);
-      setDraft(synthesizeCode(req.kind, fresh?.slots ?? req.slots));
+      setDraft(synthesizeCode(req.kind, fresh?.slots ?? req.slots, listAiDataFiles()));
       setAdvice(null);
       return;
     }

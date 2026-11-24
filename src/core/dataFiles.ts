@@ -326,3 +326,15 @@ export function listDataFilesGrouped(allow?: readonly string[]): GroupedDataFile
   }
   return { project, examples };
 }
+
+/**
+ * Project/workspace data files offered to offline AI code synthesis — bundled
+ * examples are deliberately excluded (a user's own data must win), and plain
+ * tabular formats come before JSON side-cars such as `workspace.json` so the
+ * generated `studio.load(...)` actually describes something plottable.
+ */
+export function listAiDataFiles(): string[] {
+  const files = listDataFilesGrouped(DATA_EXTS_SERIES).project;
+  const rank = (name: string): number => (name.toLowerCase().endsWith('.json') ? 1 : 0);
+  return files.sort((a, b) => rank(a) - rank(b));
+}
