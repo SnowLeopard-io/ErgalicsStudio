@@ -344,6 +344,7 @@ let bannerId = 0;
 let notifId = 0;
 /** Track notification auto-dismiss timers so an early dismiss cancels them. */
 const notifTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const notifTimes = new Map<number, number>();
 
 /** Warn when GPU memory exceeds 80% of this assumed budget (spec §7.3). */
 const MEMORY_WARN_MB = 0.8 * 512;
@@ -480,7 +481,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     }));
   },
   notify: (kind, message, action) => {
+    // Dedup: double-mounted components and repeat sweep milestones fire the
+    // same toast several times in quick succession. Same message within 1.5s
+    // updates the existing toast instead of stacking a copy.
+    const existing = get().notifications.find((n) => n.message === message);
+    if (existing && Date.now() - (notifTimes.get(existing.id) ?? 0) < 1500) return;
     const id = ++notifId;
+    notifTimes.set(id, Date.now());
     set((s) => ({ notifications: [...s.notifications, { id, kind, message, action }] }));
     // Ambience: a quiet cue per toast kind. Lazy import keeps the core store
     // free of the audio module; a failure must never affect the toast itself.
@@ -507,6 +514,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       clearTimeout(timer);
       notifTimers.delete(id);
     }
+    notifTimes.delete(id);
     set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) }));
   },
 
