@@ -66,6 +66,7 @@
     "svg2pdf.js": "^2.9.0",
     "three": "^0.187.0",
     "zarrita": "^0.7.6",
+    "zod": "^4.6.7",
     "zustand": "^5.1.0"
   },
   "devDependencies": {

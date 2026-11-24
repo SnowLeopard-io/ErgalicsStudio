@@ -12,6 +12,7 @@ import { ResultPreview } from '@/components/editor/ResultPreview';
 import { VariablePanel } from '@/components/editor/VariablePanel';
 import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
+import { PluginDataSection } from '@/components/data-editor/PluginDataSection';
 import { ParamEditor } from '@/components/blocks/ParamEditor';
 import { EmptyState } from '@/components/EmptyState';
 import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
@@ -497,6 +498,7 @@ export function RightPanel() {
           <h3 className="panel-title">{t('workbench.right.params')}</h3>
           {activeId && activePlugin ? (
             <>
+              <PluginDataSection pluginId={activeId} plugin={activePlugin} />
               {params.length === 0 && (
                 <EmptyState
                   className="right-panel-empty"

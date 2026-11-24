@@ -20,6 +20,9 @@ import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
 import { DataFilePickerDialog } from './DataFilePickerDialog';
+import { DataEditorModalHost } from '@/components/data-editor/DataEditorHost';
+import { ColumnMappingModal } from '@/components/data-editor/ColumnMappingModal';
+import { ValidationErrorModal } from '@/components/data-editor/ValidationErrorModal';
 import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
@@ -155,6 +158,9 @@ export default function WorkbenchPage() {
       <AiAssistantOverlay />
       <ModeConvertDialog />
       <DataFilePickerDialog />
+      <DataEditorModalHost />
+      <ColumnMappingModal />
+      <ValidationErrorModal />
     </div>
   );
 }

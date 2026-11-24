@@ -18,6 +18,15 @@ npm run dev
 The welcome page runs hardware self-checks (WebGPU, WASM, IndexedDB) and
 shows the results before you enter the workbench.
 
+## Editing Plugin Data Online
+
+When working with charts, statistics, or scientific plugins, **you do not need external software (such as Excel) to author or tweak CSV/JSON datasets**:
+
+1. **Inspect data requirements**: Activating any data-driven plugin displays its **Data Contract Card** at the top of the right panel (required/optional columns, types, physical units, and value constraints).
+2. **Edit online with live sync**: Click **✎ Edit Data** to open a resizable bottom drawer below the canvas (**Live Sync** is on by default — valid edits refresh the plot and science readout strip after 300ms; click **⤢ Expand** anytime for a full modal view). Tabular schemas provide a spreadsheet grid with Excel/CSV `Ctrl+V` block paste, undo/redo, and real-time cell validation; JSON schemas open Monaco with JSON Schema autocomplete and diagnostics.
+3. **Templates & smart column mapping**: Click **✦ Template** to populate sample data immediately. Uploading a CSV whose headers differ from the plugin's column names opens an interactive **Column Mapping** dialog instead of failing with an exception.
+4. **Sync with global project data**: Save your edited dataset directly to **Project Data** (overwrite or save-as) so other compatible plugins, Code/Flow modes, and research suites can reuse it. The top-bar **Data** modal automatically shows compatibility badges (`✓ Compatible` / `⇄ Map Cols` / `✕ Mismatch`) and an inline **✎** edit button.
+
 ## Build
 
 ```bash

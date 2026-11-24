@@ -16,6 +16,7 @@ interface Plugin {
   updateParams?(params: Record<string, unknown>): Promise<void> | void;
   compute?(input, onProgress?): Promise<ComputeResult>;
   loadData?(file: File): Promise<void> | void;
+  loadValidatedData?(payload: ValidatedDataPayload): Promise<void> | void;
   getSupportedFormats?(): SupportedFormat[] | Promise<SupportedFormat[]>;
   renderToScene?(scene: Scene3DHandle): Promise<void> | void;
   onProjectSave?(): Promise<void> | void;
@@ -45,12 +46,88 @@ interface Plugin {
   "license": "MIT",
   "entry": "dist/index.js",
   "sandbox": "isolated",            // "isolated" (default) | "trusted"
-  "formats": [{ "extension": ".dat", "mimeTypes": ["application/octet-stream"] }],
+  "formats": [{ "extension": ".csv", "mimeTypes": ["text/csv"] }],
+  "dataSchema": { "preset": "ergalics:tabular/xy-series" }, // 或内联 JSON Schema
   "nameI18n": { "zh-CN": "分析器" }
 }
 ```
 
 `sandbox` 字段决定入口代码在哪里执行（见下文）。内置插件总是在宿主上下文中运行。
+
+## 数据契约（`dataSchema`）与在线数据编辑
+
+仅声明 `formats` 只能告诉宿主"接受哪些扩展名"，用户无法在界面上第一时间了解列结构与类型约束，导入错误 CSV 也容易触发裸异常。为解决该问题，插件可在清单中声明可选的 **`dataSchema`**（`src/types/dataSchema.ts`），**一份声明同时驱动五项宿主能力**：
+
+1. **右侧面板数据契约卡片**：自动展示插件所需的必填/可选列、数据类型、物理单位、数值范围及 4 个快捷操作（**在线编辑 / 项目数据 / 上传文件 / 载入模板**）。
+2. **Zod v4 运行时预检与精准报错**：导入前由宿主编译为 Zod 校验器执行检查，出错时不再抛裸异常，而是展示精确到 `行号 · 列名 · 原因 · 当前值` 的诊断表，并支持一键跳入在线编辑器修复或跳过无效行。
+3. **智能列映射**：当用户 CSV 表头与插件字段名不同（如 `days, status` vs `time, event`）时，宿主按精确名、别名、类型推断与位置打分自动映射，低置信度时弹出交互式「列映射确认对话框」。
+4. **双态在线数据编辑器**：用户无需切到外部软件生成数据——在插件内点击**在线编辑**默认以画布底部可拖拽抽屉打开（默认开启 300ms 防抖**实时联动**，改数即看画布与科学指标条更新），右上角可一键切换为大浮窗；表格类支持 Excel/CSV 块粘贴（`Ctrl+V`）、撤销/重做与单元格实时标红校验，JSON 类内置 Monaco JSON Schema 自动补全与波浪线诊断。编辑结果可一键保存到全局项目数据（覆盖或另存为），自动同步至工作区 `data/` 与其他关联插件。
+5. **跨插件共享与全局兼容徽章**：全局「数据」弹窗会根据当前激活插件的 `dataSchema` 自动标注每个项目文件的 `✓ 兼容` / `⇄ 需映射` / `✕ 不匹配` 状态。
+
+### 方式一：引用共享语义预设（推荐）
+
+如果插件消费的是常见数据结构，直接引用共享预设（`src/core/data-schema/presets.ts`）即可，并可用 `overrides` 局部覆写标题、`minRows`、`liveSync`（重计算插件建议设为 `false`）：
+
+```jsonc
+{
+  "dataSchema": {
+    "preset": "ergalics:tabular/xy-series",
+    "overrides": { "minRows": 3, "liveSync": true }
+  }
+}
+```
+
+常用共享预设包括：`ergalics:tabular/xy-series`、`xyz-points`、`xy-error`、`category-value`、`grouped-values`、`univariate`、`time-series`、`edge-list`、`survival-table`、`meta-analysis`、`doe-table`、`multi-numeric`、`geo-points`、`ergalics:json/node-link-graph`、`grid-2d`、`geojson` 等。引用同一预设的插件可直接共享项目数据文件。
+
+### 方式二：内联 JSON Schema（Draft 2020-12）
+
+自定义数据结构可在 `manifest.json` / `manifest.ts` 中直接声明纯 JSON Schema（支持 `tabular` / `json` / `text` / `binary` 四种 `kind`），并通过 `x-ergalics` 扩展字段提供多语言标签、列映射别名与物理单位：
+
+```jsonc
+{
+  "dataSchema": {
+    "id": "primary",
+    "kind": "tabular",
+    "title": "Calibration Curve",
+    "titleI18n": { "zh-CN": "校准曲线表" },
+    "extensions": [".csv", ".tsv"],
+    "minRows": 2,
+    "allowExtraColumns": true,
+    "rowSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "conc": {
+          "type": "number",
+          "minimum": 0,
+          "x-ergalics": { "labelI18n": { "zh-CN": "浓度" }, "aliases": ["c", "concentration"], "unit": "mg/L", "order": 1 }
+        },
+        "abs": {
+          "type": "number",
+          "x-ergalics": { "labelI18n": { "zh-CN": "吸光度" }, "aliases": ["a", "signal"], "order": 2 }
+        }
+      },
+      "required": ["conc", "abs"]
+    },
+    "sampleRows": [
+      { "conc": 0, "abs": 0.01 },
+      { "conc": 5, "abs": 0.48 },
+      { "conc": 10, "abs": 0.95 }
+    ]
+  }
+}
+```
+
+> **安全边界（`.cspkg` 安装校验）**：第三方包清单中的 `dataSchema` 必须为纯 JSON，宿主 `validateManifest` 会拒绝外部 `$ref`、超过 12 层的嵌套、原型污染键名以及包含嵌套量词的 ReDoS 危险正则。
+
+### JSON Schema ↔ Zod v4 双向生成与 `loadValidatedData`
+
+- **双向转换**（`src/core/data-schema/`）：
+  - **正向（Zod → JSON Schema）**：TypeScript 插件开发者可用 Zod v4 编写行/文档模型并用 `col(z.number().positive(), { unit: 'd', aliases: [...] })` 附加元数据，再通过 `defineTabularSchemaFromZod` / `defineJsonSchemaFromZod` 导出纯 JSON Schema（同时保留 `z.infer` 编译期类型）。注意：`manifest.ts` 本身应保持纯 JSON 数据，不要直接 `import 'zod'`，以免影响首屏 bundle 预算。
+  - **反向（JSON Schema → Zod）**：宿主按需懒加载 `compileJsonSchemaToZod` / `compileTabularRowToZod`（基于 Zod v4 原生 `z.fromJSONSchema()` + 科学级严格单元格转换，空单元格与 `NA` 绝不会被静默转为 `0`）。
+- **向后兼容的数据接收**：
+  - 实现可选的 `loadValidatedData(payload)` 可直接获取已完成列映射与 Zod 校验的强类型 `payload.data`（无需自己手写 CSV/JSON 解析）。
+  - **未实现 `loadValidatedData` 的既有插件也无需修改代码**：宿主会自动将校验/映射/在线编辑后的数据序列化为规范表头的 `File`，继续调用 `loadData(file)`。
 
 ## 容器能力
 

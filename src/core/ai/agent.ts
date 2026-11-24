@@ -114,6 +114,10 @@ const MUTATING_TOOL_NAMES = new Set([
   'activate_plugin',
   'set_plugin_params',
   'press_plugin_action',
+  'set_plugin_data',
+  'patch_plugin_data',
+  'load_data_file_to_plugin',
+  'write_data_file',
   'run_code',
   'notify_user',
 ]);

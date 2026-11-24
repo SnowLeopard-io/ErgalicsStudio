@@ -38,6 +38,7 @@
 | `homepage` | `string?` | 可选 | 主页 |
 | `dependencies` | `Record<string,string>?` | 可选 | 声明式依赖 |
 | `formats` | `SupportedFormat[]?` | 可选 | 支持的数据格式（文件路由依据） |
+| `dataSchema` | `PluginDataSchemaSpec \| PluginDataSchemaSpec[]?` | 可选 | 声明式数据契约（JSON Schema Draft 2020-12 或共享预设引用），驱动右侧契约卡片、Zod v4 预检/列映射、在线数据编辑器与全局兼容徽章 |
 | `category` | `'scientific' \| 'fun' \| 'utility'?` | 可选 | 市场分组 |
 | `sandbox` | `'isolated' \| 'trusted'?` | 可选 | 执行上下文，缺省 `isolated`（Web Worker 沙箱）；`trusted` 仅用于自研包 |
 | `nameI18n` | `Record<string,string>?` | 可选 | 按 locale 的显示名（见 1.6） |
@@ -64,6 +65,7 @@
 | `updateParams` | `(params: Record<string, unknown>) => Promise<void> \| void` | 可选 |
 | `compute` | `(input: unknown, onProgress?: (p: ComputeProgress) => void) => Promise<ComputeResult>` | 可选 |
 | `loadData` | `(file: File) => Promise<void> \| void` | 可选 |
+| `loadValidatedData` | `(payload: ValidatedDataPayload) => Promise<void> \| void` | 可选（接收经列映射与 Zod 校验的结构化数据；省略时宿主自动回落为规范 `File` 调用 `loadData`） |
 | `getSupportedFormats` | `() => SupportedFormat[] \| Promise<SupportedFormat[]>` | 可选 |
 | `renderToScene` | `(scene: Scene3DHandle) => Promise<void> \| void` | 可选（声明后宿主才挂载 Three.js 场景） |
 | `onProjectSave` | `() => Promise<void> \| void` | 可选（项目持久化成功后触发，尽力而为） |
@@ -230,6 +232,7 @@ my-plugin.cspkg
 | `id` 格式 | `^[a-z0-9][a-z0-9._-]{0,63}$`（忽略大小写） |
 | `entry` 路径 | 包内相对路径；`..`、`/` 开头、盘符开头一律拒绝；反斜杠与 `./` 前缀被归一化 |
 | `sandbox` | 只允许 `'isolated'` / `'trusted'`（或缺省） |
+| `dataSchema` | 可选；若声明则需通过纯 JSON 安全校验（禁止外部 `$ref`、嵌套深度 ≤ 12、禁止 ReDoS 嵌套量词与原型污染键） |
 
 ### 3.2 签名要求（FR-05 管线）
 

@@ -38,6 +38,7 @@ The following types and members constitute the **stable surface of SDK v1**. Lab
 | `homepage` | `string?` | Optional | Homepage |
 | `dependencies` | `Record<string,string>?` | Optional | Declarative dependencies |
 | `formats` | `SupportedFormat[]?` | Optional | Supported data formats (used for file routing) |
+| `dataSchema` | `PluginDataSchemaSpec \| PluginDataSchemaSpec[]?` | Optional | Declarative data contract (JSON Schema Draft 2020-12 or shared preset ref); drives the right-panel data card, Zod v4 pre-validation/column mapping, online editor, and global compatibility badges |
 | `category` | `'scientific' \| 'fun' \| 'utility'?` | Optional | Marketplace group |
 | `sandbox` | `'isolated' \| 'trusted'?` | Optional | Execution context; defaults to `isolated` (Web Worker sandbox); `trusted` is only for in-house packages. |
 | `nameI18n` | `Record<string,string>?` | Optional | Display name by locale (see 1.6) |
@@ -64,6 +65,7 @@ The plugin module entry must produce an object implementing the `Plugin` interfa
 | `updateParams` | `(params: Record<string, unknown>) => Promise<void> \| void` | Optional |
 | `compute` | `(input: unknown, onProgress?: (p: ComputeProgress) => void) => Promise<ComputeResult>` | Optional |
 | `loadData` | `(file: File) => Promise<void> \| void` | Optional |
+| `loadValidatedData` | `(payload: ValidatedDataPayload) => Promise<void> \| void` | Optional (receives Zod-validated, column-mapped data directly; when omitted the host falls back to a normalized `File` via `loadData`) |
 | `getSupportedFormats` | `() => SupportedFormat[] \| Promise<SupportedFormat[]>` | Optional |
 | `renderToScene` | `(scene: Scene3DHandle) => Promise<void> \| void` | Optional (the host mounts a Three.js scene only when declared) |
 | `onProjectSave` | `() => Promise<void> \| void` | Optional (triggered after successful project persistence, best effort) |
@@ -230,6 +232,7 @@ Hard limits (`src/core/cspkg.ts`, protecting against zip bombs and path traversa
 | `id` format | `^[a-z0-9][a-z0-9._-]{0,63}$` (case-insensitive) |
 | `entry` path | Package-relative path; `..`, a leading `/`, or a drive-letter prefix are rejected; backslashes and a `./` prefix are normalized |
 | `sandbox` | Only `'isolated'` / `'trusted'` (or omitted) |
+| `dataSchema` | Optional; if declared, must pass pure-JSON safety checks (no external `$ref`, nesting depth ≤ 12, no ReDoS nested quantifiers or prototype-pollution keys) |
 
 ### 3.2 Signing requirements (FR-05 pipeline) {#_3-2-签名要求-fr-05-管线}
 

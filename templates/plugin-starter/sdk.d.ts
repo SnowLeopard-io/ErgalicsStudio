@@ -34,6 +34,27 @@ interface SupportedFormat {
   description?: string;
 }
 
+interface PluginDataSchemaPresetRef {
+  preset: string;
+  overrides?: Record<string, unknown>;
+}
+
+type PluginDataSchemaSpec = Record<string, unknown> | PluginDataSchemaPresetRef;
+
+interface ValidatedDataPayload<T = unknown> {
+  schemaId: string;
+  kind: 'tabular' | 'json' | 'text' | 'binary';
+  data: T;
+  file: File;
+  source: {
+    origin: 'project-file' | 'upload' | 'online-editor' | 'example';
+    fileId?: string;
+    fileName: string;
+    columnMapping?: Record<string, string>;
+    skippedRows?: number;
+  };
+}
+
 interface PluginManifest {
   id: string;
   name: string;
@@ -49,6 +70,8 @@ interface PluginManifest {
   homepage?: string;
   dependencies?: Record<string, string>;
   formats?: SupportedFormat[];
+  /** Declarative JSON Schema (Draft 2020-12) or shared preset ref (enables online editing & Zod pre-validation). */
+  dataSchema?: PluginDataSchemaSpec | PluginDataSchemaSpec[];
   category?: 'scientific' | 'fun' | 'utility';
   /** Default "isolated" (Web Worker sandbox). "trusted" = self-published only. */
   sandbox?: 'isolated' | 'trusted';
@@ -321,6 +344,8 @@ interface ErgalicsPlugin {
   updateParams?(params: Record<string, unknown>): Promise<void> | void;
   compute?(input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult>;
   loadData?(file: File): Promise<void> | void;
+  /** Optional: receives Zod-validated & column-mapped data directly; omit to keep receiving normalized File via `loadData`. */
+  loadValidatedData?(payload: ValidatedDataPayload): Promise<void> | void;
   getSupportedFormats?(): SupportedFormat[] | Promise<SupportedFormat[]>;
   renderToScene?(scene: Scene3DHandle): Promise<void> | void;
   onProjectSave?(): Promise<void> | void;

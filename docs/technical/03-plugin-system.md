@@ -12,7 +12,7 @@ Every plugin implements the common `Plugin` interface (`src/types/plugin.ts`). `
 | activate / deactivate | Activation and deactivation, driving 2D/3D viewport switching and stale-frame cleanup |
 | render / updateParams | Rendering and parameter updates (reactive form in the right panel) |
 | getParams / compute | Read parameter definitions and compute (`compute` has a progress callback) |
-| loadData / getSupportedFormats | Receive data dispatched by the host; declare supported file formats |
+| loadData / loadValidatedData / getSupportedFormats | Receive data dispatched by the host (`loadValidatedData` receives Zod-validated, column-mapped structured payloads); declare supported file formats |
 | renderToScene | Declare 3D capability and receive a host Three.js scene handle when activated |
 | onProjectSave / onProjectLoad | Lifecycle hooks after project save and load |
 
@@ -52,6 +52,16 @@ Plugins declare a parameter table in the manifest; the host generates a localize
 | Toggle | Boolean state other than run / pause |
 
 Parameters can declare `group` and `inline`, placing controls in the same group side by side with automatic wrapping.
+
+### 1.3.1 Data Contracts (`dataSchema`), Pre-Validation, Column Mapping & Online Data Editor
+
+To eliminate guesswork around plugin input formats and avoid forcing users out to external spreadsheets, the plugin system introduces declarative **JSON Schema (Draft 2020-12) ↔ Zod v4** data contracts (`src/types/dataSchema.ts`, `src/core/data-schema/`):
+
+- **Pure-JSON Contracts & Shared Semantic Presets**: 22 reusable presets (covering all 22 chart plugins, all 7 statistics plugins, and 30+ discipline plugins) are declared via `PluginManifest.dataSchema` or the built-in binding registry with zero first-screen `zod` bundle overhead.
+- **Right-Panel Data Contract Card**: Displays required/optional columns, types, units, and value ranges right above parameters, with direct **Edit Data / Project Data / Upload / Template** buttons.
+- **Pre-Validation & Smart Column Mapping**: CSV/TSV/JSON inputs are validated via Zod v4 with strict scientific coercion (blank/`NA` cells never become `0`). Mismatched headers trigger a 4-tier column-mapping scorer and interactive mapping modal; invalid rows open a pinpointed diagnostics table with one-click repair.
+- **Dual-Mode Online Data Editor**: Opens as a drag-resizable bottom drawer inside the workbench with **300ms debounced Live Sync** to the canvas and `ScienceOutputStrip`, plus a one-click expand-to-modal toggle preserving drafts. Tabular datasets support Excel/CSV `Ctrl+V` block paste, undo/redo, and per-cell Zod highlighting; JSON datasets use Monaco with JSON Schema autocomplete and diagnostics. Edits save back to global project data (`project.data.files` + VFS `data/`) and broadcast updates to linked plugins.
+- **Schema-Aware Global Data Modal**: Annotates project files with `✓ Compatible` / `⇄ Map Cols` / `✕ Mismatch` badges for the active plugin and provides an inline `✎` edit action.
 
 ### 1.4 Lifecycle and lazy loading {#_1-4-生命周期与懒加载}
 
