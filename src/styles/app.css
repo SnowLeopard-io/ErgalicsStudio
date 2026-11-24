@@ -5872,6 +5872,62 @@
   padding: var(--space-3);
 }
 
+/* ---- shared paper preview (PaperPreview.tsx: report generator + LaTeX) ---- */
+.paper-preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.paper-preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex: none;
+}
+
+.paper-preview-zoom-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.paper-preview-zoom-value {
+  min-width: 44px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-preview-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.paper-preview-paper {
+  flex: none;
+  width: fit-content;
+}
+
+.paper-preview-frame {
+  display: block;
+  height: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+:root[data-theme='dark'] .paper-preview-frame {
+  background: var(--color-bg-primary, #fff);
+}
+
 .report-preview-toolbar {
   display: flex;
   align-items: center;

@@ -638,6 +638,7 @@ export function TabularDataEditor({ session }: { session: DataEditorSession }) {
                           <input
                             type="text"
                             className="pds-cell-input"
+                            aria-label={`R${rIdx + 1}C${cIdx + 1}`}
                             value={val}
                             onFocus={() => setActiveCell({ row: rIdx, col: cIdx })}
                             onChange={(e) => updateCell(rIdx, cIdx, e.target.value)}

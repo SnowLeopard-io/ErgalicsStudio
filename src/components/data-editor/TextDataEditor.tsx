@@ -352,6 +352,7 @@ export function TextDataEditor({ session }: { session: DataEditorSession }) {
               <input
                 type="text"
                 className="input pds-saveas-input"
+                aria-label="file name"
                 value={saveAsName}
                 onChange={(e) => setSaveAsName(e.target.value)}
               />
