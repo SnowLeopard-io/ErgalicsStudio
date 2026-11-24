@@ -171,7 +171,7 @@ export default function GalleryPage() {
     // Opening a template replaces the active project. Never do that silently:
     // confirm first when the workspace already holds any file.
     const project = useProjectStore.getState().project;
-    if (project && project.files.length > 0) {
+    if (project && (project.data?.files?.length ?? 0) > 0) {
       setConfirmOpen(item);
       return;
     }
