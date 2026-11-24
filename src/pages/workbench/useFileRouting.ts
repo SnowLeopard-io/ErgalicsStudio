@@ -23,6 +23,8 @@ import { datasetToTable } from '@/types/datatable';
 import { logger } from '@/core/logger';
 import { isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
 import { useEngineeringStore } from '@/stores/engineeringStore';
+import { resolvePluginDataSchemas } from '@/core/data-schema/presets';
+import { useDataEditorStore } from '@/stores/dataEditorStore';
 
 interface ChooserState {
   open: boolean;
@@ -71,12 +73,13 @@ export function useFileRouting() {
     //    whose entries are text-parsed everywhere (chunk store, CSV preview,
     //    studio.load()), but anything dropped on the canvas must still land
     //    in the project's data folder.
+    let registeredFileId: string | undefined;
     if (isSupportedDataFileName(file.name)) {
       try {
         const duplicate = useProjectStore
           .getState()
           .project?.data.files.some((f) => f.name === file.name);
-        await useProjectStore.getState().addDataFile(file);
+        registeredFileId = (await useProjectStore.getState().addDataFile(file)) ?? undefined;
         if (duplicate) {
           // Drag-drop bypasses the project-files dialog, so its inline
           // duplicate banner can't show — use a toast instead.
@@ -101,6 +104,19 @@ export function useFileRouting() {
         logger.warn('io', 'data/ binary mirror failed', err);
       }
     }
+    const targetPlugin = usePluginStore.getState().registry.find((e) => e.id === id)?.plugin;
+    const schemas = resolvePluginDataSchemas(targetPlugin?.manifest);
+    if (targetPlugin && schemas.length > 0 && isSupportedDataFileName(file.name)) {
+      const text = await file.text();
+      await useDataEditorStore.getState().ingestForPlugin({
+        pluginId: id,
+        fileName: file.name,
+        text,
+        origin: registeredFileId ? 'project-file' : 'upload',
+        fileId: registeredFileId,
+      });
+      return;
+    }
     try {
       await runTracked(
         {
@@ -110,7 +126,7 @@ export function useFileRouting() {
           detail: { bytes: file.size, type: file.type || undefined },
         },
         async () => {
-          await pluginStore.registry.find((e) => e.id === id)?.plugin?.loadData?.(file);
+          await usePluginStore.getState().registry.find((e) => e.id === id)?.plugin?.loadData?.(file);
         },
       );
       // An import can change the parameter set itself (new select options,

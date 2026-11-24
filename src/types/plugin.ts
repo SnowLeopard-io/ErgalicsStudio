@@ -70,6 +70,22 @@ export interface PluginResearchMeta {
 }
 
 import type { Domain } from '@/core/domains';
+import type { PluginDataSchemaSpec, ValidatedDataPayload } from '@/types/dataSchema';
+
+export type {
+  PluginDataSchema,
+  PluginDataSchemaSpec,
+  PluginDataSchemaPresetRef,
+  TabularDataSchema,
+  JsonDataSchema,
+  TextDataSchema,
+  BinaryDataSchema,
+  ErgalicsJsonSchema,
+  ErgalicsFieldMeta,
+  ValidatedDataPayload,
+  PluginDataBinding,
+  DataValidationIssue,
+} from '@/types/dataSchema';
 
 export interface PluginManifest {
   id: string;
@@ -100,6 +116,12 @@ export interface PluginManifest {
   homepage?: string;
   dependencies?: Record<string, string>;
   formats?: SupportedFormat[];
+  /**
+   * Declarative data-input contract(s) (JSON Schema Draft 2020-12 or shared
+   * preset id). Drives the right-panel data card, Zod pre-validation,
+   * automatic column mapping, online editor, and cross-plugin reuse.
+   */
+  dataSchema?: PluginDataSchemaSpec | PluginDataSchemaSpec[];
   /**
    * Marketplace grouping. Core analytical visualizers are `'scientific'`,
    * novelty/decorative toys are `'fun'`, and small helpers are `'utility'`.
@@ -659,6 +681,13 @@ export interface Plugin {
 
   /** Optional lifecycle hooks (spec §6.4). */
   loadData?(file: File): Promise<void> | void;
+  /**
+   * Optional schema-aware data hook. Receives Zod-validated and column-mapped
+   * structured data directly; plugins that omit this method still benefit from
+   * pre-validation, column mapping, and online editing via a normalized `File`
+   * handed to `loadData`.
+   */
+  loadValidatedData?(payload: ValidatedDataPayload): Promise<void> | void;
   getSupportedFormats?(): SupportedFormat[] | Promise<SupportedFormat[]>;
   renderToScene?(scene: Scene3DHandle): Promise<void> | void;
   /** Fired after the project has been persisted. */

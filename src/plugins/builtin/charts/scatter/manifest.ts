@@ -33,4 +33,7 @@ export const scatterManifest: PluginManifest = {
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'Scatter data' },
     { extension: '.xyz', mimeTypes: ['text/plain', 'chemical/x-xyz'], description: 'Scatter data' },
   ],
+  dataSchema: {
+    preset: 'ergalics:tabular/xy-series',
+  },
 };

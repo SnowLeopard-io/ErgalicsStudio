@@ -16,10 +16,12 @@ import editorWorker from 'monaco-editor/editor/editor.worker?worker';
 // the plain editor worker for it makes the worker throw `$loadForeignModule`
 // (toUri of undefined) on every JS model.
 import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker';
+import jsonWorker from 'monaco-editor/language/json/json.worker?worker';
 
 self.MonacoEnvironment = {
   getWorker: (_workerId, label) => {
     if (label === 'typescript' || label === 'javascript') return new tsWorker();
+    if (label === 'json') return new jsonWorker();
     return new editorWorker();
   },
 };

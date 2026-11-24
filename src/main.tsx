@@ -14,6 +14,7 @@ import './styles/blocks.css';
 import './styles/animations.css';
 import './styles/lab-polish.css';
 import './styles/ambience.css';
+import './styles/data-editor.css';
 
 // Global error capture (spec §11.2 application-level boundary). Every
 // uncaught error / rejection is normalised into the error registry (dedup,

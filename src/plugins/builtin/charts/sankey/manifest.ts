@@ -25,4 +25,7 @@ export const sankeyManifest: PluginManifest = {
     { extension: '.json', mimeTypes: ['application/json'], description: 'JSON' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'Text edge list' },
   ],
+  dataSchema: {
+    preset: 'ergalics:tabular/edge-list',
+  },
 };

@@ -188,8 +188,8 @@ export function buildSystemPrompt(locale: Locale, opts: { canOperate: boolean; v
   const zh = locale === 'zh-CN';
   if (zh) {
     const op = opts.canOperate
-      ? '你可以调用工具操作本应用：切换插件、读写参数、按按钮、截取视图、读取数据与科研指标、运行 studio.* Python 代码。'
-      : '你目前只能读取应用状态（只读工具）；用户未授权你修改参数或运行代码，需要时请明确请用户开启「允许助手操作应用」。';
+      ? '你可以调用工具操作本应用：切换插件、读写参数、按按钮、查看数据契约、在线修改或写入插件与项目数据、加载数据文件、截取视图、读取科研指标、运行 studio.* Python 代码。'
+      : '你目前只能读取应用状态（只读工具）；用户未授权你修改参数、改动数据或运行代码，需要时请明确请用户开启「允许助手操作应用」。';
     const vision = opts.vision
       ? '你可以查看视图截图（get_canvas_snapshot）来判断视觉效果。'
       : '';
@@ -198,15 +198,16 @@ export function buildSystemPrompt(locale: Locale, opts: { canOperate: boolean; v
       '回答简洁、有依据：数值必须来自工具结果，不要编造数据或统计量。',
       op,
       vision,
-      '先探查再行动：不确定插件 id 时调用 list_plugins，不确定参数键时调用 get_plugin_params。',
+      '先探查再行动：不确定插件 id 时调用 list_plugins，不确定参数键时调用 get_plugin_params，修改或生成插件数据前先调用 get_plugin_data_schema 确认列结构、类型和范围约束。',
+      '数据修改优先策略：局部修改现有表格用 patch_plugin_data（支持改单元格/增删行）；整体生成或替换数据用 set_plugin_data（表格优先传 rows，JSON 传 json）；加载已有文件用 load_data_file_to_plugin（表头不一致时按返回信息传 columnMapping）；独立创建/更新项目文件用 write_data_file。若工具返回校验错误，请根据报错行号和字段自动修正后重试。',
       '每次工具调用后根据结果决定下一步；任务完成时用一句话总结你做了什么。',
-      '当用户要求的操作涉及破坏性后果（清除数据、覆盖文件）时，先询问确认。',
+      '当用户要求的操作涉及破坏性后果（清除数据、覆盖已有项目文件）时，先询问确认。',
     ]
       .filter(Boolean)
       .join('\n');
   }
   const op = opts.canOperate
-    ? 'You can call tools to operate this app: switch plugins, read/write parameters, press buttons, capture the viewport, read datasets and scientific metrics, and run studio.* Python code.'
+    ? 'You can call tools to operate this app: switch plugins, read/write parameters, press buttons, inspect data schemas, create/edit/patch plugin and project datasets, load data files, capture the viewport, read scientific metrics, and run studio.* Python code.'
     : 'You currently have read-only access to app state. The user has not authorized changes, so ask them to enable "let the assistant operate the app" when a task needs one.';
   const vision = opts.vision
     ? 'You can inspect viewport screenshots (get_canvas_snapshot) to judge visual results.'
@@ -216,9 +217,10 @@ export function buildSystemPrompt(locale: Locale, opts: { canOperate: boolean; v
     'Be concise and grounded: every number must come from a tool result — never invent data or statistics.',
     op,
     vision,
-    'Probe before acting: call list_plugins when unsure of a plugin id and get_plugin_params before setting values.',
+    'Probe before acting: call list_plugins when unsure of a plugin id, get_plugin_params before setting values, and get_plugin_data_schema before editing or generating plugin data.',
+    'For data edits: prefer patch_plugin_data for incremental row/cell edits on loaded tables, set_plugin_data (using structured `rows` or `json`) for full replacements, load_data_file_to_plugin (with `columnMapping` when headers differ) for existing files, and write_data_file for standalone project data files. If Zod validation fails, fix the reported row/field issues and retry.',
     'After each tool call, decide the next step from its result; when the task is done, summarize what you did in one sentence.',
-    'Ask for confirmation before anything destructive (clearing data, overwriting files).',
+    'Ask for confirmation before anything destructive (clearing data, overwriting existing files).',
   ]
     .filter(Boolean)
     .join('\n');

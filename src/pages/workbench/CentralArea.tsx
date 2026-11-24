@@ -76,6 +76,7 @@ import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
 import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
+import { DataEditorDock } from '@/components/data-editor/DataEditorHost';
 import { useFileRouting } from './useFileRouting';
 import { ModeIcon } from '@/components/WorkbenchModes';
 
@@ -1927,6 +1928,7 @@ export function CentralArea() {
           the strip inside `.central` made it the only flex child and it
           floated over the canvas (vertically centered, full-bleed). */}
       <ScienceOutputStrip />
+      <DataEditorDock />
     </div>
   );
 }

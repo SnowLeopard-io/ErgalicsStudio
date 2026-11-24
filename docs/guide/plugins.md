@@ -16,6 +16,7 @@ interface Plugin {
   updateParams?(params: Record<string, unknown>): Promise<void> | void;
   compute?(input, onProgress?): Promise<ComputeResult>;
   loadData?(file: File): Promise<void> | void;
+  loadValidatedData?(payload: ValidatedDataPayload): Promise<void> | void;
   getSupportedFormats?(): SupportedFormat[] | Promise<SupportedFormat[]>;
   renderToScene?(scene: Scene3DHandle): Promise<void> | void;
   onProjectSave?(): Promise<void> | void;
@@ -58,13 +59,89 @@ The host drives the lifecycle:
   "license": "MIT",
   "entry": "dist/index.js",
   "sandbox": "isolated",            // "isolated" (default) | "trusted"
-  "formats": [{ "extension": ".dat", "mimeTypes": ["application/octet-stream"] }],
+  "formats": [{ "extension": ".csv", "mimeTypes": ["text/csv"] }],
+  "dataSchema": { "preset": "ergalics:tabular/xy-series" }, // or inline JSON Schema
   "nameI18n": { "zh-CN": "分析器" }
 }
 ```
 
 The `sandbox` field decides where the entry code executes (see below).
 Built-in plugins always run in the host context.
+
+## Data Contracts (`dataSchema`) & Online Data Editing
+
+Declaring `formats` alone only tells the host which file extensions are accepted — users cannot immediately see the expected columns or constraints, and malformed CSVs risk throwing raw parser errors. Plugins can declare an optional **`dataSchema`** (`src/types/dataSchema.ts`) in their manifest so **one declaration powers five host capabilities**:
+
+1. **Right-Panel Data Contract Card** — displays required/optional columns, data types, physical units, and value ranges right above parameters, with 4 direct actions (**Edit Data / Project Data / Upload / Template**).
+2. **Zod v4 Pre-Validation & Pinpointed Diagnostics** — the host compiles the schema into a Zod validator before loading. Instead of throwing raw exceptions, violations open a row/column diagnostics table with one-click jump into the online editor or "Skip Invalid Rows & Load".
+3. **Smart Column Mapping** — when incoming CSV headers differ from schema keys (e.g. `days, status` vs `time, event`), the host scores matches via exact keys, aliases, type inference, and column order, opening an interactive **Column Mapping** modal whenever confirmation is needed.
+4. **Dual-Mode Online Data Editor** — users can enter and edit datasets directly inside the workbench without switching to Excel or an external editor. Opening **Edit Data** from a plugin launches a resizable **bottom drawer** with 300ms debounced **Live Sync** (canvas & `ScienceOutputStrip` update as you edit) and a one-click **Expand** button to switch to a full modal without losing drafts. Tabular schemas get a spreadsheet editor (Excel/CSV `Ctrl+V` block paste, Undo/Redo, per-cell Zod highlighting); JSON schemas get Monaco with JSON Schema autocomplete and diagnostics. Edits can be saved back to global project data (overwrite or save-as) and synced to workspace `data/` and other linked plugins.
+5. **Cross-Plugin Reuse & Compatibility Badges** — the global **Data** modal annotates project files against the active plugin (`✓ Compatible` / `⇄ Map Cols` / `✕ Mismatch`).
+
+### Option 1: Reference a Shared Semantic Preset (Recommended)
+
+For standard scientific shapes, reference a built-in preset from `src/core/data-schema/presets.ts` and optionally override `title`, `minRows`, or `liveSync` (set `liveSync: false` for compute-heavy solvers):
+
+```jsonc
+{
+  "dataSchema": {
+    "preset": "ergalics:tabular/xy-series",
+    "overrides": { "minRows": 3, "liveSync": true }
+  }
+}
+```
+
+Available presets include `ergalics:tabular/xy-series`, `xyz-points`, `xy-error`, `category-value`, `grouped-values`, `univariate`, `time-series`, `edge-list`, `survival-table`, `meta-analysis`, `doe-table`, `multi-numeric`, `geo-points`, `ergalics:json/node-link-graph`, `grid-2d`, `geojson`, and more. Plugins referencing the same preset automatically share dataset compatibility.
+
+### Option 2: Inline JSON Schema (Draft 2020-12)
+
+Custom datasets can declare pure JSON Schema directly (`kind`: `'tabular' | 'json' | 'text' | 'binary'`) with `x-ergalics` annotations for localized labels, column aliases, and physical units:
+
+```jsonc
+{
+  "dataSchema": {
+    "id": "primary",
+    "kind": "tabular",
+    "title": "Calibration Curve",
+    "titleI18n": { "zh-CN": "校准曲线表" },
+    "extensions": [".csv", ".tsv"],
+    "minRows": 2,
+    "allowExtraColumns": true,
+    "rowSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "conc": {
+          "type": "number",
+          "minimum": 0,
+          "x-ergalics": { "labelI18n": { "zh-CN": "浓度" }, "aliases": ["c", "concentration"], "unit": "mg/L", "order": 1 }
+        },
+        "abs": {
+          "type": "number",
+          "x-ergalics": { "labelI18n": { "zh-CN": "吸光度" }, "aliases": ["a", "signal"], "order": 2 }
+        }
+      },
+      "required": ["conc", "abs"]
+    },
+    "sampleRows": [
+      { "conc": 0, "abs": 0.01 },
+      { "conc": 5, "abs": 0.48 },
+      { "conc": 10, "abs": 0.95 }
+    ]
+  }
+}
+```
+
+> **Security guard (`.cspkg` install validation)**: `dataSchema` in third-party packages must be pure JSON. `validateManifest` rejects external `$ref`, nesting deeper than 12 levels, prototype-pollution keys, and nested-quantifier ReDoS regexes.
+
+### Bidirectional JSON Schema ↔ Zod v4 & `loadValidatedData`
+
+- **Bidirectional bridge** (`src/core/data-schema/`):
+  - **Forward (Zod → JSON Schema)**: TypeScript authors can write Zod v4 models with `col(z.number().positive(), { unit: 'd', aliases: [...] })` and emit pure JSON via `defineTabularSchemaFromZod` / `defineJsonSchemaFromZod` (keeping `z.infer` type safety). Keep static `manifest.ts` files pure JSON without importing `zod` directly so the first-screen bundle stays lean.
+  - **Reverse (JSON Schema → Zod)**: The host lazily compiles pure JSON Schemas via `compileJsonSchemaToZod` / `compileTabularRowToZod` (using Zod v4's native `z.fromJSONSchema()` plus strict scientific tabular cell coercion — empty cells and `NA` never silently turn into `0`).
+- **Backwards-compatible delivery**:
+  - Implement optional `loadValidatedData(payload)` to receive strongly typed, already-validated `payload.data` directly.
+  - Legacy plugins that only implement `loadData(file)` require **zero code changes**: the host serializes the validated/mapped/edited data into a normalized `File` and passes it to `loadData(file)`.
 
 ## Container capabilities
 

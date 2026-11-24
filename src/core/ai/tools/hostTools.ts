@@ -23,10 +23,12 @@ import { useAppStore } from '@/stores/appStore';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { getScienceOutputs } from '@/core/research/scienceOutput';
 import { listDataFiles, listProjectFiles, resolveDataFile } from '@/core/dataFiles';
+import { resolvePluginDataSchemas, extractTabularColumns } from '@/core/data-schema/presets';
 import { emit } from '@/core/events';
 import type { ParamDefinition, PluginRegistryEntry } from '@/types/plugin';
 import type { RegisteredTool, ToolResult } from './types';
 import { errorResult, textResult, textWithImage } from './types';
+import { DATA_HOST_TOOLS } from './dataTools';
 
 /** Cap on a single data-file read so a huge CSV cannot blow the context. */
 const MAX_FILE_CHARS = 12000;
@@ -131,9 +133,28 @@ const activatePlugin = hostTool(
     } catch {
       params = [];
     }
+    const schemas = resolvePluginDataSchemas(plugin?.manifest).map((s) => ({
+      id: s.id,
+      kind: s.kind,
+      title: s.title,
+      ...(s.kind === 'tabular'
+        ? {
+            columns: extractTabularColumns(s).map((c) => ({
+              key: c.key,
+              required: c.required,
+              type: c.displayType,
+            })),
+          }
+        : {}),
+    }));
     return textResult(
       JSON.stringify(
-        { activated: id, name: findEntry(id)?.name ?? id, parameters: params },
+        {
+          activated: id,
+          name: findEntry(id)?.name ?? id,
+          parameters: params,
+          ...(schemas.length > 0 ? { dataSchemas: schemas } : {}),
+        },
         null,
         2,
       ),
@@ -441,6 +462,7 @@ export const HOST_TOOLS: readonly RegisteredTool[] = [
   getCanvasSnapshot,
   listDataFilesTool,
   readDataFileTool,
+  ...DATA_HOST_TOOLS,
   getScienceOutputsTool,
   runCodeTool,
   notifyUserTool,

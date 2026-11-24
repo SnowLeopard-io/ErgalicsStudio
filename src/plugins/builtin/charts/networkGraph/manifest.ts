@@ -25,4 +25,8 @@ export const networkGraphManifest: PluginManifest = {
     { extension: '.json', mimeTypes: ['application/json'], description: 'JSON graph' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'Text edge list' },
   ],
+  dataSchema: [
+    { preset: 'ergalics:tabular/edge-list' },
+    { preset: 'ergalics:json/node-link-graph' },
+  ],
 };
