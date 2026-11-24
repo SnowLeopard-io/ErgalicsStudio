@@ -262,8 +262,12 @@ describe('Smart Column Mapping & Ingestion Pipeline', () => {
       },
     };
     await deliverValidatedPayload(legacyPlugin, res.payload);
-    expect(legacyText).toContain('x,y,value');
-    expect(legacyText).toContain('1,2,');
+    // `value` is an optional column absent from the input. serializeTabularRows
+    // omits all-empty optional columns so trailing commas cannot turn a row
+    // into a malformed one — the legacy CSV must carry only real columns.
+    expect(legacyText.split('\n')[0]).toBe('x,y');
+    expect(legacyText).toContain('1,2');
+    expect(legacyText).not.toContain('value');
   });
 });
 

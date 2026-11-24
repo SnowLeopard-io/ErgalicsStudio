@@ -1,4 +1,4 @@
-// ==========================================================================
+﻿// ==========================================================================
 // Ergalics Studio — FR-07 AI analysis assistant: offline intent engine
 //
 // A pure-TS, fully offline rule engine that turns a natural-language request
@@ -205,24 +205,31 @@ export function matchIntent(text: string, locale: Locale = 'zh-CN'): IntentMatch
 
 // ---- code synthesis ----------------------------------------------------------
 
-function sourceLine(slots: IntentSlots): string {
+function sourceLine(slots: IntentSlots, dataFiles: string[]): string {
   if (slots.source) return `df = studio.load('${slots.source.replace(/'/g, "\\'")}')`;
+  if (dataFiles.length > 0) {
+    // Project data exists: default to the first file instead of fabricating
+    // synthetic samples, so statistics describe the user's actual data.
+    const first = dataFiles[0]!.replace(/'/g, "\\'");
+    const rest = dataFiles.slice(1).map((f) => `'${f.replace(/'/g, "\\'")}'`).join(', ');
+    return `df = studio.load('${first}')  # 项目数据文件${rest ? `（其余可用：${rest}）` : ''}`;
+  }
   return 'df = studio.exampleData(200, 1)  # 无数据文件时合成正弦+噪声样本';
 }
 
 // The templates below only ever call APIs from STUDIO_API_NAMES; tests assert
 // this via validateStudioApi.
 
-const TEMPLATES: Record<IntentKind, (slots: IntentSlots) => string> = {
-  correlation: (slots) => `# AI 助手：相关分析（${slots.x ?? '自动列'} × ${slots.y ?? '自动列'}）
+const TEMPLATES: Record<IntentKind, (slots: IntentSlots, dataFiles: string[]) => string> = {
+  correlation: (slots, dataFiles) => `# AI 助手：相关分析（${slots.x ?? '自动列'} × ${slots.y ?? '自动列'}）
 import studio
 import math
 
-${sourceLine(slots)}
+${sourceLine(slots, dataFiles)}
 cols = dict(df.columns)
 names = df.column_names()
-xcol = ${q(slots.x)} if ${q(slots.x)} in names else names[0]
-ycol = ${q(slots.y)} if (${q(slots.y)} in names and ${q(slots.y)} != xcol) else (names[1] if len(names) > 1 else xcol)
+xcol = ${pick(slots.x, 'names[0] if len(names) > 0 else None')}
+ycol = ${slots.y ? `${q(slots.y)} if (${q(slots.y)} in names and ${q(slots.y)} != xcol) else (names[1] if len(names) > 1 else xcol)` : 'names[1] if len(names) > 1 else xcol'}
 xs = cols[xcol]
 ys = cols[ycol]
 n = min(len(xs), len(ys))
@@ -237,15 +244,15 @@ studio.print(studio.summary(df, xcol))
 studio.plot('scatter', df, {'x': xcol, 'y': ycol})
 `,
 
-  regression: (slots) => `# AI 助手：线性回归（最小二乘拟合 ${slots.x ?? '自动列'} → ${slots.y ?? '自动列'}）
+  regression: (slots, dataFiles) => `# AI 助手：线性回归（最小二乘拟合 ${slots.x ?? '自动列'} → ${slots.y ?? '自动列'}）
 import studio
 import math
 
-${sourceLine(slots)}
+${sourceLine(slots, dataFiles)}
 cols = dict(df.columns)
 names = df.column_names()
-xcol = ${q(slots.x)} if ${q(slots.x)} in names else names[0]
-ycol = ${q(slots.y)} if (${q(slots.y)} in names and ${q(slots.y)} != xcol) else (names[1] if len(names) > 1 else xcol)
+xcol = ${pick(slots.x, 'names[0] if len(names) > 0 else None')}
+ycol = ${slots.y ? `${q(slots.y)} if (${q(slots.y)} in names and ${q(slots.y)} != xcol) else (names[1] if len(names) > 1 else xcol)` : 'names[1] if len(names) > 1 else xcol'}
 xs = cols[xcol]
 ys = cols[ycol]
 n = min(len(xs), len(ys))
@@ -266,26 +273,26 @@ studio.plot('scatter', df, {'x': xcol, 'y': ycol})
 studio.plot('line', df2, {'x': xcol, 'y': 'fit'})
 `,
 
-  distribution: (slots) => `# AI 助手：分布查看（${q(slots.column) ?? '自动列'}，${slots.bins ?? 20} 个分箱）
+  distribution: (slots, dataFiles) => `# AI 助手：分布查看（${slots.column ?? '自动列'}，${slots.bins ?? 20} 个分箱）
 import studio
 
-${sourceLine(slots)}
+${sourceLine(slots, dataFiles)}
 names = df.column_names()
-col = ${q(slots.column)} if ${q(slots.column)} in names else names[0]
+col = ${pick(slots.column, 'names[0] if len(names) > 0 else None')}
 bins = ${slots.bins ?? 20}
 studio.print(studio.summary(df, col))
 studio.print(studio.histogram(df, col, bins))
 studio.plot('histogram', df, {'column': col})
 `,
 
-  test: (slots) => `# AI 助手：单样本 t 检验（${q(slots.column) ?? '自动列'} vs μ₀=${slots.mu ?? 0}）
+  test: (slots, dataFiles) => `# AI 助手：单样本 t 检验（${slots.column ?? '自动列'} vs μ₀=${slots.mu ?? 0}）
 import studio
 import math
 
-${sourceLine(slots)}
+${sourceLine(slots, dataFiles)}
 cols = dict(df.columns)
 names = df.column_names()
-col = ${q(slots.column)} if ${q(slots.column)} in names else names[0]
+col = ${pick(slots.column, 'names[0] if len(names) > 0 else None')}
 mu0 = ${slots.mu ?? 0}
 vals = cols[col]
 n = len(vals)
@@ -297,13 +304,13 @@ studio.print('t = %.4f  df = %d  (|t| > 1.96 ⇒ 大样本近似下 5%% 显著)'
 studio.print('显著' if abs(t) > 1.96 else '不显著')
 `,
 
-  filter: (slots) => `# AI 助手：信号滤波（移动平均，窗口=${slots.window ?? 5}）
+  filter: (slots, dataFiles) => `# AI 助手：信号滤波（移动平均，窗口=${slots.window ?? 5}）
 import studio
 
-${sourceLine(slots)}
+${sourceLine(slots, dataFiles)}
 cols = dict(df.columns)
 names = df.column_names()
-col = ${q(slots.column)} if ${q(slots.column)} in names else (names[1] if len(names) > 1 else names[0])
+col = ${pick(slots.column, 'names[1] if len(names) > 1 else names[0]')}
 window = ${slots.window ?? 5}
 half = window // 2
 vals = cols[col]
@@ -327,13 +334,29 @@ function q(value: string | null): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-/** Synthesize runnable `studio.*` Python code for a matched intent. */
-export function synthesizeCode(kind: IntentKind, slots: Partial<IntentSlots> = {}): string {
+/**
+ * Column-selection expression. An absent slot must fall back to an actual
+ * column name — emitting `None if None in names ...` is legal Python but
+ * misleading to a reader editing the draft.
+ */
+function pick(value: string | null, fallback: string): string {
+  if (value === null || value === undefined) return fallback;
+  return `${q(value)} if ${q(value)} in names else ${fallback}`;
+}
+
+/** Synthesize runnable `studio.*` Python code for a matched intent.
+ *  `dataFiles` lists the project's data-file names; when the prompt did not
+ *  name a source, the first one becomes the default dataset. */
+export function synthesizeCode(
+  kind: IntentKind,
+  slots: Partial<IntentSlots> = {},
+  dataFiles: string[] = [],
+): string {
   const full: IntentSlots = {
     source: null, x: null, y: null, column: null, bins: null, window: null, mu: null,
     ...slots,
   };
-  return TEMPLATES[kind](full);
+  return TEMPLATES[kind](full, dataFiles);
 }
 
 // ---- error-driven fix suggestions --------------------------------------------

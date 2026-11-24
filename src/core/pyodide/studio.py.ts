@@ -362,11 +362,14 @@ def _parse_delimited(text, default_names):
             continue
     if not rows:
         raise ValueError("no numeric data found")
-    width = len(header) if header else max(len(r) for r in rows)
+    # A header narrower than the data (e.g. `x,y` + `1,2,` — Excel likes a
+    # trailing delimiter) is NOT a reason to throw away every good row. Take
+    # the widest shape and pad missing cells with NaN; name the extra columns
+    # from the default sequence. Only genuinely non-numeric tokens are skipped
+    # above, so no valid data disappears silently here.
+    width = max(len(header), max(len(r) for r in rows))
     columns = [[] for _ in range(width)]
     for r in rows:
-        if len(r) > width:
-            continue
         for i in range(width):
             columns[i].append(r[i] if i < len(r) else float("nan"))
     names = [header[i] if i < len(header) else default_names(i) for i in range(width)]

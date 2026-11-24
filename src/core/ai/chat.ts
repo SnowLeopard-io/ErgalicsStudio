@@ -13,6 +13,7 @@
 // ==========================================================================
 
 import type { Locale } from '@/i18n/types';
+import { listAiDataFiles } from '@/core/dataFiles';
 import { matchIntent, synthesizeCode } from './intents';
 import {
   isOnlineAuthorized,
@@ -157,7 +158,7 @@ function chatForOffline(prompt: string, locale: Locale): Omit<AgentChatResult, '
     const note = isOnlineConfigured() ? assistantUnavailable(locale) : onlineNotConfigured(locale);
     return { text: note, code: null, texts: [], calls: [], note, truncated: false };
   }
-  const code = synthesizeCode(intent.kind, intent.slots);
+  const code = synthesizeCode(intent.kind, intent.slots, listAiDataFiles());
   return { text: '', code, texts: [], calls: [], note: null, truncated: false };
 }
 

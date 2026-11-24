@@ -15,6 +15,7 @@
 // ==========================================================================
 
 import type { Locale } from '@/i18n/types';
+import { listAiDataFiles } from '@/core/dataFiles';
 import { matchIntent, synthesizeCode, suggestFix, type IntentMatch } from './intents';
 import { parseChatResponse, type ChatRequestOptions, type ChatResponse } from './protocol';
 
@@ -263,7 +264,7 @@ export async function askAssistant(request: AssistantRequest): Promise<Assistant
       return {
         mode: 'online',
         intent,
-        code: intent ? synthesizeCode(intent.kind, intent.slots) : null,
+        code: intent ? synthesizeCode(intent.kind, intent.slots, listAiDataFiles()) : null,
         text: null,
         note: onlineNotConfigured(request.locale),
         needsOnline: true,
@@ -280,7 +281,7 @@ export async function askAssistant(request: AssistantRequest): Promise<Assistant
       return {
         mode: 'online',
         intent,
-        code: intent ? synthesizeCode(intent.kind, intent.slots) : null,
+        code: intent ? synthesizeCode(intent.kind, intent.slots, listAiDataFiles()) : null,
         text: null,
         note: onlineFailedNote(request.locale, msg),
         needsOnline: false,
@@ -301,7 +302,7 @@ export async function askAssistant(request: AssistantRequest): Promise<Assistant
   return {
     mode: 'offline',
     intent,
-    code: synthesizeCode(intent.kind, intent.slots),
+    code: synthesizeCode(intent.kind, intent.slots, listAiDataFiles()),
     text: null,
     note: null,
     needsOnline: false,
