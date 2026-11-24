@@ -11,6 +11,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
+import type { ValidatedDataPayload } from '@/types/dataSchema';
 
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pearson, spearman, ols, bi, pm, fmtP, isZh } from '../../shared/chartStats';
@@ -113,6 +114,31 @@ export class ScatterPlugin implements Plugin {
   async loadData(file: File) {
     const text = await file.text();
     const rows = this.parse(text);
+    this.applyRows(rows);
+  }
+
+  /** Structured ingestion (schema-mapped): data is already validated rows,
+   *  and `columnMapping` carries the ORIGINAL source headers (mapping.x is
+   *  e.g. `time_s`), which become the axis titles — the normalized file the
+   *  legacy path sees only has schema keys (`x,y`), so without this the
+   *  header-capture axis titles never reached the mapped pipeline. */
+  async loadValidatedData(payload: ValidatedDataPayload) {
+    const mapping = payload.source.columnMapping;
+    this.headers =
+      mapping && (mapping.x || mapping.y)
+        ? [mapping.x, mapping.y].filter((h): h is string => Boolean(h))
+        : null;
+    const data = payload.data as Array<{ x: number; y: number; value?: number }>;
+    const rows: Row[] = data.map((r) => ({
+      x: r.x,
+      y: r.y,
+      c: typeof r.value === 'number' ? r.value : undefined,
+    }));
+    this.applyRows(rows);
+  }
+
+  /** Shared ingestion tail: empty-check, color range, stats + render. */
+  private applyRows(rows: Row[]) {
     if (rows.length < 2) {
       // A file with no usable points used to fail silently — the canvas just
       // stayed empty with no feedback, looking like a hung plugin.
