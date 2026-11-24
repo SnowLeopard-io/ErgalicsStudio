@@ -467,11 +467,15 @@ export function serializeTabularRows(
     }
   }
 
-  // Drop completely absent optional schema columns only if no row uses them?
-  // Keep all schema columns so re-importing into the online editor preserves full structure.
-  const lines: string[] = [schemaCols.map((h) => escapeCsvCell(h, delim)).join(delim)];
+  // Drop schema columns that exist but are EMPTY in every row: they only
+  // produce trailing commas (`0.00,101.4,`) that downstream numeric parsers
+  // treat as malformed rows. Columns absent from the schema keys entirely
+  // were already handled above; a fully-empty optional column carries no
+  // information, so omitting it loses nothing.
+  const used = schemaCols.filter((k) => rows.some((row) => String(row[k] ?? '').trim() !== ''));
+  const lines: string[] = [used.map((h) => escapeCsvCell(h, delim)).join(delim)];
   for (const row of rows) {
-    lines.push(schemaCols.map((k) => escapeCsvCell(row[k], delim)).join(delim));
+    lines.push(used.map((k) => escapeCsvCell(row[k], delim)).join(delim));
   }
   return lines.join('\n');
 }

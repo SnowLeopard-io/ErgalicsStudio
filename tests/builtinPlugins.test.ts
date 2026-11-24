@@ -86,6 +86,14 @@ describe('scatter parseScatter', () => {
     expect(rows[0]?.y).toBeCloseTo(0.25);
   });
 
+  it('keeps rows with an empty trailing column (schema-mapped CSV)', () => {
+    // Schema-mapped files emit an empty optional column as trailing commas;
+    // those rows must still parse instead of being dropped wholesale.
+    const rows = parseScatter('x,y,value\n0.00,101.4,\n0.01,101.1,\n0.02,101.2,\n');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toEqual({ x: 0, y: 101.4, c: undefined });
+  });
+
   it('extractHeaders captures a non-numeric header row', () => {
     expect(extractHeaders('time_s displacement_m\n1 2\n3 4\n')).toEqual([
       'time_s',

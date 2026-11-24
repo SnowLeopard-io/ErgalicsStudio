@@ -336,13 +336,15 @@ export function parseScatter(text: string): Row[] {
     if (rows.length >= MAX_POINTS) break;
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const parts = trimmed.split(/[\s,]+/);
-    const nums = parts.map((s) => parseFloat(s));
-    if (nums.length < 2 || nums.slice(0, 3).some((n) => !Number.isFinite(n))) continue;
+    // Drop empty tokens so a trailing delimiter — schema-mapped CSVs emit an
+    // empty optional column as `0.00,101.4,` — never poisons the row.
+    const parts = trimmed.split(/[\s,]+/).filter((s) => s !== '');
+    const nums = parts.map(Number);
+    if (nums.length < 2 || !Number.isFinite(nums[0]!) || !Number.isFinite(nums[1]!)) continue;
     rows.push({
       x: nums[0]!,
       y: nums[1]!,
-      c: nums[2] !== undefined && Number.isFinite(nums[2]) ? nums[2] : undefined,
+      c: nums[2] !== undefined && Number.isFinite(nums[2]!) ? nums[2]! : undefined,
     });
   }
   return rows;
