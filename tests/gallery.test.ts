@@ -105,7 +105,13 @@ describe('curated gallery catalog', () => {
   });
 
   it('carries template ids that match the workstation template catalog ids', () => {
+    // pendulum-chaos deliberately has no template (no pendulum/chaos template
+    // exists; the old physics-error mapping opened the wrong experiment).
     for (const item of CURATED_GALLERY) {
+      if (item.id === 'pendulum-chaos') {
+        expect(item.templateId).toBeUndefined();
+        continue;
+      }
       expect(item.templateId).toBeTruthy();
     }
   });

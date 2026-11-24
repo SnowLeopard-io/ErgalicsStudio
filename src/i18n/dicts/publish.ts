@@ -64,6 +64,13 @@ export const publishZh: LocaleDictionary = {
   'publish.latex.zoom': '缩放',
   'publish.latex.zoom_reset': '重置',
 
+  // Shared paper preview (report generator + LaTeX editor).
+  'paper.zoom': '缩放',
+  'paper.zoom_in': '放大',
+  'paper.zoom_out': '缩小',
+  'paper.zoom_reset': '100%',
+  'paper.empty': '暂无可预览的内容',
+
   'publish.citation.library': '文献库',
   'publish.citation.import_bibtex': '导入 BibTeX',
   'publish.citation.import_file': '从文件导入',
@@ -227,6 +234,12 @@ export const publishEn: LocaleDictionary = {
   'publish.latex.compile_hint': 'The in-browser preview covers common layout; the PDF is typeset in-app and exported beside the .tex.',
   'publish.latex.zoom': 'Zoom',
   'publish.latex.zoom_reset': 'Reset',
+
+  'paper.zoom': 'Zoom',
+  'paper.zoom_in': 'Zoom in',
+  'paper.zoom_out': 'Zoom out',
+  'paper.zoom_reset': '100%',
+  'paper.empty': 'Nothing to preview yet',
 
   'publish.citation.library': 'Library',
   'publish.citation.import_bibtex': 'Import BibTeX',
