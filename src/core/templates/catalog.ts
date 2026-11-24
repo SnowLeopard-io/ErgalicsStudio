@@ -780,7 +780,8 @@ export function getTemplate(id: string | undefined): SubjectTemplate | undefined
  * `#/?gallery=<id>`; `#/?template=<id>` is also supported directly).
  */
 export const GALLERY_ID_TO_TEMPLATE: Record<string, string> = {
-  'pendulum-chaos': 'physics-error',
+  // 'pendulum-chaos' intentionally absent: no pendulum/chaos template exists
+  // and the old physics-error mapping opened the wrong (free-fall) experiment.
   'two-sample-t': 'bio-stats',
   'fits-spectrum': 'astro-fits',
   'vibration-fft': 'eng-signal',

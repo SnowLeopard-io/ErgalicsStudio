@@ -40,7 +40,10 @@ export const GALLERY: GalleryItem[] = [
       en: '200 perturbed initial conditions integrated in parallel; Lyapunov exponents quantify how fast the orbits diverge.',
     },
     subject: 'physics', chartType: 'line', author: 'L. Wang',
-    studioRoute: '/studio/uncertainty', template: 'physics-error', repro: 'ok', seed: 11,
+    // No template: the double-pendulum chaos work predates the template
+    // catalog and no pendulum/chaos template exists — mapping it to
+    // physics-error (free-fall) opened the wrong experiment.
+    studioRoute: '/studio/uncertainty', repro: 'ok', seed: 11,
     tools: ['uncertainty', 'signal'], updatedAt: '2026-08-30',
   },
   {
