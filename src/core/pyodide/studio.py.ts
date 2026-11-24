@@ -362,7 +362,7 @@ def _parse_delimited(text, default_names):
             continue
     if not rows:
         raise ValueError("no numeric data found")
-    # A header narrower than the data (e.g. `x,y` + `1,2,` — Excel likes a
+    # A header narrower than the data (e.g. 'x,y' + '1,2,' — Excel likes a
     # trailing delimiter) is NOT a reason to throw away every good row. Take
     # the widest shape and pad missing cells with NaN; name the extra columns
     # from the default sequence. Only genuinely non-numeric tokens are skipped
