@@ -291,7 +291,7 @@ export class ScatterPlugin implements Plugin {
       const xv = minX + rangeX * t;
       const yv = minY + rangeY * t;
       g.fillText(fmtX(xv), px(xv), h - margin.bottom + 14);
-      g.fillText(fmtY(xv === xv ? yv : yv), margin.left - 8, py(yv) + 3);
+      g.fillText(fmtY(yv), margin.left - 8, py(yv) + 3);
     }
 
     // Axis titles: real column names when the data carried a header row,
@@ -429,15 +429,15 @@ function ramp(t: number): [number, number, number] {
   ];
 }
 
-function short(v: number): string {
-  const a = Math.abs(v);
-  if (a >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
-  if (a >= 1e4) return `${(v / 1e3).toFixed(1)}k`;
-  // Non-integer ticks on a narrow domain (100.9 / 101.1 / 101.3) must not all
-  // collapse to "101" — keep enough precision to tell them apart.
-  if (a >= 100) return Number.isInteger(v) ? v.toFixed(0) : v.toPrecision(4);
-  if (a >= 1) return v.toFixed(1);
-  return v.toFixed(2);
+/** Tick labels whose precision follows the tick STEP, not the magnitude:
+ *  y ∈ [23.10, 23.20] has ticks 0.025 apart and any magnitude-based
+ *  formatter renders them all as "23.1". decimals = ceil(-log10(step)). */
+function tickFormatter(step: number): (v: number) => string {
+  const s = Math.abs(step) || 1;
+  if (s >= 1e6) return (v) => `${(v / 1e6).toFixed(1)}M`;
+  if (s >= 1e4) return (v) => `${(v / 1e3).toFixed(1)}k`;
+  const decimals = Math.min(6, Math.max(0, Math.ceil(-Math.log10(s))));
+  return (v) => v.toFixed(decimals);
 }
 
 export default function createScatterPlugin(): Plugin {
