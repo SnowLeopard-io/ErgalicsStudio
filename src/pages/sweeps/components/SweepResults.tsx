@@ -18,7 +18,13 @@ interface SweepResultsProps {
 }
 
 export function SweepResults({ t, plan, result, onSendSurface }: SweepResultsProps) {
-  const surface = useMemo(() => buildSurface(plan, result), [plan, result]);
+  // `result.cells` is appended to in place by the runner while onProgress
+  // keeps handing out the same object, so a [plan, result] dep would never
+  // refire after the first cell. Key on the cell count instead.
+  const surface = useMemo(
+    () => buildSurface(plan, result),
+    [plan, result, result.cells.length],
+  );
   const statusKey = `sweep.status_${result.status}`;
 
   return (

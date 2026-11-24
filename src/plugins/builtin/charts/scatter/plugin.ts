@@ -281,12 +281,17 @@ export class ScatterPlugin implements Plugin {
     g.fillStyle = 'rgba(148, 163, 184, 0.8)';
     g.font = `10px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.textAlign = 'center';
+    // Tick precision follows the STEP, not the magnitude: y ∈ [23.10, 23.20]
+    // has ticks 0.025 apart and every magnitude-based formatter renders them
+    // identically ("23.1"). decimals = ceil(-log10(step)).
+    const fmtX = tickFormatter(rangeX / 4);
+    const fmtY = tickFormatter(rangeY / 4);
     for (let k = 0; k <= 4; k += 1) {
       const t = k / 4;
       const xv = minX + rangeX * t;
       const yv = minY + rangeY * t;
-      g.fillText(short(xv), px(xv), h - margin.bottom + 14);
-      g.fillText(short(yv), margin.left - 8, py(yv) + 3);
+      g.fillText(fmtX(xv), px(xv), h - margin.bottom + 14);
+      g.fillText(fmtY(xv === xv ? yv : yv), margin.left - 8, py(yv) + 3);
     }
 
     // Axis titles: real column names when the data carried a header row,
