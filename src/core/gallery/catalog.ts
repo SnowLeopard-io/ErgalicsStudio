@@ -59,7 +59,9 @@ export const CURATED_GALLERY: GalleryItem[] = [
       en: '200 perturbed initial conditions integrated in parallel; Lyapunov exponents quantify how fast the orbits diverge.',
     },
     subject: 'physics', chartType: 'line', author: 'L. Wang',
-    studioRoute: '/studio/uncertainty', template: 'physics-error', repro: 'ok', seed: 11,
+    // No template: no pendulum/chaos template exists; the old physics-error
+    // mapping opened the wrong (free-fall) experiment.
+    studioRoute: '/studio/uncertainty', repro: 'ok', seed: 11,
     updatedAt: '2026-08-30', license: 'CC-BY-4.0',
   }),
   curated({

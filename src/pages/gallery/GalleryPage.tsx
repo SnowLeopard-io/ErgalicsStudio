@@ -20,6 +20,7 @@ import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
 import { pickLocale, loadTemplate } from '@/core/templates';
 import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { listCuratedGallery } from '@/core/gallery/catalog';
 import { filterGallery, type GalleryFilter } from '@/core/gallery/filter';
 import {
@@ -132,6 +133,8 @@ export default function GalleryPage() {
   const [filter, setFilter] = useState<GalleryFilter>({});
   const [detail, setDetail] = useState<GalleryItem | null>(null);
   const [confirmTakedown, setConfirmTakedown] = useState<GalleryItem | null>(null);
+  /** Pending "open in Ergalics" while the replace-project confirm is up. */
+  const [confirmOpen, setConfirmOpen] = useState<GalleryItem | null>(null);
   const [showTakenDown, setShowTakenDown] = useState(false);
   /** Bumped after every store mutation so the local list re-reads. */
   const [refresh, setRefresh] = useState(0);
@@ -165,9 +168,21 @@ export default function GalleryPage() {
       notify('info', t('gallery.open_no_template'));
       return;
     }
-    const result = await loadTemplate(item.templateId);
+    // Opening a template replaces the active project. Never do that silently:
+    // confirm first when the workspace already holds any file.
+    const project = useProjectStore.getState().project;
+    if (project && project.files.length > 0) {
+      setConfirmOpen(item);
+      return;
+    }
+    await openTemplateNow(item);
+  };
+
+  const openTemplateNow = async (item: GalleryItem) => {
+    const result = await loadTemplate(item.templateId!);
     if (result.ok) {
       setDetail(null);
+      setConfirmOpen(null);
       navigate(result.route);
     } else {
       notify('error', t('gallery.open_failed', { error: result.error }));
@@ -424,6 +439,26 @@ export default function GalleryPage() {
       )}
 
       {/* ---- Take-down confirmation ---- */}
+      {confirmOpen && (
+        <Modal
+          open
+          onClose={() => setConfirmOpen(null)}
+          title={t('gallery.open_confirm_title')}
+          width={420}
+          footer={
+            <>
+              <button type="button" className="btn" onClick={() => setConfirmOpen(null)}>
+                {t('common.cancel')}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => void openTemplateNow(confirmOpen)}>
+                {t('gallery.open')}
+              </button>
+            </>
+          }
+        >
+          <p className="modal-text">{t('gallery.open_confirm_body')}</p>
+        </Modal>
+      )}
       {confirmTakedown && (
         <Modal
           open
