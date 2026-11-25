@@ -33,6 +33,8 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node scripts/e2e-run.mjs",
+    "l4:report": "vitest run tests/acceptance/l4.test.ts",
+    "l4:gate": "node scripts/l4-gate.mjs",
     "verify": "npm run typecheck && npm test",
     "verify:site": "node scripts/verify-site.mjs --merge",
     "bench": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs && node scripts/bench-report.mjs",

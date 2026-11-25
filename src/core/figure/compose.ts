@@ -8,10 +8,28 @@
 // PlotSpec itself is NOT modified — composition only re-sizes panels.
 // ==========================================================================
 
-import { renderSVG, exportSVG, exportPDF, exportPNG, rasterizePNG, buildPDF } from '@/core/plot';
+import { renderSVG, exportSVG, rasterizePNG, buildPDF, downloadBytes } from '@/core/plot';
 import type { PlotSpec } from '@/core/plot';
 import { saveTextArtifact, saveBinaryArtifact } from '@/core/workspace-artifacts';
+import {
+  buildSidecar,
+  downloadSidecar,
+  hashBinaryArtifact,
+  hashTextArtifact,
+  saveSidecarToWorkspace,
+} from '@/core/result/sidecar';
+import type { ResultRecord } from '@/core/result/types';
+import { buildVectorPDF } from '@/core/pdf/vector';
 import type { Project } from '@/types/project';
+
+/** Provenance attached to every figure export (FR-4). */
+export interface FigureExportProvenance {
+  record?: ResultRecord;
+  sourceResultIds?: string[];
+  colorSpace?: 'rgb' | 'cmyk';
+  /** Experimental vector PDF; default is the font-compatible raster path. */
+  pdfMode?: 'raster' | 'vector';
+}
 
 /** One panel of a composed figure, placed on a row/col grid. */
 export interface FigurePanel {
@@ -20,6 +38,8 @@ export interface FigurePanel {
   col: number;
   /** Panel tag (a, b, c, …). Auto-assigned in compose order when empty. */
   tag?: string;
+  /** Id of the immutable ResultRecord this panel's numbers came from (FR-2). */
+  sourceResultId?: string;
   spec: PlotSpec;
 }
 
@@ -249,20 +269,48 @@ export async function exportFigure(
   format: FigureExportFormat,
   filename = 'figure',
   dpi = 600,
+  provenance: FigureExportProvenance = {},
 ): Promise<void> {
   const composed = composeFigure(fs);
   const tpl = templateById(fs.templateId);
+  const emitSidecar = (artifactName: string, hash: string) => {
+    if (!provenance.record) return;
+    downloadSidecar(
+      buildSidecar(
+        provenance.record,
+        { name: artifactName, hash },
+        {
+          format: format === 'pdf' && provenance.pdfMode === 'vector' ? 'pdf-vector' : format,
+          template: fs.templateId,
+          dpi,
+          colorSpace: provenance.colorSpace ?? 'rgb',
+        },
+        provenance.sourceResultIds,
+      ),
+    );
+  };
   if (format === 'svg') {
-    exportSVG(composed.markup, `${filename}.svg`);
+    const name = `${filename}.svg`;
+    exportSVG(composed.markup, name);
+    emitSidecar(name, hashTextArtifact(composed.markup));
     return;
   }
   if (format === 'pdf') {
     const cols = Math.max(...fs.panels.map((p) => p.col + 1), 1);
     const widthMm = tpl.columnWidthMm * (cols > 1 && !tpl.id.endsWith('double') ? cols : 1);
-    await exportPDF(composed.markup, `${filename}.pdf`, Math.min(widthMm, 277), dpi);
+    const bytes =
+      provenance.pdfMode === 'vector'
+        ? await buildVectorPDF(composed.markup, Math.min(widthMm, 277))
+        : await buildPDF(composed.markup, Math.min(widthMm, 277), dpi);
+    const name = `${filename}.pdf`;
+    downloadBytes(bytes, name, 'application/pdf');
+    emitSidecar(name, hashBinaryArtifact(bytes));
     return;
   }
-  exportPNG(composed.markup, `${filename}.png`, Math.max(1, dpi) / 96);
+  const bytes = await rasterizePNG(composed.markup, Math.max(1, dpi) / 96);
+  const name = `${filename}.png`;
+  downloadBytes(bytes, name, 'image/png');
+  emitSidecar(name, hashBinaryArtifact(bytes));
 }
 
 /**
@@ -276,19 +324,50 @@ export async function saveFigureToWorkspace(
   format: FigureExportFormat,
   filename = 'figure',
   dpi = 600,
+  provenance: FigureExportProvenance = {},
 ): Promise<string> {
   const composed = composeFigure(fs);
   const tpl = templateById(fs.templateId);
   const safe = filename.replace(/[^\w.-]+/g, '-');
+  const persistSidecar = async (artifactName: string, hash: string) => {
+    if (!provenance.record) return;
+    await saveSidecarToWorkspace(
+      project,
+      `figures/${artifactName}`,
+      buildSidecar(
+        provenance.record,
+        { name: artifactName, hash },
+        {
+          format: format === 'pdf' && provenance.pdfMode === 'vector' ? 'pdf-vector' : format,
+          template: fs.templateId,
+          dpi,
+          colorSpace: provenance.colorSpace ?? 'rgb',
+        },
+        provenance.sourceResultIds,
+      ),
+    );
+  };
   if (format === 'svg') {
-    return saveTextArtifact(project, 'figures', `${safe}.svg`, composed.markup);
+    const name = `${safe}.svg`;
+    const path = await saveTextArtifact(project, 'figures', name, composed.markup);
+    await persistSidecar(name, hashTextArtifact(composed.markup));
+    return path;
   }
   if (format === 'pdf') {
     const cols = Math.max(...fs.panels.map((p) => p.col + 1), 1);
     const widthMm = tpl.columnWidthMm * (cols > 1 && !tpl.id.endsWith('double') ? cols : 1);
-    const bytes = await buildPDF(composed.markup, Math.min(widthMm, 277), dpi);
-    return saveBinaryArtifact(project, 'figures', `${safe}.pdf`, bytes);
+    const bytes =
+      provenance.pdfMode === 'vector'
+        ? await buildVectorPDF(composed.markup, Math.min(widthMm, 277))
+        : await buildPDF(composed.markup, Math.min(widthMm, 277), dpi);
+    const name = `${safe}.pdf`;
+    const path = await saveBinaryArtifact(project, 'figures', name, bytes);
+    await persistSidecar(name, hashBinaryArtifact(bytes));
+    return path;
   }
   const bytes = await rasterizePNG(composed.markup, Math.max(1, dpi) / 96);
-  return saveBinaryArtifact(project, 'figures', `${safe}.png`, bytes);
+  const name = `${safe}.png`;
+  const path = await saveBinaryArtifact(project, 'figures', name, bytes);
+  await persistSidecar(name, hashBinaryArtifact(bytes));
+  return path;
 }

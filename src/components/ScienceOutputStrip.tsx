@@ -9,10 +9,12 @@ import { stageLabHandoff } from '@/core/labHandoff';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useResultStore } from '@/stores/resultStore';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { useAppStore } from '@/stores/appStore';
 import { industrialStripMetrics } from '@/pages/industrial/labels';
 import { useT } from '@/i18n';
+import { ProvenanceCard } from './ProvenanceCard';
 
 /** Research suites the staged data file can be deep-linked into. */
 const DEEP_LINKS = [
@@ -109,6 +111,15 @@ export function ScienceOutputStrip() {
   }, [activeId, runHistory, projectFiles]);
 
   const entry = activeId ? outputs[activeId] : undefined;
+  const resultRecord = useResultStore((s) =>
+    entry?.resultId ? s.records.find((r) => r.resultId === entry.resultId) : undefined,
+  );
+  // The strip renders the record's numbers, not a second copy held by the
+  // plugin or the bus (FR-2). The bus entry only supplies the resultId.
+  const displayMetrics: import('@/core/result/types').ResultMetric[] =
+    resultRecord?.metrics ??
+    entry?.metrics.map((m) => ({ ...m, display: m.value })) ??
+    [];
 
   // Industrial study facts switch with the active canvas tab: each industrial
   // suite publishes the parameters that matter to it (geometry → entities /
@@ -132,12 +143,13 @@ export function ScienceOutputStrip() {
   // return (metrics appearing/disappearing must not change hook order); the
   // effect no-ops while the strip isn't rendered.
   const itemsRef = useRef<HTMLDivElement>(null);
-  const hasEntry = !!(entry?.pluginId === activeId && entry.metrics.length > 0);
+  const hasEntry = !!(entry?.pluginId === activeId && displayMetrics.length > 0);
   // Deep-link popover above the strip: opens on mouse hover (desktop) and on
   // tap (touch — pointerType-aware so a mouse click never toggles it). Close
   // is delayed briefly so the pointer can cross the card/strip gap (the CSS
   // ::after bridge usually covers it; this is the second line of defense).
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [provenanceOpen, setProvenanceOpen] = useState(false);
   const closeTimer = useRef<number | null>(null);
   const openActions = () => {
     if (closeTimer.current !== null) {
@@ -176,7 +188,7 @@ export function ScienceOutputStrip() {
     return () => el.removeEventListener('wheel', onWheel);
   }, [hasEntry, engMetrics.length]);
 
-  if ((!entry || entry.pluginId !== activeId || entry.metrics.length === 0) && engMetrics.length === 0) return null;
+  if ((!entry || entry.pluginId !== activeId || displayMetrics.length === 0) && engMetrics.length === 0) return null;
 
   // Metrics row mouse-wheel binding lives above (hooks-before-return).
 
@@ -228,6 +240,16 @@ export function ScienceOutputStrip() {
         }}
       >
         <span className="science-strip-title">Σ</span>
+        {entry?.resultId && (
+          <button
+            type="button"
+            className="prov-chip"
+            title={`${t('prov.open')} · ${entry.resultId}`}
+            onClick={() => setProvenanceOpen(true)}
+          >
+            {entry.resultId.slice(0, 8)}
+          </button>
+        )}
         <div className="science-strip-items" ref={itemsRef}>
           {engMetrics.map((m, i) => (
             <span
@@ -242,8 +264,8 @@ export function ScienceOutputStrip() {
               </span>
             </span>
           ))}
-          {entry?.pluginId === activeId && entry.metrics.map((m, i) => {
-            const valueText = String(m.value);
+          {entry?.pluginId === activeId && displayMetrics.map((m, i) => {
+            const valueText = m.display ?? String(m.value);
             // Some plugins already bake the unit into their formatted value
             // (e.g. "3.3 ms"). Do not print it twice when `unit` is also set.
             const unitAlreadyShown = m.unit ? valueText.trimEnd().endsWith(m.unit.trim()) : false;
@@ -264,6 +286,9 @@ export function ScienceOutputStrip() {
           })}
         </div>
       </div>
+      {provenanceOpen && entry?.resultId && (
+        <ProvenanceCard resultId={entry.resultId} onClose={() => setProvenanceOpen(false)} />
+      )}
     </div>
   );
 }

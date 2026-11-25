@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { runSweep } from '@/core/sweep/runner';
 import type { SweepPlan, SweepResult } from '@/core/sweep/types';
 import { useExperimentStore } from '@/stores/experimentStore';
+import { useResultStore } from '@/stores/resultStore';
 import { isAbortError, normalizeError, toErrorMessage } from '@/core/errors';
 import { reportError } from '@/core/errors';
 
@@ -103,6 +104,49 @@ export function useSweepExecution({ saveResult, notify, t }: SweepExecutionOptio
         if (abortRef.current !== controller) return;
         setLiveResult(result);
         saveResult(result);
+        // Every finished sweep is a trusted computation unit in its own
+        // right, linked back to the source plugin's result when one exists.
+        const values = result.cells.map((c) => c.value).filter(Number.isFinite);
+        if (values.length > 0) {
+          const parentResultId =
+            useResultStore.getState().getLatest(plan.sourceRef)?.resultId;
+          const mean = values.reduce((a, b) => a + b, 0) / values.length;
+          useResultStore.getState().publishResult({
+            pluginId: `sweep.${plan.id}`,
+            pluginVersion: '1',
+            parentResultId,
+            params: {
+              planId: plan.id,
+              source: plan.source,
+              sourceRef: plan.sourceRef,
+              axes: plan.axes,
+              expression: plan.expression,
+              repeats: plan.repeats,
+            },
+            metrics: [
+              { key: 'cells', label: 'Sweep cells', value: values.length, display: String(values.length) },
+              {
+                key: 'mean',
+                label: 'Mean of evaluated cells',
+                value: mean,
+                display: String(Number(mean.toPrecision(6))),
+                ...(plan.expression ? { formula: plan.expression } : {}),
+              },
+              {
+                key: 'min',
+                label: 'Minimum cell value',
+                value: Math.min(...values),
+                display: String(Math.min(...values)),
+              },
+              {
+                key: 'max',
+                label: 'Maximum cell value',
+                value: Math.max(...values),
+                display: String(Math.max(...values)),
+              },
+            ],
+          });
+        }
         if (result.status === 'done') notify('success', t('sweep.status_done'));
       } catch (caught) {
         if (isAbortError(caught) || controller.signal.aborted) {

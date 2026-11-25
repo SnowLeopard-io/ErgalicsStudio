@@ -14,6 +14,8 @@ import type { FigureExportFormat, FigurePanel } from '@/core/figure/compose';
 import type { PlotSpec } from '@/core/plot';
 import type { FigureSheet } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
+import { usePluginStore } from '@/stores/pluginStore';
+import { useResultStore } from '@/stores/resultStore';
 import { logger } from '@/core/logger';
 
 /** Number of columns a new panel auto-places into (row-major fill). */
@@ -23,6 +25,7 @@ interface PanelPlacement {
   row?: number;
   col?: number;
   tag?: string;
+  sourceResultId?: string;
 }
 
 interface FigureStore {
@@ -47,7 +50,23 @@ interface FigureStore {
   removePanel: (sheetId: string, index: number) => void;
   /** Compose + download; resolves after the export has been triggered. The
    *  `dpi` is the rasterization resolution (the PDF carries a raster too). */
-  exportSheet: (id: string, format: FigureExportFormat, dpi?: number) => Promise<void>;
+  exportSheet: (
+    id: string,
+    format: FigureExportFormat,
+    dpi?: number,
+    options?: { pdfMode?: 'raster' | 'vector' },
+  ) => Promise<void>;
+}
+
+/** Resolve the provenance record bound to a sheet (first bound panel wins). */
+function resolveSheetRecord(panels: FigurePanel[]) {
+  const results = useResultStore.getState();
+  for (const panel of panels) {
+    if (!panel.sourceResultId) continue;
+    const found = results.getResult(panel.sourceResultId);
+    if (found) return found;
+  }
+  return results.getLatest(usePluginStore.getState().activeId ?? '');
 }
 
 function nextFreeCell(panels: FigurePanel[]): { row: number; col: number } {
@@ -190,6 +209,11 @@ export const useFigureStore = create<FigureStore>((set) => ({
         row: cell.row,
         col: cell.col,
         tag: placement?.tag,
+        // Bind the panel to the result that produced its numbers. Callers
+        // may override; otherwise the active plugin's latest record is used.
+        sourceResultId:
+          placement?.sourceResultId ??
+          useResultStore.getState().getLatest(usePluginStore.getState().activeId ?? '')?.resultId,
         spec,
       };
       return { ...sheet, panels: [...sheet.panels, panel] };
@@ -213,6 +237,9 @@ export const useFigureStore = create<FigureStore>((set) => ({
         row,
         col,
         tag: placement?.tag !== undefined ? placement.tag : panel.tag,
+        ...(placement?.sourceResultId !== undefined
+          ? { sourceResultId: placement.sourceResultId }
+          : {}),
       };
       const panels = sheet.panels.slice();
       panels[index] = next;
@@ -230,7 +257,7 @@ export const useFigureStore = create<FigureStore>((set) => ({
     saveNow();
   },
 
-  exportSheet: async (id, format, dpi = 600) => {
+  exportSheet: async (id, format, dpi = 600, options) => {
     const { project } = useProjectStore.getState();
     const sheet = project?.state.figureSheets?.find((s) => s.id === id);
     if (!sheet) return;
@@ -239,6 +266,13 @@ export const useFigureStore = create<FigureStore>((set) => ({
       format,
       sheet.name || 'figure',
       dpi,
+      {
+        record: resolveSheetRecord(sheet.panels),
+        sourceResultIds: sheet.panels
+          .map((p) => p.sourceResultId)
+          .filter((id): id is string => Boolean(id)),
+        ...(options?.pdfMode ? { pdfMode: options.pdfMode } : {}),
+      },
     );
     emit(FIGURE_EXPORTED, { figureId: id, format: format === 'png600' ? 'png' : format });
   },

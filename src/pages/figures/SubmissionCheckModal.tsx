@@ -23,6 +23,8 @@ import type {
   SubmissionTargetId,
 } from '@/core/submit/checklist';
 import type { FigureExportFormat } from '@/core/figure/compose';
+import { downloadBlob } from '@/core/download';
+import { checklistToJson, checklistToMarkdown } from '@/core/submit/export';
 
 interface SubmissionCheckModalProps {
   open: boolean;
@@ -74,9 +76,37 @@ export function SubmissionCheckModal({
       width={560}
       onClose={onClose}
       footer={
-        <button type="button" className="btn" onClick={onClose}>
-          {t('common.ok')}
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn"
+            onClick={() =>
+              void downloadBlob(
+                'checklist.md',
+                checklistToMarkdown(result, (key, params) => t(key, params)),
+                'text/markdown;charset=utf-8',
+              )
+            }
+          >
+            {t('submit.export_md')}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() =>
+              void downloadBlob(
+                'checklist.json',
+                checklistToJson(result, (key, params) => t(key, params)),
+                'application/json;charset=utf-8',
+              )
+            }
+          >
+            {t('submit.export_json')}
+          </button>
+          <button type="button" className="btn" onClick={onClose}>
+            {t('common.ok')}
+          </button>
+        </>
       }
     >
       <div className="submit-panel">
