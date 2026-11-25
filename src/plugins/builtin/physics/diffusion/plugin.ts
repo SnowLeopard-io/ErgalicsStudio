@@ -238,12 +238,6 @@ export class PhysicsDiffusionPlugin implements Plugin {
       if (typeof params[k] === 'string' && allowed.includes(params[k] as T)) cb(params[k] as T);
     };
 
-    pick('dim', DIMS.map((d) => d.value) as Dim[], (v) => {
-      if (v !== this.state.dim) {
-        this.state.dim = v;
-        this.resetField();
-      }
-    });
     pick('scheme', SCHEMES.map((s) => s.value) as Scheme[], (v) => {
       if (v !== this.state.scheme) {
         this.state.scheme = v;
@@ -256,6 +250,7 @@ export class PhysicsDiffusionPlugin implements Plugin {
             'Crank–Nicolson 仅支持 1-D；2-D 已回退为 FTCS。',
           );
         }
+        this.clampDtForExplicit();
         this.validateStability(true);
         this.draw();
       }
@@ -296,6 +291,15 @@ export class PhysicsDiffusionPlugin implements Plugin {
     num('stepsPerFrame', (v) => {
       this.state.stepsPerFrame = Math.round(Math.min(10, Math.max(1, v)));
     });
+    pick('dim', DIMS.map((d) => d.value) as Dim[], (v) => {
+      if (v !== this.state.dim) {
+        this.state.dim = v;
+        // 2-D always runs the explicit scheme — the CN default dt (r≈25) would
+        // be refused by the gate; clamp it the same way a scheme switch does.
+        this.clampDtForExplicit();
+        this.resetField();
+      }
+    });
 
     if (actionFired(params, 'run')) {
       if (this.validateStability(true)) {
@@ -322,6 +326,28 @@ export class PhysicsDiffusionPlugin implements Plugin {
     this.frame = 0;
     this.publishLive();
     this.draw();
+  }
+
+  /**
+   * Switching to the explicit scheme (or to 2-D, which always runs FTCS) with
+   * the CN-friendly default dt (r≈25) either refused to run or read as "一拨
+   * 就炸". Clamp Δt to the stability ceiling once, visibly, so the switch
+   * lands on a runnable configuration instead of arming a trap.
+   */
+  private clampDtForExplicit(): void {
+    const p = this.params();
+    if (isStable(p)) return;
+    const dx = p.domain / (p.n - 1);
+    // Slider step is 1e-4; round the ceiling down onto the grid.
+    const dtMax = Math.floor((STABILITY_LIMIT * dx * dx) / p.d / 1e-4) * 1e-4;
+    const old = this.state.dt;
+    this.state.dt = Math.max(0.0001, Math.min(this.state.dt, dtMax));
+    notify(
+      this.api,
+      'info',
+      `Explicit scheme needs D·Δt/Δx² ≤ ${STABILITY_LIMIT}: Δt auto-reduced ${old.toExponential(1)} → ${this.state.dt.toExponential(1)}.`,
+      `显式格式需 D·Δt/Δx² ≤ ${STABILITY_LIMIT}：Δt 已自动从 ${old.toExponential(1)} 压到 ${this.state.dt.toExponential(1)}。`,
+    );
   }
 
   /** Pre-run stability gate for explicit schemes. Returns true when safe. */
