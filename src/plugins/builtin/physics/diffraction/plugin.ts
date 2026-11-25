@@ -284,6 +284,7 @@ export class PhysicsDiffractionPlugin implements Plugin {
     if (!this.profile) return null;
     if (p.aperture === 'slit') {
       const minima = findLocalMinima(this.profile.xs, this.profile.ys).filter((m) => m.x > 0);
+      const fringe = (p.lambda * p.L) / p.a; // first-minimum distance = order spacing
       let worst: { m: number; rel: number } | null = null;
       for (let m = 1; m <= 3; m++) {
         const xm = (m * p.lambda * p.L) / p.a;
@@ -296,7 +297,11 @@ export class PhysicsDiffractionPlugin implements Plugin {
             best = d.x;
           }
         }
-        if (best === null) continue;
+        // Orders whose nearest detected minimum sits more than half a fringe
+        // spacing away are effectively off-screen (e.g. x_3 beyond screenHalf
+        // with only x_1 detected): pairing them with the far-away x_1 minimum
+        // produced a bogus "66.67%" pseudo-error. Only in-screen orders count.
+        if (best === null || dist > fringe / 2) continue;
         const rel = Math.abs(best - xm) / xm;
         if (!worst || rel > worst.rel) worst = { m, rel };
       }
@@ -367,6 +372,11 @@ export class PhysicsDiffractionPlugin implements Plugin {
 
   private runBenchmarks() {
     const zh = this.zh;
+    // The Σ strip is cleared BEFORE updateParams runs (stale-results contract),
+    // and the four benchmarks take noticeable time on a cold JIT. Without this
+    // immediate ack the screen shows NOTHING for seconds and the click reads
+    // as silently dead.
+    notify(this.api, 'info', 'Running validation benchmarks…', '基准验证计算中，结果将显示在 Σ 指标条…');
     const minima = benchmarkSingleSlitMinima();
     const fringes = benchmarkDoubleSlitSpacing();
     const energy = benchmarkEnergyConservation();
