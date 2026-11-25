@@ -252,7 +252,10 @@ export class ScatterPlugin implements Plugin {
     // Bounds + margins for axes.
     const w = canvas.width;
     const h = canvas.height;
-    const margin = { left: 46, right: 14, top: 14, bottom: 34 };
+    // right: 30 (not 14) — the last x tick label is drawn centered on the
+    // axis end, so a 4-char label like "19.0" needs ~2× its half-width of
+    // room or it clips at the canvas edge.
+    const margin = { left: 46, right: 30, top: 14, bottom: 34 };
     const plotW = w - margin.left - margin.right;
     const plotH = h - margin.top - margin.bottom;
     let minX = Infinity;
