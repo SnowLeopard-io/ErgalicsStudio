@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
+import type { Locale } from '@/i18n/types';
 import { ToolShell } from '@/components/ToolShell';
 import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
@@ -116,6 +117,28 @@ function GalleryCover({ seed, kind }: { seed: number; kind: string }) {
       <rect width="100" height="100" className="gallery-cover-bg" />
       {art}
     </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Card visual: locally shared works render their REAL sanitized snapshot in a
+// scaled sandboxed iframe (scripts off, pointer-events off) instead of the
+// decorative cover; curated entries have no stored HTML and keep the cover.
+// ---------------------------------------------------------------------------
+
+function GalleryVisual({ item, locale }: { item: GalleryItem; locale: Locale }) {
+  const html = item.curated ? null : (getSharedEntry(item.id)?.html ?? null);
+  if (!html) return <GalleryCover seed={item.seed} kind={item.chartTypes[0] ?? 'line'} />;
+  return (
+    <div className="gallery-snap-thumb" aria-hidden="true">
+      <iframe
+        sandbox=""
+        srcDoc={html}
+        title={pickLocale(item.title, locale)}
+        tabIndex={-1}
+        loading="lazy"
+      />
+    </div>
   );
 }
 
@@ -351,7 +374,7 @@ export default function GalleryPage() {
                   aria-label={pickLocale(item.title, locale)}
                   onClick={() => setDetail(item)}
                 >
-                  <GalleryCover seed={item.seed} kind={item.chartTypes[0] ?? 'line'} />
+                  <GalleryVisual item={item} locale={locale} />
                   <div className="gallery-card-tags">
                     <span className="tag">{t(`gallery.subject.${item.subject}`)}</span>
                     <span className={`tag gallery-repro-${item.reproStatus}`}>
@@ -378,7 +401,7 @@ export default function GalleryPage() {
       {detail && (
         <Modal open onClose={() => setDetail(null)} title={pickLocale(detail.title, locale)} width={560}>
           <div className="gallery-detail">
-            <GalleryCover seed={detail.seed} kind={detail.chartTypes[0] ?? 'line'} />
+            <GalleryVisual item={detail} locale={locale} />
             <h4 className="share-section-title">{t('gallery.detail.summary')}</h4>
             <p>{pickLocale(detail.summary, locale)}</p>
             <h4 className="share-section-title">{t('gallery.detail.meta')}</h4>

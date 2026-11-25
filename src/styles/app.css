@@ -7779,6 +7779,26 @@
   fill: var(--color-bg-tertiary);
 }
 
+/* Real-snapshot thumbnail: a sandboxed, script-less iframe rendered at 25%
+   so the card shows the actual figure instead of decorative cover art. */
+.gallery-snap-thumb {
+  position: relative;
+  width: 100%;
+  height: 110px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+}
+
+.gallery-snap-thumb iframe {
+  width: 400%;
+  height: 440px;
+  border: 0;
+  transform: scale(0.25);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
 .gallery-card-tags {
   display: flex;
   flex-wrap: wrap;
@@ -7818,6 +7838,14 @@
 
 .gallery-detail .gallery-cover {
   height: 140px;
+}
+
+.gallery-detail .gallery-snap-thumb {
+  height: 140px;
+}
+
+.gallery-detail .gallery-snap-thumb iframe {
+  height: 560px;
 }
 
 .gallery-detail-meta {
