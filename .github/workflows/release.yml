@@ -2,7 +2,8 @@ name: Release
 
 # FR-10 — Tagged releases are archived to Zenodo (DOI minting) and published
 # as a GitHub Release with the dist archive, CITATION.cff, an unsigned Android
-# APK and Linux AppImage/deb packages (same renderer) attached.
+# APK, Linux AppImage/deb packages and an unsigned Windows NSIS installer
+# (same renderer) attached.
 
 on:
   push:
@@ -152,6 +153,41 @@ jobs:
             deploy/linux/release/*.deb
           if-no-files-found: error
 
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Install Windows packaging deps
+        run: npm ci --prefix deploy/windows
+
+      - name: Build Windows NSIS installer (reuse the renderer build above)
+        run: node scripts/windows-build.mjs --from-dist
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: deploy/windows/release/*.exe
+          if-no-files-found: error
+
   archive:
     needs: build
     runs-on: ubuntu-latest
@@ -261,7 +297,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   release:
-    needs: [build, archive, android, linux]
+    needs: [build, archive, android, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download dist artifact
@@ -286,6 +322,12 @@ jobs:
           name: linux-packages
           path: linux-packages
 
+      - name: Download Windows installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: windows-installer
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -295,6 +337,7 @@ jobs:
             android-apk/*.apk
             linux-packages/*.AppImage
             linux-packages/*.deb
+            windows-installer/*.exe
           body: |
             ## Ergalics Studio ${{ github.ref_name }}
 
@@ -302,4 +345,5 @@ jobs:
             - `CITATION.cff` — software citation metadata (generated from package.json)
             - Android APK — unsigned debug build of the same web renderer
             - Linux AppImage + deb — Electron desktop build of the same renderer
+            - Windows NSIS installer — unsigned Electron desktop build of the same renderer
             ${{ needs.archive.outputs.doi != '' && format('- Zenodo DOI: https://doi.org/{0}', needs.archive.outputs.doi) || '' }}

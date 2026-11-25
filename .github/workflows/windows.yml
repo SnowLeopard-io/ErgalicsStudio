@@ -1,0 +1,55 @@
+name: Windows Installer
+
+# Builds the NSIS installer from the same Electron renderer shipped on Linux
+# and on the web. Windows targets must be built on Windows; the installer is
+# unsigned (no code-signing certificate in CI). Tagged releases attach it from
+# the `release` workflow, which builds it in the same job that publishes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Install Windows packaging deps
+        run: npm ci --prefix deploy/windows
+
+      - name: Build NSIS installer (reuse the renderer build above)
+        run: node scripts/windows-build.mjs --from-dist
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ergalics-windows-installer
+          path: deploy/windows/release/*.exe
+          if-no-files-found: error

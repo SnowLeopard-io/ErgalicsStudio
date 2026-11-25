@@ -38,6 +38,11 @@ node scripts/windows-build.mjs
 产物位置：`deploy/windows/release/*.exe`（另含 `win-unpacked/` 免安装目录，
 可直接运行用于验证）。构建产物均不入库（见 `.gitignore`）。
 
+GitHub Actions：`.github/workflows/windows.yml` 在 push main / PR / 手动触发时
+于 `windows-latest` 上构建 NSIS 安装器并上传 artifact；打 `v*` tag 时
+`release.yml` 把同一安装器附加到 GitHub Release。CI 用 `--from-dist`
+复用已构建的 `dist/`，且不会把 `.exe` 复制到 runner 桌面。当前产物未签名。
+
 ### 手动分步执行
 
 ```powershell
