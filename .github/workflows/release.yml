@@ -1,7 +1,8 @@
 name: Release
 
 # FR-10 — Tagged releases are archived to Zenodo (DOI minting) and published
-# as a GitHub Release with the dist archive + CITATION.cff attached.
+# as a GitHub Release with the dist archive, CITATION.cff and an unsigned
+# Android APK (built from the same web renderer) attached.
 
 on:
   push:
@@ -58,6 +59,61 @@ jobs:
         with:
           name: citation-cff
           path: CITATION.cff
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK 36
+        shell: bash
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
+            echo "::error::Android SDK not found on this runner."
+            exit 1
+          fi
+          echo "y" | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Install Android packaging deps
+        run: npm ci --prefix deploy/android
+
+      - name: Build Android APK (unsigned)
+        run: node scripts/android-build.mjs --from-dist
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: deploy/android/release/*.apk
+          if-no-files-found: error
 
   archive:
     needs: build
@@ -168,7 +224,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   release:
-    needs: [build, archive]
+    needs: [build, archive, android]
     runs-on: ubuntu-latest
     steps:
       - name: Download dist artifact
@@ -181,15 +237,23 @@ jobs:
         with:
           name: citation-cff
 
+      - name: Download Android APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: android-apk
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ergalics-studio-*.zip
             CITATION.cff
+            android-apk/*.apk
           body: |
             ## Ergalics Studio ${{ github.ref_name }}
 
             - `ergalics-studio-${{ github.ref_name }}.zip` — web workstation build
             - `CITATION.cff` — software citation metadata (generated from package.json)
+            - Android APK — unsigned debug build of the same web renderer
             ${{ needs.archive.outputs.doi != '' && format('- Zenodo DOI: https://doi.org/{0}', needs.archive.outputs.doi) || '' }}

@@ -10,7 +10,7 @@
 | `windows/` | Windows | ✅ 已实现 | Electron + NSIS 安装器 |
 | `linux/` | Linux | 占位，待实现 | Electron → AppImage / deb |
 | `macos/` | macOS | 占位，待实现 | Electron → dmg（arm64 + x64） |
-| `android/` | Android（含 iOS 规划） | 占位，待实现 | 倾向 Tauri 2 |
+| `android/` | Android | ✅ 已实现 | Capacitor 8 → 未签名 APK |
 | `pwa/` | 全平台"安装" | 占位，建议优先 | manifest + service worker |
 | `selfhost/` | 内网共享部署 | 占位，待实现 | Dockerfile + nginx 静态托管 |
 
@@ -64,6 +64,18 @@ npm run dev:desktop                    # Electron 窗口连到这个 dev server�
 node scripts/desktop-dev.mjs -- --remote-debugging-port=9222
 ```
 
+## Android 打包命令
+
+前置：JDK 21 + Android SDK Platform 36，并在 `deploy/android/` 下 `npm install`。
+
+```powershell
+npm run build:android              # Web 构建 → cap sync → assembleDebug → APK
+npm run build:android:release      # 同上，出 release APK（未签名）
+```
+
+产物：`deploy/android/release/Ergalics-Studio-<version>-debug.apk`。
+完整说明见 `android/README.md`；GitHub Actions 会自动构建并上传 APK。
+
 ## Web 版（所有端共用的基础）
 
 ```powershell
@@ -78,7 +90,7 @@ npm run preview                        # 本地预览构建产物
 
 - Linux / macOS：给 `deploy/windows/electron-builder.yml` 加对应 target
   或复制配置；构建机必须是目标平台（或 CI）。详见各目录 README
-- Android / iOS：Tauri 2 路线评估见 `android/README.md`
+- Android：`npm run build:android`；工程结构、前置条件与 CI 见 `android/README.md`
 - PWA：`vite-plugin-pwa` 方案见 `pwa/README.md`
 - 自托管：Dockerfile + nginx 要点见 `selfhost/README.md`
 

@@ -1,0 +1,76 @@
+name: Android APK
+
+# Builds the same Web renderer shipped everywhere else inside a Capacitor
+# WebView. Produces an UNSIGNED APK: enough for CI verification and sideloading.
+# Tagged releases attach the APK from the `release` workflow, which builds it in
+# the same job that publishes the release. Signing needs a repository-provided
+# keystore (see deploy/android/README.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK 36
+        shell: bash
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
+            echo "::error::Android SDK not found on this runner."
+            exit 1
+          fi
+          echo "y" | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Install Android packaging deps
+        run: npm ci --prefix deploy/android
+
+      - name: Build APK (reuse the renderer build above)
+        run: node scripts/android-build.mjs --from-dist
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ergalics-android-apk
+          path: deploy/android/release/*.apk
+          if-no-files-found: error
