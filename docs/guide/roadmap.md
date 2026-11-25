@@ -45,6 +45,7 @@ state, not aspirational designs.
 | Scientific solvers | sparse Hermitian eigensolver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert, 2-D spectrum report + 3-D mode fields) and 1D–3D fluid-network bidirectional coupler (multi-rate time-step coordination + coarse–fine subcycling), both run in Pyodide workers — `em-eigensolver`, `fluid-cfd-coupler` | Done |
 | Marketplace   | plugin registry UI & remote install; `.cspkg` package-signing gate (ed25519, FR-05) live | Signing gate: Done · registry/install: Next |
 | CI            | GitHub Actions — 5 workflows: ci / bench / deploy / release / security | Done      |
+| Trusted computation units | immutable `ResultRecord` per run, single-source metric strip and AI answers, provenance cards, export sidecars, paper packages, standalone reproduction scripts, L4 acceptance cards and release gate (`/l4`) | Done (L4 evidence pending) |
 | Error handling| error boundaries, fallbacks, retry                            | Partial   |
 
 ## Milestones

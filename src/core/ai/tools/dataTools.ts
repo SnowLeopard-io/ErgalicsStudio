@@ -129,7 +129,10 @@ function readScienceMetricsForPlugin(pluginId: string): unknown[] {
   const entry = getScienceOutputs()[pluginId];
   if (!entry) return [];
   return entry.metrics.map((m) => ({
+    ...(entry.resultId ? { resultId: entry.resultId } : {}),
     label: m.label,
+    // Value comes from the published ResultRecord-backed bus, never from
+    // plugin internals; carry the display string so the citation is verbatim.
     value: m.value,
     ...(m.unit ? { unit: m.unit } : {}),
   }));

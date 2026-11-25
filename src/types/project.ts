@@ -1,5 +1,6 @@
 import { sanitizeSvg } from '../core/sanitize/sanitizeSvg';
 import { createPublishState, normalizePublishState } from '../core/publish/state';
+import { createLegacyResult } from '../core/result/record';
 
 export interface FileEntry {
   id: string;
@@ -50,6 +51,8 @@ export interface ProjectState {
   publish?: import('../core/publish/state').PublishState | null;
   /** Industrial workbench: the active engineering study + last solve result. */
   engineering?: import('../core/engineering/projectState').EngineeringProjectState | null;
+  /** Trusted computation units (FR-1). Portable, append-only inside `.clproj`. */
+  results?: import('../core/result/types').ResultRecord[] | null;
 }
 
 /** A multi-panel publication figure persisted in the project (Figure Studio). */
@@ -116,6 +119,7 @@ export function createEmptyProject(name: string, domain: Project['domain'] = 're
       profiles: [],
       publish: createPublishState(),
       engineering: null,
+      results: [],
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -203,6 +207,11 @@ export function normalizeProject(parsed: Project): Project {
         ? normalizePublishState(state.publish)
         : createPublishState(),
       engineering: state.engineering ?? null,
+      // A project saved before provenance existed gets one explicit legacy
+      // record on load instead of failing or silently pretending it has data.
+      results: state.results === undefined || state.results === null
+        ? [createLegacyResult(parsed.id)]
+        : state.results,
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,

@@ -16,7 +16,9 @@ import { TouchKeypad } from '@/components/TouchKeypad';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
+import { initResultStore } from '@/stores/resultStore';
 import { RESEARCH_TOOLS } from '@/pages/research/toolRegistry';
+import L4Page from '@/pages/l4/L4Page';
 
 const WelcomePage = lazyRetry(() => import('@/pages/welcome/WelcomePage'));
 const WorkbenchPage = lazyRetry(() => import('@/pages/workbench/WorkbenchPage'));
@@ -29,6 +31,7 @@ const StudioToolPage = lazyRetry(() => import('@/pages/studio/StudioToolPage'));
 initProjectStore();
 initExperimentStore();
 initLineageStore();
+initResultStore();
 
 /** Legacy hash routes kept alive as client-side redirects (bookmarks). */
 const LegacyToolRedirects = RESEARCH_TOOLS.map((toolDef) => (
@@ -100,6 +103,7 @@ function AppShell() {
             <Route path="/studio/:toolId" element={<StudioToolPage />} />
             {LegacyToolRedirects}
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/l4" element={<L4Page />} />
             <Route path="/plugin/:pluginId" element={<PluginViewPage />} />
             <Route path="/share/:payload" element={<ShareLinkPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

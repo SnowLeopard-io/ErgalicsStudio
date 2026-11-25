@@ -1144,3 +1144,87 @@ html.theme-transition .cross-site-switcher {
     transition-duration: 0.01ms !important;
   }
 }
+/* ---- provenance card (FR-3) ---- */
+
+.prov-chip {
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.prov-chip:hover { border-color: var(--color-accent); }
+.prov-modal { max-width: 720px; width: min(92vw, 720px); max-height: 86vh; }
+.prov-body { overflow: auto; }
+.prov-subtitle, .prov-muted { color: var(--color-text-secondary); font-size: 12px; }
+.prov-id {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+.prov-grid {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 5px 12px;
+  font-size: 12px;
+  margin: 12px 0;
+}
+.prov-grid dt { color: var(--color-text-secondary); }
+.prov-grid dd { margin: 0; overflow-wrap: anywhere; }
+.prov-hash { font-family: var(--font-mono, monospace); font-size: 11px; }
+.prov-body h4 { font-size: 13px; font-weight: 500; margin: 14px 0 6px; }
+.prov-list { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; }
+.prov-warnings { color: var(--color-warning, #e0a83b); }
+.prov-toggle {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.prov-pre {
+  max-height: 190px;
+  overflow: auto;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.prov-method { max-height: 130px; }
+.prov-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.prov-table th, .prov-table td {
+  border: 1px solid var(--color-border);
+  padding: 5px 7px;
+  text-align: left;
+}
+.prov-table th { color: var(--color-text-secondary); font-weight: 500; }
+.prov-footer { flex-wrap: wrap; gap: 8px; }
+
+.figures-vector-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.l4-page { display: grid; gap: 10px; }
+.l4-summary { color: var(--color-text-secondary); font-size: 13px; }
+.l4-filters { display: flex; gap: 6px; }
+.l4-card { border: 1px solid var(--color-border); border-radius: 8px; padding: 9px 12px; }
+.l4-card summary { cursor: pointer; font-size: 13px; }
+.l4-body { font-size: 12px; line-height: 1.6; }
+.l4-discipline { color: var(--color-text-secondary); }
+.l4-pass { color: var(--color-success, #1D9E75); font-weight: 500; }
+.l4-fail { color: var(--color-danger, #E24B4A); font-weight: 500; }

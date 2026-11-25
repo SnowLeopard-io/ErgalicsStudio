@@ -20,6 +20,7 @@ import { downloadBlob } from '@/core/download';
 import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
 import { clearScienceOutputs } from '@/core/research/scienceOutput';
+import { emitExportSidecar } from '@/core/result/exportHook';
 
 interface BeginRunInput {
   pluginId: string;
@@ -433,6 +434,7 @@ function buildPluginApi(pluginId: string): PluginApi {
     },
     exportFile: (fileName, data, mimeType) => {
       downloadBlob(fileName, data, mimeType);
+      emitExportSidecar(fileName, data, mimeType, pluginId);
     },
     cache: createPluginCache(pluginId),
     openFile: async (accept?: string) => {

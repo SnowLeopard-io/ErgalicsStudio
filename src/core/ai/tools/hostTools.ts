@@ -374,13 +374,15 @@ const readDataFileTool = hostTool(
 
 const getScienceOutputsTool = hostTool(
   'get_science_outputs',
-  'Read the numerical conclusions every plugin has published (R², confidence intervals, conservation diagnostics…). These are the app\'s computed results — prefer them over re-deriving numbers, and never invent a value that is not here.',
+  'Read the numerical conclusions every plugin has published (R², confidence intervals, conservation diagnostics…). These are the app\'s computed results — prefer them over re-deriving numbers, never invent a value, and quote the resultId verbatim whenever you cite one.',
   { type: 'object', properties: {} },
   () => {
     const snap = getScienceOutputs();
     const entries = Object.values(snap).map((e) => ({
       pluginId: e.pluginId,
+      ...(e.resultId ? { resultId: e.resultId } : {}),
       metrics: e.metrics.map((m) => ({
+        ...(e.resultId ? { resultId: e.resultId } : {}),
         label: m.label,
         value: m.value,
         ...(m.unit ? { unit: m.unit } : {}),

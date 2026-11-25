@@ -35,6 +35,8 @@ export interface ScienceOutputEntry {
   pluginId: string;
   metrics: ScienceMetric[];
   updatedAt: number;
+  /** Id of the immutable ResultRecord that produced these metrics (FR-2). */
+  resultId?: string;
   /** Publish counter — bumps on every setScienceOutputs so the UI can replay
    *  its entrance animation when genuinely fresh numbers arrive. */
   seq: number;
@@ -65,6 +67,16 @@ function emit(): void {
   }
 }
 
+// The result store registers a publisher at boot. Keeping the callback here
+// (instead of importing the store) avoids a store → core → store cycle while
+// still guaranteeing every metrics publish produces a ResultRecord.
+export type ResultPublisher = (pluginId: string, metrics: ScienceMetric[]) => { resultId: string };
+let resultPublisher: ResultPublisher | null = null;
+
+export function setResultPublisher(publisher: ResultPublisher | null): void {
+  resultPublisher = publisher;
+}
+
 /**
  * Publish (or replace) the scientific output set of one plugin. Pass an
  * empty array or call `clearScienceOutputs` when the plugin has no valid
@@ -81,8 +93,24 @@ export function setScienceOutputs(pluginId: string, metrics: ScienceMetric[]): v
   // 动画并从零重新 count-up——表现为“反复横跳”。只有指标内容真正变化
   // 才算新鲜数据。
   const next = JSON.stringify(metrics);
-  if (prev && JSON.stringify(prev.metrics) === next) return;
-  outputs.set(pluginId, { pluginId, metrics, updatedAt: Date.now(), seq: (prev?.seq ?? 0) + 1 });
+  const unchanged = !!prev && JSON.stringify(prev.metrics) === next;
+  // Repeated identical numbers from draw() must not mint a new record. If the
+  // very first publish happened before the publisher was registered, attach
+  // provenance once without replaying the strip animation.
+  if (unchanged && (!resultPublisher || prev?.resultId)) return;
+  let resultId = prev?.resultId;
+  try {
+    resultId = resultPublisher?.(pluginId, metrics)?.resultId ?? resultId;
+  } catch {
+    // Provenance must never take down a computation; the numbers still show.
+  }
+  outputs.set(pluginId, {
+    pluginId,
+    metrics,
+    updatedAt: unchanged ? (prev?.updatedAt ?? Date.now()) : Date.now(),
+    ...(resultId ? { resultId } : {}),
+    seq: unchanged ? (prev?.seq ?? 0) : (prev?.seq ?? 0) + 1,
+  });
   emit();
 }
 

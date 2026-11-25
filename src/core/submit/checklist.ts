@@ -85,6 +85,8 @@ export interface SubmissionDoc {
   caption: string;
   panels: FigurePanel[];
   export: SubmissionExportSettings;
+  /** True when a sidecar exists for this figure (FR-4). */
+  hasProvenance?: boolean;
 }
 
 // --------------------------------------------------------------------------
@@ -308,6 +310,17 @@ export function runSubmissionCheck(
   const templateOk = target.templatePrefixes.some((p) => doc.templateId.startsWith(p));
   groups.metadata.push(
     item(target, 'template_match', 'metadata', templateOk, 'figure-template'),
+  );
+  groups.metadata.push(
+    item(
+      target,
+      'provenance_present',
+      'metadata',
+      // Legacy callers that do not model provenance are not penalised; an
+      // explicit false (no ResultRecord/sidecar) is a real failure.
+      doc.hasProvenance !== false,
+      'figure-export-row',
+    ),
   );
 
   const items: CheckItem[] = [

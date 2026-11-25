@@ -16,6 +16,8 @@ import { LayersIcon } from '@/components/icons';
 import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useResultStore } from '@/stores/resultStore';
+import { usePluginStore } from '@/stores/pluginStore';
 import {
   useFigureStore,
 } from '@/stores/figureStore';
@@ -39,6 +41,19 @@ import {
   dataTableToScatter,
 } from '@/core/plot';
 import type { PlotSpec, ChartKind } from '@/core/plot';
+import { downloadPaperPackage } from '@/core/package/paper';
+
+/** Resolve the ResultRecord behind a sheet's panels for export sidecars. */
+function figureProvenance(panels: import('@/types/project').FigureSheet['panels'], colorMode: 'rgb' | 'cmyk') {
+  const results = useResultStore.getState();
+  const ids = panels
+    .map((p) => p.sourceResultId)
+    .filter((id): id is string => Boolean(id));
+  const record =
+    ids.map((id) => results.getResult(id)).find((r): r is NonNullable<typeof r> => Boolean(r)) ??
+    results.getLatest(usePluginStore.getState().activeId ?? '');
+  return { record, sourceResultIds: ids, colorSpace: colorMode };
+}
 
 type PanelKind = Extract<ChartKind, 'line' | 'scatter' | 'histogram' | 'bar' | 'field'>;
 
@@ -233,6 +248,8 @@ function exportLabel(format: FigureExportFormat): string {
 
 export default function FigureStudioPage() {
   const t = useT();
+  const [pdfVector, setPdfVector] = useState(false);
+  const [paperBusy, setPaperBusy] = useState(false);
 
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
@@ -351,6 +368,7 @@ export default function FigureStudioPage() {
         caption: active.caption,
         panels: active.panels,
         export: exportSettings,
+        hasProvenance: !!figureProvenance(active.panels, exportSettings.colorMode).record,
       }
     : null;
 
@@ -369,7 +387,9 @@ export default function FigureStudioPage() {
       // The chosen raster resolution must reach the exporter — the PDF
       // carries a raster too, so a hard-coded dpi made the export disagree
       // with the submission check.
-      await exportSheet(active.id, format, exportSettings.rasterDpi);
+      await exportSheet(active.id, format, exportSettings.rasterDpi, {
+        pdfMode: pdfVector ? 'vector' : 'raster',
+      });
       notify('success', t('figure.exported', { format: exportLabel(format) }));
     } catch (err) {
       notify('error', t('figure.export_failed', { reason: String(err) }));
@@ -390,6 +410,7 @@ export default function FigureStudioPage() {
         format,
         active.name || 'figure',
         exportSettings.rasterDpi,
+        { ...figureProvenance(active.panels, exportSettings.colorMode), pdfMode: pdfVector ? 'vector' : 'raster' },
       );
       notify('success', t('labs.saved_ws', { path }));
     } catch (err) {
@@ -401,6 +422,39 @@ export default function FigureStudioPage() {
   const saveSheetAllFormats = async () => {
     for (const format of ['svg', 'pdf', 'png600'] as FigureExportFormat[]) {
       await saveSheetToWorkspace(format);
+    }
+  };
+
+  /** FR-8: one stable-named zip with figure, caption, provenance, script and checklist. */
+  const exportPaper = async () => {
+    if (!active || paperBusy) return;
+    const prov = figureProvenance(active.panels, exportSettings.colorMode);
+    if (!prov.record) {
+      notify('error', t('prov.noRecord'));
+      return;
+    }
+    setPaperBusy(true);
+    try {
+      await downloadPaperPackage(active.name || 'figure', {
+        figure: { templateId: active.templateId, caption: active.caption, panels: active.panels },
+        record: prov.record,
+        caption: active.caption,
+        dpi: exportSettings.rasterDpi,
+        pdfMode: pdfVector ? 'vector' : 'raster',
+        sourceResultIds: prov.sourceResultIds,
+        check: submissionDoc
+          ? runSubmissionCheck(
+              { ...submissionDoc, export: { ...exportSettings, format: pdfVector ? 'pdf' : 'svg' } },
+              submitTarget,
+            )
+          : undefined,
+        t: (key, params) => t(key, params),
+      });
+      notify('success', t('figure.paper_exported'));
+    } catch (err) {
+      notify('error', t('figure.paper_failed', { reason: String(err) }));
+    } finally {
+      setPaperBusy(false);
     }
   };
 
@@ -631,6 +685,22 @@ export default function FigureStudioPage() {
                   {exportLabel(format)}
                 </button>
               ))}
+              <label className="figures-vector-toggle" title={t('figure.vector_pdf')}>
+                <input
+                  type="checkbox"
+                  checked={pdfVector}
+                  onChange={(e) => setPdfVector(e.target.checked)}
+                />
+                {t('figure.vector_pdf')}
+              </label>
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={active.panels.length === 0 || paperBusy}
+                onClick={() => void exportPaper()}
+              >
+                {t('figure.paper_package')}
+              </button>
               <button
                 type="button"
                 className="btn btn-sm btn-primary"
