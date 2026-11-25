@@ -86,9 +86,15 @@ if (noGradle) {
 }
 
 // 5. Gradle. CI sets up JDK + Android SDK; on Windows use gradlew.bat.
-const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
-if (!dryRun && !existsSync(path.join(nativeDir, gradlew))) {
-  throw new Error(`Missing ${gradlew} — native project is incomplete`);
+//    Invoke the POSIX wrapper through `sh` instead of executing it directly:
+//    the native project is authored on Windows (core.filemode=false), so the
+//    executable bit is not preserved in git and `./gradlew` fails with
+//    "Permission denied" on Linux runners. A chmod in the build script would
+//    still leave the committed mode wrong; `sh gradlew` works in both cases.
+const gradlew = process.platform === 'win32' ? 'gradlew.bat' : 'sh ./gradlew';
+const wrapperFile = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
+if (!dryRun && !existsSync(path.join(nativeDir, wrapperFile))) {
+  throw new Error(`Missing ${wrapperFile} — native project is incomplete`);
 }
 run(`${gradlew} assemble${release ? 'Release' : 'Debug'}`, nativeDir);
 

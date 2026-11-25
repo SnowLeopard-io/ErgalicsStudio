@@ -4,6 +4,11 @@
   "private": true,
   "description": "Ergalics Studio Desktop — offline Electron distribution for Linux (AppImage + deb)",
   "author": "SnowLeopard-io <1486853830@qq.com>",
+  "homepage": "https://github.com/SnowLeopard-io/ErgalicsStudio",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SnowLeopard-io/ErgalicsStudio.git"
+  },
   "main": "dist-electron/main.js",
   "scripts": {
     "build:main": "node build.mjs",
