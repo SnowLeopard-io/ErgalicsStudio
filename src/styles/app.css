@@ -4982,6 +4982,21 @@
   resize: none;
 }
 
+/* The caption is prose, not source code. A bare <textarea> inherits the UA
+   monospace face in Chromium, which made it look like a code field next to the
+   sans-serif form labels and the rest of the figure studio. */
+.figures-caption {
+  font-family: var(--font-sans, inherit);
+  line-height: 1.5;
+}
+
+/* Text inputs/selects otherwise fall back to the UA's Arial while the labels,
+   buttons and caption use the UI sans stack — unify the whole figure form. */
+.figures-main .input,
+.figures-main select {
+  font-family: var(--font-sans, inherit);
+}
+
 .figures-export {
   display: flex;
   align-items: center;
