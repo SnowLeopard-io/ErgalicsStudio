@@ -508,15 +508,27 @@ export class MathTopologyPlugin implements Plugin {
     const zh = this.zh;
     const ver = verifyGenusChi(this.state.genus);
     const { counts } = this.meshFor();
+    const nonOrientable = this.state.surface === 'mobius' || this.state.surface === 'klein';
     const metrics: ScienceMetric[] = [
       {
         key: 'genus-chi',
-        label: zh ? `亏格 g=${ver.g} 的 χ（数值）` : `χ at genus g=${ver.g} (measured)`,
+        label:
+          nonOrientable
+            ? zh
+              ? `对照：可定向曲面亏格 g=${ver.g} 的 χ（数值）`
+              : `Reference: χ of the orientable genus-${ver.g} surface (measured)`
+            : zh
+              ? `亏格 g=${ver.g} 的 χ（数值）`
+              : `χ at genus g=${ver.g} (measured)`,
         value: fmtMetric(ver.counts.chi),
         severity: ver.passed ? 'ok' : 'error',
-        hint: zh
-          ? `三角复形 V−E+F = ${ver.counts.vertices}−${ver.counts.edges}+${ver.counts.faces} = ${ver.counts.chi}，解析式 χ = 2 − 2g = ${ver.expectedChi}；相对误差 ${fmtMetric(ver.relErr)}。`
-          : `triangulation V−E+F = ${ver.counts.vertices}−${ver.counts.edges}+${ver.counts.faces} = ${ver.counts.chi}, analytic χ = 2 − 2g = ${ver.expectedChi}; relative error ${fmtMetric(ver.relErr)}.`,
+        hint: nonOrientable
+          ? zh
+            ? `这是对可定向 genus-g 闭合曲面的独立验证（V−E+F = ${ver.counts.vertices}−${ver.counts.edges}+${ver.counts.faces} = ${ver.counts.chi}，χ = 2 − 2g = ${ver.expectedChi}），与左侧显示的曲面无关。Möbius 带与 Klein 瓶是不可定向曲面，「亏格 g（环柄数）」对它们没有定义——非可定向曲面用不可定向亏格 k（交叉帽数）描述，χ = 2 − k。`
+            : `This independently verifies the orientable genus-g closed surface (V−E+F = ${ver.counts.vertices}−${ver.counts.edges}+${ver.counts.faces} = ${ver.counts.chi}, χ = 2 − 2g = ${ver.expectedChi}); it is not a property of the displayed surface. The Möbius band and Klein bottle are non-orientable: handle-genus g is not defined for them — non-orientable surfaces use the non-orientable genus k (cross-cap number), χ = 2 − k.`
+          : zh
+            ? `三角复形 V−E+F = ${ver.counts.vertices}−${ver.counts.edges}+${ver.counts.faces} = ${ver.counts.chi}，解析式 χ = 2 − 2g = ${ver.expectedChi}；相对误差 ${fmtMetric(ver.relErr)}。`
+            : `triangulation V−E+F = ${ver.counts.vertices}−${ver.counts.edges}+${ver.counts.faces} = ${ver.counts.chi}, analytic χ = 2 − 2g = ${ver.expectedChi}; relative error ${fmtMetric(ver.relErr)}.`,
       },
       {
         key: 'surface-mesh',
@@ -907,14 +919,21 @@ export class MathTopologyPlugin implements Plugin {
       canvas.height / 2,
     );
     g.textAlign = 'left';
+    const nonOrientable = st.surface === 'mobius' || st.surface === 'klein';
+    const chiNote = nonOrientable
+      ? `对照可定向 g=${st.genus}: χ = 2 − 2g = ${ver.expectedChi}（实测 ${ver.counts.chi}；当前曲面不可定向，g 不适用）`
+      : `亏格 g=${st.genus}  χ = 2 − 2g = ${ver.expectedChi}（实测 ${ver.counts.chi}）`;
     g.fillText(
-      `亏格 g=${st.genus}  χ = 2 − 2g = ${ver.expectedChi}（实测 ${ver.counts.chi}）  形变阶段 t=${st.deform.toFixed(2)}  网格 ${segU}×${segV}`,
+      `${chiNote}  形变阶段 t=${st.deform.toFixed(2)}  网格 ${segU}×${segV}`,
       14,
       canvas.height - 30,
     );
     g.textAlign = 'right';
+    const chiNoteEn = nonOrientable
+      ? `orientable reference g=${st.genus}: χ = 2 − 2g = ${ver.expectedChi} (measured ${ver.counts.chi}; displayed surface is non-orientable)`
+      : `genus g=${st.genus}  χ = 2 − 2g = ${ver.expectedChi} (measured ${ver.counts.chi})`;
     g.fillText(
-      `genus g=${st.genus}  χ = 2 − 2g = ${ver.expectedChi} (measured ${ver.counts.chi})  stage t=${st.deform.toFixed(2)}  grid ${segU}×${segV}`,
+      `${chiNoteEn}  stage t=${st.deform.toFixed(2)}  grid ${segU}×${segV}`,
       canvas.width - 14,
       canvas.height - 14,
     );
