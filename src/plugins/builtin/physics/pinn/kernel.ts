@@ -620,7 +620,7 @@ export class PinnTrainer {
       coefHat: this.cfg.discover ? Math.exp(this.logCoef) : null,
       profiles,
       residual,
-      nParams: countParams(this.net),
+      nParams: countParams(this.net) + (this.cfg.discover ? 1 : 0),
       ms: performance.now() - this.t0,
     };
   }
