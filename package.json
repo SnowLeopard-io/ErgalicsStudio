@@ -21,6 +21,7 @@
     "deploy:merge": "node scripts/merge-deploy.mjs",
     "build:android": "node scripts/android-build.mjs",
     "build:android:release": "node scripts/android-build.mjs --release",
+    "build:linux": "node scripts/linux-build.mjs",
     "docs:dev": "npm run dev --prefix docs",
     "docs:preview": "npm run preview --prefix docs",
     "preview": "vite preview",

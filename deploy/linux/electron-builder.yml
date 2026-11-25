@@ -1,0 +1,33 @@
+# Ergalics Studio Linux packaging (Electron, AppImage + deb).
+# The renderer is the same Vite build as the web/Windows editions; the main
+# process sources are shared with deploy/windows/src. website/ and docs/ are
+# never packaged.
+appId: io.snowleopard.ergalics.desktop
+productName: Ergalics Studio Desktop
+copyright: SnowLeopard-io
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist-electron/**/*
+  - app-dist/**/*
+  - package.json
+asar: true
+# node-pty ships prebuilt binaries that must live outside the asar.
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+extraResources:
+  # Python RPC runner + optional portable environment live in the Windows
+  # project and are shared across desktop editions.
+  - from: ../windows/resources
+    to: resources
+  # On Unix the Electron window icon is a PNG, not an ICO.
+  - from: ../windows/build/icon.png
+    to: resources/icon.png
+linux:
+  icon: ../windows/build/icon.png
+  category: Utility
+  target:
+    - AppImage
+    - deb
+  artifactName: ${productName}-${version}-${arch}.${ext}

@@ -1,8 +1,8 @@
 name: Release
 
 # FR-10 — Tagged releases are archived to Zenodo (DOI minting) and published
-# as a GitHub Release with the dist archive, CITATION.cff and an unsigned
-# Android APK (built from the same web renderer) attached.
+# as a GitHub Release with the dist archive, CITATION.cff, an unsigned Android
+# APK and Linux AppImage/deb packages (same renderer) attached.
 
 on:
   push:
@@ -115,6 +115,43 @@ jobs:
           path: deploy/android/release/*.apk
           if-no-files-found: error
 
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Install Linux packaging deps
+        run: npm ci --prefix deploy/linux
+
+      - name: Build AppImage + deb
+        run: node scripts/linux-build.mjs --from-dist
+
+      - name: Upload Linux packages artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            deploy/linux/release/*.AppImage
+            deploy/linux/release/*.deb
+          if-no-files-found: error
+
   archive:
     needs: build
     runs-on: ubuntu-latest
@@ -224,7 +261,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   release:
-    needs: [build, archive, android]
+    needs: [build, archive, android, linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download dist artifact
@@ -243,6 +280,12 @@ jobs:
           name: android-apk
           path: android-apk
 
+      - name: Download Linux packages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: linux-packages
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -250,10 +293,13 @@ jobs:
             ergalics-studio-*.zip
             CITATION.cff
             android-apk/*.apk
+            linux-packages/*.AppImage
+            linux-packages/*.deb
           body: |
             ## Ergalics Studio ${{ github.ref_name }}
 
             - `ergalics-studio-${{ github.ref_name }}.zip` — web workstation build
             - `CITATION.cff` — software citation metadata (generated from package.json)
             - Android APK — unsigned debug build of the same web renderer
+            - Linux AppImage + deb — Electron desktop build of the same renderer
             ${{ needs.archive.outputs.doi != '' && format('- Zenodo DOI: https://doi.org/{0}', needs.archive.outputs.doi) || '' }}
