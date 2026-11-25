@@ -460,7 +460,7 @@ export class AutoMLPlugin implements Plugin {
     metrics.push(
       {
         key: 'features',
-        label: zh ? '入选特征数' : 'Selected features',
+        label: zh ? '入选特征（编码后 / 原始列）' : 'Selected features (encoded / raw)',
         value: `${res.selectedFeatureCount} / ${res.rawFeatureCount}`,
         severity: 'info',
         hint:

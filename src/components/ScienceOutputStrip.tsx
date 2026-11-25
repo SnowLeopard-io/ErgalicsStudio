@@ -239,20 +239,26 @@ export function ScienceOutputStrip() {
               </span>
             </span>
           ))}
-          {entry?.metrics.map((m, i) => (
-            <span
-              key={m.key}
-              className={`science-metric sev-${m.severity ?? 'info'}`}
-              title={m.hint ?? m.label}
-              style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
-            >
-              <span className="science-metric-label">{m.label}</span>
-              <span className="science-metric-value">
-                <AnimatedMetricValue text={String(m.value)} />
-                {m.unit ? <span className="science-metric-unit"> {m.unit}</span> : null}
+          {entry?.metrics.map((m, i) => {
+            const valueText = String(m.value);
+            // Some plugins already bake the unit into their formatted value
+            // (e.g. "3.3 ms"). Do not print it twice when `unit` is also set.
+            const unitAlreadyShown = m.unit ? valueText.trimEnd().endsWith(m.unit.trim()) : false;
+            return (
+              <span
+                key={m.key}
+                className={`science-metric sev-${m.severity ?? 'info'}`}
+                title={m.hint ?? m.label}
+                style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
+              >
+                <span className="science-metric-label">{m.label}</span>
+                <span className="science-metric-value">
+                  <AnimatedMetricValue text={valueText} />
+                  {m.unit && !unitAlreadyShown ? <span className="science-metric-unit"> {m.unit}</span> : null}
+                </span>
               </span>
-            </span>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
