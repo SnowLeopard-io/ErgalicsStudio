@@ -95,6 +95,13 @@ interface ProjectStore {
   remove: (id: string) => Promise<void>;
   loadRecent: () => Promise<void>;
   setDirty: (dirty: boolean) => void;
+  /** Persist the workbench's currently-active plugin (and why) into the project
+   *  snapshot. No-op when the id already matches, so restoring a project that is
+   *  already active does not dirty it. */
+  setActivePlugin: (id: string | null) => void;
+  /** Write a plugin's parameter batch straight into the project snapshot and
+   *  mark it dirty, so UI-driven param changes survive a refresh. */
+  setPluginParamValues: (pluginId: string, values: Record<string, unknown>) => void;
   setStatus: (status: ProjectStatus, statusText?: string | null) => void;
   /** Hook for plugins to persist extra state before save. */
   applyPluginParams: () => Promise<void> | void;
@@ -871,6 +878,57 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       scheduleDirtyFlush();
     }
     set({ dirty });
+  },
+  setActivePlugin: (id) => {
+    const { project } = get();
+    // Nothing to persist while no project is open; with a project open, a
+    // no-op (already the current value) must not dirty the snapshot.
+    if (!project) return;
+    if ((project.state.activePlugin ?? null) === id) return;
+    set({
+      project: {
+        ...project,
+        state: { ...project.state, activePlugin: id },
+      },
+    });
+    // An activation/deactivation is a real user action — persist it right away
+    // (the next save reads it via applyPluginParams), not lazily on the next
+    // dirty-triggering edit.
+    if (id) usePluginStore.getState().setDirty(true);
+  },
+  setPluginParamValues: (pluginId, values) => {
+    const { project } = get();
+    if (!project) return;
+    const current = project.state.parameters?.[pluginId] ?? {};
+    const next = { ...current };
+    for (const [k, v] of Object.entries(values ?? {})) next[k] = v;
+    if (Object.keys(next).length === Object.keys(current).length) {
+      // Nothing added/changed — avoid dirtying the snapshot for no-ops.
+      let same = true;
+      for (const k of Object.keys(current)) {
+        const a = current[k];
+        const b = next[k];
+        if (typeof a === 'object' && typeof b === 'object' && a && b) {
+          if (JSON.stringify(a) !== JSON.stringify(b)) same = false;
+          continue;
+        }
+        if (!Object.is(a, b)) same = false;
+      }
+      if (same) return;
+    }
+    set({
+      project: {
+        ...project,
+        state: {
+          ...project.state,
+          parameters: { ...project.state.parameters, [pluginId]: next },
+        },
+      },
+    });
+    // UI-driven param edits must land in the durable snapshot (previously only
+    // host/api-driven `setParam` marked dirty — sliders/toggles via the right
+    // panel went unsaved and a refresh lost the whole parameter set).
+    usePluginStore.getState().setDirty(true);
   },
   setStatus: (status, statusText = null) => set({ status, statusText }),
 

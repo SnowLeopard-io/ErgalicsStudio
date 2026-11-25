@@ -20,6 +20,8 @@ vi.mock('@/stores/projectStore', () => ({
     getState: () => ({
       project: null,
       setDirty: () => undefined,
+      setActivePlugin: () => undefined,
+      setPluginParamValues: () => undefined,
     }),
     setState: () => undefined,
   },

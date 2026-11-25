@@ -87,6 +87,8 @@ interface PluginStore {
   exportDiagnostics: () => Promise<string>;
   /** Fan `onProjectSave` / `onProjectLoad` out to every loaded plugin. */
   notifyProjectLifecycle: (phase: 'save' | 'load') => void;
+  /** Mark the project snapshot dirty (debounced autosave / manual save). */
+  setDirty: (dirty: boolean) => void;
 }
 
 /** Per-plugin param subscriptions so unloading one plugin cannot break the
@@ -131,7 +133,15 @@ function flushParamUpdates(id: string, plugin: Plugin): void {
   const prev = lastParams.get(id);
   const changed = prev === undefined || !sameParams(prev, payload);
   lastParams.set(id, { ...payload });
-  if (changed) clearScienceOutputs(id);
+  if (changed) {
+    clearScienceOutputs(id);
+    // Persist the accepted param batch into the project snapshot so a refresh
+    // (debounced autosave) / manual save restores the exact values the user
+    // left behind. Previously only host/api-driven `setParam` did this — UI
+    // slider/toggle changes went straight to the plugin and were never written
+    // back, so a refresh silently reverted to the plugin defaults.
+    useProjectStore.getState().setPluginParamValues(id, payload);
+  }
   runningParamUpdates.add(id);
   void Promise.resolve()
     .then(() => plugin.updateParams?.(payload))
@@ -582,6 +592,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   loadingIds: [],
   initialized: false,
   runHistory: [],
+  setDirty: (dirty) => useProjectStore.getState().setDirty(dirty),
 
   load: async (plugin) => {
     const id = plugin.manifest.id;
@@ -804,6 +815,11 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         activeId: id,
         registry: s.registry.map((e) => (e.id === id ? { ...e, active: true } : e)),
       }));
+      // Persist the switch into the project snapshot immediately (debounced via
+      // setDirty). The previous code relied on the next *edit* to save the
+      // active plugin — a plain activation+refresh therefore dropped the plugin
+      // selection and restored back to "尚未激活插件".
+      useProjectStore.getState().setActivePlugin(id);
       // Opening a plugin should surface its parameter panel: the right panel
       // may still be collapsed from a previous session or plugin.
       useAppStore.getState().setRightPanelOpen(true);
