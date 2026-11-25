@@ -27,6 +27,7 @@
 import { emit } from '@/core/events';
 import {
   actionButton,
+  drawEmptyCanvas,
   exportRowsCsv,
   notify,
 } from '@/core/plugin-tools/enhance';
@@ -990,6 +991,18 @@ export class StructurePlugin implements Plugin {
   private draw() {
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
+    // Shared empty state must run before any scaling/translation: the helper
+    // resets canvas.width/height, which would otherwise clear a transform and
+    // leave the prompt drawn at the wrong origin.
+    if (this.joints.length === 0 && this.members.length === 0) {
+      drawEmptyCanvas(this.api, canvas, {
+        title: '尚未加载结构数据',
+        titleZh: '尚未加载结构数据',
+        hint: 'Drop a JSON structure file or open sample data',
+        hintZh: '拖入 JSON 结构文件，或打开「示例数据」',
+      });
+      return;
+    }
     const w = canvas.clientWidth || 640;
     const h = canvas.clientHeight || 400;
     if (this.lastW > 0 && (w !== this.lastW || h !== this.lastH)) {
@@ -1016,22 +1029,6 @@ export class StructurePlugin implements Plugin {
 
     g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillRect(0, 0, w, h);
-
-    if (!this.state.hasData) {
-      // Empty state: no structure loaded — never render a fabricated truss.
-      g.fillStyle = 'rgba(150, 165, 185, 0.85)';
-      g.font = `${this.zh() ? '12px "Microsoft YaHei"' : '12px Consolas'}, monospace`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText(
-        this.zh()
-          ? '未加载数据 — 拖入 JSON 结构文件或打开「示例数据」'
-          : 'No data — drop a JSON structure file or open sample data',
-        w / 2,
-        h / 2,
-      );
-      return;
-    }
 
     // Floor.
     const floor = h - FLOOR_PAD;

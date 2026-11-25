@@ -252,6 +252,26 @@ export class StatsBayesPlugin extends StatsPluginBase<BayesState, BayesViewResul
       g.fillText(this.zh ? '需要至少 3 个数值观测。' : 'At least 3 numeric observations are required.', w / 2, h / 2);
       return;
     }
+    // Explicit mixing warning above the plots. R̂ / ESS already carry warn
+    // severity in Σ (and CSS turns them yellow), but colour alone does not
+    // tell the user what to do. Values below come straight from the same
+    // result the metrics use — never a second, rounded reconstruction.
+    const rhat = view.result.rhat;
+    const ess = view.result.ess;
+    const problems: string[] = [];
+    if (rhat >= 1.01) problems.push(`R̂=${fmt(rhat, 4)} ≥ 1.01`);
+    if (ess <= 400) problems.push(`ESS=${fmt(ess, 0)} ≤ 400`);
+    if (problems.length > 0) {
+      const warning = this.zh
+        ? `链尚未充分混合：${problems.join('，')}，建议增加迭代次数或链数`
+        : `Chains not well mixed: ${problems.join(', ')}; increase iterations or chains`;
+      g.save();
+      g.textAlign = 'left';
+      g.font = font(this.zh, 10, '600');
+      g.fillStyle = CS.amber;
+      g.fillText(warning, 66, 58);
+      g.restore();
+    }
     const samples = view.samples;
     const mu = view.result.muSummary;
     const trace = samples.slice(-Math.min(800, samples.length));

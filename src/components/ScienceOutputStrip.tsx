@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   getScienceOutputs,
   subscribeScienceOutputs,
-  type ScienceOutputEntry,
 } from '@/core/research/scienceOutput';
 import { resolveDataFile } from '@/core/dataFiles';
 import { stageLabHandoff } from '@/core/labHandoff';
@@ -85,11 +84,15 @@ export function ScienceOutputStrip() {
   const activeId = usePluginStore((s) => s.activeId);
   const runHistory = usePluginStore((s) => s.runHistory);
   const projectFiles = useProjectStore((s) => s.project?.data.files);
-  const [outputs, setOutputs] = useState<Record<string, ScienceOutputEntry>>(() =>
-    getScienceOutputs(),
+  // Read the external bus during render, not from a useState copy updated in
+  // an effect. A plugin switch could otherwise render once with the new
+  // activeId but the previous plugin's output snapshot, briefly showing the
+  // outgoing plugin's metrics.
+  const outputs = useSyncExternalStore(
+    subscribeScienceOutputs,
+    getScienceOutputs,
+    getScienceOutputs,
   );
-
-  useEffect(() => subscribeScienceOutputs(setOutputs), []);
 
   // Deep-link source: the active plugin's latest data-import run record, but
   // only when that file actually lives in the project's data-file registry —
@@ -129,7 +132,7 @@ export function ScienceOutputStrip() {
   // return (metrics appearing/disappearing must not change hook order); the
   // effect no-ops while the strip isn't rendered.
   const itemsRef = useRef<HTMLDivElement>(null);
-  const hasEntry = !!(entry && entry.metrics.length > 0);
+  const hasEntry = !!(entry?.pluginId === activeId && entry.metrics.length > 0);
   // Deep-link popover above the strip: opens on mouse hover (desktop) and on
   // tap (touch — pointerType-aware so a mouse click never toggles it). Close
   // is delayed briefly so the pointer can cross the card/strip gap (the CSS
@@ -173,7 +176,7 @@ export function ScienceOutputStrip() {
     return () => el.removeEventListener('wheel', onWheel);
   }, [hasEntry, engMetrics.length]);
 
-  if ((!entry || entry.metrics.length === 0) && engMetrics.length === 0) return null;
+  if ((!entry || entry.pluginId !== activeId || entry.metrics.length === 0) && engMetrics.length === 0) return null;
 
   // Metrics row mouse-wheel binding lives above (hooks-before-return).
 
@@ -228,7 +231,7 @@ export function ScienceOutputStrip() {
         <div className="science-strip-items" ref={itemsRef}>
           {engMetrics.map((m, i) => (
             <span
-              key={m.key}
+              key={`${industrialToolId ?? 'ind'}:${m.key}`}
               className={`science-metric sev-${m.severity ?? 'info'}`}
               title={m.hint ?? m.label}
               style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
@@ -239,15 +242,15 @@ export function ScienceOutputStrip() {
               </span>
             </span>
           ))}
-          {entry?.metrics.map((m, i) => {
+          {entry?.pluginId === activeId && entry.metrics.map((m, i) => {
             const valueText = String(m.value);
             // Some plugins already bake the unit into their formatted value
             // (e.g. "3.3 ms"). Do not print it twice when `unit` is also set.
             const unitAlreadyShown = m.unit ? valueText.trimEnd().endsWith(m.unit.trim()) : false;
             return (
               <span
-                key={m.key}
-                className={`science-metric sev-${m.severity ?? 'info'}`}
+              key={`${activeId}:${m.key}`}
+              className={`science-metric sev-${m.severity ?? 'info'}`}
                 title={m.hint ?? m.label}
                 style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
               >
