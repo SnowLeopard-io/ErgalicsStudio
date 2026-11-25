@@ -3,6 +3,7 @@
   "version": "2.1.0",
   "private": true,
   "description": "Ergalics Studio Desktop — offline Electron distribution (Windows first)",
+  "author": "SnowLeopard-io <1486853830@qq.com>",
   "homepage": "https://github.com/SnowLeopard-io/ErgalicsStudio",
   "repository": {
     "type": "git",
@@ -11,7 +12,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "build:main": "node build.mjs",
-    "dist": "electron-builder --win --config electron-builder.yml"
+    "dist": "electron-builder --win --config electron-builder.yml --publish never"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
