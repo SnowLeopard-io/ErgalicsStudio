@@ -16,6 +16,8 @@ export const uxZh: LocaleDictionary = {
   // ---- 状态栏性能弹层 ----
   'ux.perf.title': '性能详情',
   'ux.perf.fps': '帧率',
+  'ux.perf.idle': '空闲',
+  'ux.perf.idle_hint': '标签页在后台或未聚焦，浏览器会降低帧率采样',
   'ux.perf.gpu': 'GPU 耗时',
   'ux.perf.memory': '存储占用',
   'ux.perf.jsheap': 'JS 堆',
@@ -81,6 +83,8 @@ export const uxEn: LocaleDictionary = {
   // ---- status-bar perf popover ----
   'ux.perf.title': 'Performance',
   'ux.perf.fps': 'Frame rate',
+  'ux.perf.idle': 'Idle',
+  'ux.perf.idle_hint': 'Tab is in the background or unfocused — the browser throttles frame sampling',
   'ux.perf.gpu': 'GPU time',
   'ux.perf.memory': 'Storage',
   'ux.perf.jsheap': 'JS heap',
