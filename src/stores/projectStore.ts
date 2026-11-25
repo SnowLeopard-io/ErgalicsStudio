@@ -21,6 +21,11 @@ import {
 import { OpfsChunkStore } from '@/core/opfs';
 import { logger } from '@/core/logger';
 import { hashTextContent } from '@/core/data-schema/profile-cache';
+import { sha256Blob, sha256Text } from '@/core/result/hash';
+import {
+  resetCurrentDataSource,
+  setCurrentDataSource,
+} from '@/core/result/activeData';
 import { useSettingsStore } from './settingsStore';
 import { usePluginStore } from './pluginStore';
 import { BLOCK_GRAPH_CHANGED, useBlockStore } from './blockStore';
@@ -400,6 +405,9 @@ function applyOpenedProject(
   // would discard the old project's debounced edits (lost on switch).
   emit('host:engineering:flush', {});
   projectSession += 1;
+  // The previous project's active-data fingerprint must never leak into the
+  // newly opened project's provenance records (FR-1).
+  resetCurrentDataSource();
   const session = projectSession;
   // Read the stored layout before the canvas is cleared below, so the
   // persistence subscriptions cannot see an empty workbench and overwrite it.
@@ -997,6 +1005,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
     const content = await file.text();
     if (!isCurrentSession(session, project.id)) return null;
+    // FR-1: fingerprint the ingested bytes so provenance records can name the
+    // exact input that produced a number. Hash the original File (not the
+    // decoded text) via the streaming SHA-256 — large files never re-enter
+    // the heap as one buffer. Non-fatal: provenance degrades to empty, the
+    // numbers themselves still compute.
+    let sha256: string | undefined;
+    try {
+      sha256 = await sha256Blob(file);
+      setCurrentDataSource({ name: file.name, hash: sha256, bytes: file.size });
+    } catch (err) {
+      logger.warn('io', 'data file sha256 failed', err);
+    }
     // Re-read AFTER the await. Large/scientific imports parse for a while
     // before reaching here; using the pre-await snapshot previously replaced
     // the *whole* project object (potentially a different project the user
@@ -1013,6 +1033,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       mimeType: file.type || 'text/plain',
       format: fileExtension(file.name),
       content,
+      ...(sha256 ? { sha256 } : {}),
     };
     const files = existing
       ? current.data.files.map((f) => (f.id === existing.id ? entry : f))
@@ -1048,10 +1069,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const existing = current.data.files.find((f) => f.id === id);
     if (!existing) return false;
     const bytes = new TextEncoder().encode(content).byteLength;
+    // Keep the provenance fingerprint in step with the edited bytes (FR-1).
+    let sha256: string | undefined;
+    try {
+      sha256 = sha256Text(content);
+      setCurrentDataSource({ name: existing.name, hash: sha256, bytes });
+    } catch (err) {
+      logger.warn('io', 'data file sha256 failed', err);
+    }
     const entry: FileEntry = {
       ...existing,
       size: bytes,
       content,
+      ...(sha256 ? { sha256 } : {}),
     };
     const files = current.data.files.map((f) => (f.id === id ? entry : f));
     set({ project: { ...current, data: { ...current.data, files } } });

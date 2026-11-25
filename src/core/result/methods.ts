@@ -6,14 +6,12 @@
 // ==========================================================================
 
 import { canonicalJSON } from './canonical';
+import { metricDisplayText } from './format';
 import type { ResultRecord } from './types';
 
 function metricPhrase(record: ResultRecord): string {
   return record.metrics
-    .map((m) => {
-      const v = m.display ?? String(m.value);
-      return `${m.label} = ${v}${m.unit ? ` ${m.unit}` : ''}`;
-    })
+    .map((m) => `${m.label} = ${metricDisplayText(m)}`)
     .join('; ');
 }
 

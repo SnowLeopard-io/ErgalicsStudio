@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import { useProjectStore } from './projectStore';
 import { usePluginStore } from './pluginStore';
-import { useSettingsStore } from './settingsStore';
+import { getGpuBackend } from '@/core/gpu';
 import {
   createResultRecord,
   compareResults,
@@ -19,15 +19,21 @@ import type { ResultComparisonRow, ResultRecord } from '@/core/result/types';
 import { setResultPublisher, type ScienceMetric } from '@/core/research/scienceOutput';
 import { setExportSidecarHook } from '@/core/result/exportHook';
 import { buildSidecar, downloadSidecar, hashDownloadData } from '@/core/result/sidecar';
+import {
+  getCurrentDataSource,
+  getCurrentDataHash,
+  setCurrentDataHash,
+} from '@/core/result/activeData';
 
-/** Most recent source fingerprint(s), maintained by the data-loading paths. */
-let currentDataHash = '';
-export function setCurrentDataHash(hash: string): void {
-  currentDataHash = hash;
-}
-export function getCurrentDataHash(): string {
-  return currentDataHash;
-}
+// Data-loading paths report their fingerprint through core/result/activeData
+// (see projectStore.addDataFile / updateDataFile / useFileRouting). Re-exported
+// here for existing import sites.
+export { setCurrentDataHash, getCurrentDataHash };
+export {
+  getCurrentDataSource,
+  setCurrentDataSource,
+  resetCurrentDataSource,
+} from '@/core/result/activeData';
 
 interface ResultStore {
   /** Mirror of project.state.results for reactive consumers. */
@@ -63,15 +69,22 @@ export const useResultStore = create<ResultStore>((set, get) => ({
       usePluginStore.getState().registry.find((e) => e.id === pluginId)?.version ??
       'unknown';
     const snapshotParams = project?.state.parameters?.[pluginId] ?? {};
-    const backend =
-      args.environment?.backend ??
-      (useSettingsStore.getState() as unknown as { gpuMode?: string }).gpuMode ??
-      'cpu';
+    // Real execution backend, not the settings preference: "auto" + a live
+    // device means WebGPU; fallback / no device means CPU.
+    const gpu = getGpuBackend();
+    const resolvedBackend = gpu.available && !gpu.fallback ? 'webgpu' : 'cpu';
+    const backend = args.environment?.backend ?? resolvedBackend;
+    // FR-1: default the input fingerprint to the most recent data ingest;
+    // explicit args always win.
+    const activeSource = getCurrentDataSource();
     const record = createResultRecord({
       ...args,
       pluginId,
       pluginVersion,
-      dataHash: args.dataHash || currentDataHash,
+      dataHash: args.dataHash || activeSource?.hash || '',
+      sources:
+        args.sources ??
+        (activeSource ? [{ name: activeSource.name, hash: activeSource.hash }] : []),
       params: { ...snapshotParams, ...(args.params ?? {}) },
       environment: { backend, ...(args.environment ?? {}) },
     });

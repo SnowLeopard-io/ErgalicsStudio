@@ -5,6 +5,7 @@ import { downloadBlob } from '@/core/download';
 import {
   bilingualMethodDescription,
   buildReproductionScript,
+  metricDisplayText,
   reproduceResult,
   type ReproductionOutcome,
 } from '@/core/result';
@@ -84,9 +85,9 @@ export function ProvenanceCard({ resultId, onClose }: Props) {
           <ul className="prov-list">
             {record.metrics.map((m) => (
               <li key={m.key}>
-                <span className={`science-metric sev-${m.severity ?? 'info'}`}>
-                  {m.label}: {m.display ?? String(m.value)}{m.unit ? ` ${m.unit}` : ''}
-                </span>
+                  <span className={`science-metric sev-${m.severity ?? 'info'}`}>
+                    {m.label}: {metricDisplayText(m)}
+                  </span>
               </li>
             ))}
           </ul>
