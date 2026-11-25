@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
+import { SearchIcon } from '@/components/icons';
 import { pluginName } from '@/stores/pluginStore';
 
 interface FileRouterDialogProps {
@@ -32,27 +33,32 @@ export function FileRouterDialog({ open, file, pluginIds, onClose, onPick }: Fil
 
   return (
     <Modal open={open} onClose={onClose} title={t('io.choose_plugin_title')} width={480}>
-      <p>{file?.name}</p>
-      <p className="empty-hint">{t('io.choose_plugin_hint')}</p>
-      <input
-        className="input search-input"
-        type="search"
-        value={query}
-        placeholder={t('common.search')}
-        aria-label={t('common.search')}
-        spellCheck={false}
-        autoFocus
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      <div className="file-router-options">
-        {filtered.map((id) => (
-          <button key={id} type="button" className="btn btn-block" onClick={() => onPick(id)}>
-            {pluginName(id)}
-          </button>
-        ))}
-        {filtered.length === 0 && (
-          <p className="empty-hint">{t('io.choose_plugin_no_match')}</p>
-        )}
+      <div className="file-router-body">
+        <p className="modal-text">{file?.name}</p>
+        <p className="empty-hint">{t('io.choose_plugin_hint')}</p>
+        <div className="search-input-wrap file-router-search">
+          <SearchIcon size={14} className="search-input-icon" />
+          <input
+            className="input search-input"
+            type="search"
+            value={query}
+            placeholder={t('common.search')}
+            aria-label={t('common.search')}
+            spellCheck={false}
+            autoFocus
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="file-router-options">
+          {filtered.map((id) => (
+            <button key={id} type="button" className="btn btn-block" onClick={() => onPick(id)}>
+              {pluginName(id)}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p className="empty-hint">{t('io.choose_plugin_no_match')}</p>
+          )}
+        </div>
       </div>
     </Modal>
   );
