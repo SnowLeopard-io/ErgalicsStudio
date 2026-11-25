@@ -57,6 +57,14 @@
   background: var(--color-bg-primary);
   border-radius: var(--radius-sm);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  /* The composed SVG carries the paper size (336 px single column, ~690 px
+     double column). A block-level wrapper stretched to the full stage made
+     the white "paper" far wider than the exported figure, so the plot looked
+     like a stamp in the middle of a blank page and the preview disagreed with
+     the SVG/PDF the exporter writes. Size the paper to its content instead. */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 /* ---- Figure Studio editor fields: balanced spacing ---- */

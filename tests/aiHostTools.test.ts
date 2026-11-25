@@ -13,7 +13,12 @@ import type { ToolResult } from '@/core/ai/tools/types';
 
 vi.mock('@/stores/projectStore', () => ({
   useProjectStore: {
-    getState: () => ({ project: null, setDirty: () => undefined }),
+    getState: () => ({
+      project: null,
+      setDirty: () => undefined,
+      setActivePlugin: () => undefined,
+      setPluginParamValues: () => undefined,
+    }),
     setState: () => undefined,
   },
 }));
