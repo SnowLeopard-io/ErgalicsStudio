@@ -50,6 +50,10 @@ function runPython(snippet: string): string {
   if (!stubDir) {
     stubDir = mkdtempSync(join(tmpdir(), 'ergalics-studio-'));
     writeFileSync(join(stubDir, 'studio_bridge.py'), BRIDGE_STUB, 'utf8');
+    // These tests only exercise the module's variable helpers, not numeric
+    // work. A minimal numpy stub keeps them runnable when CPython is present
+    // but numpy is not (the browser still uses the real Pyodide numpy).
+    writeFileSync(join(stubDir, 'numpy.py'), 'ndarray = type("ndarray", (), {})\n', 'utf8');
   }
   // The stub is found through PYTHONPATH — importing sys in the snippet would
   // add a `sys` global and pollute the very namespace these tests inspect.

@@ -44,18 +44,21 @@ type Listener = (snapshot: Record<string, ScienceOutputEntry>) => void;
 
 const outputs = new Map<string, ScienceOutputEntry>();
 const listeners = new Set<Listener>();
+// Cached snapshot: useSyncExternalStore requires getSnapshot to return the
+// SAME object until the store changes, otherwise React re-renders forever.
+let currentSnapshot: Record<string, ScienceOutputEntry> = {};
 
-function snapshot(): Record<string, ScienceOutputEntry> {
+function refreshSnapshot(): void {
   const out: Record<string, ScienceOutputEntry> = {};
   for (const [id, entry] of outputs) out[id] = entry;
-  return out;
+  currentSnapshot = out;
 }
 
 function emit(): void {
-  const snap = snapshot();
+  refreshSnapshot();
   for (const l of listeners) {
     try {
-      l(snap);
+      l(currentSnapshot);
     } catch {
       // A broken subscriber must never take down the publishing plugin.
     }
@@ -89,7 +92,7 @@ export function clearScienceOutputs(pluginId: string): void {
 }
 
 export function getScienceOutputs(): Record<string, ScienceOutputEntry> {
-  return snapshot();
+  return currentSnapshot;
 }
 
 export function subscribeScienceOutputs(listener: Listener): () => void {

@@ -18,7 +18,7 @@
 // shadowed in the user's global namespace.
 // ==========================================================================
 
-export const STUDIO_PYTHON_SOURCE = `import re
+export const STUDIO_PYTHON_SOURCE = `import re  # kept as a convenience global for user code
 import random as _random
 
 import numpy as _np
@@ -64,16 +64,22 @@ class _Studio:
         text = _FILES[key]
         lower = key.lower()
         if lower.endswith(".xyz"):
-            return _parse_delimited(text, _xyz_name)
+            return _parse_delimited(text, "xyz")
         if lower.endswith(".json"):
             return _load_json(text)
-        return _parse_delimited(text, _default_name)
+        return _parse_delimited(text, "default")
 
     def loadCSV(self, text):
-        return _parse_delimited(text, _default_name)
+        return _parse_delimited(text, "default")
 
     def loadXYZ(self, text):
-        return _parse_delimited(text, _xyz_name)
+        return _parse_delimited(text, "xyz")
+
+    def load_csv(self, text):
+        return self.loadCSV(text)
+
+    def load_xyz(self, text):
+        return self.loadXYZ(text)
 
     def random(self, n, seed=None):
         rng = _random.Random(seed) if seed is not None else _random.Random()
@@ -305,75 +311,38 @@ _sys.modules["studio"] = _studio_module
 # ---- private helpers -------------------------------------------------------
 
 
-def _is_num(t):
+def _py_number(value):
+    # The bridge encodes non-finite floats as JSON-safe markers.
+    if value is None:
+        return float("nan")
+    if value == "Infinity":
+        return float("inf")
+    if value == "-Infinity":
+        return float("-inf")
+    return float(value)
+
+
+def _parse_delimited(text, name_scheme):
+    """Delegate to the canonical delimited parser in the host.
+
+    Header detection, comment lines, empty cells, column width, quoting and
+    type inference all live in src/core/data/parseDelimited.ts. This function
+    only converts that parser's portable payload into the Python DataTable
+    mirror, so a CSV cannot mean different things in the workbench, the
+    editor StudioApi and a Python/Notebook session.
+    """
     try:
-        float(t)
-        return True
-    except (ValueError, TypeError):
-        return False
-
-
-def _split_tokens(line):
-    # Keep empty tokens: a trailing comma marks a missing value ('0,' in a
-    # 2-column file). Dropping empties collapses that row to one token, the
-    # width then locks to 1 and every full row is silently discarded — the
-    # parser returned ONLY the broken rows. Leading delimiters still yield a
-    # spurious empty first token, so strip exactly that one.
-    tokens = re.split(r"[\\s,]+", line.strip())
-    if tokens and tokens[0] == "":
-        tokens = tokens[1:]
-    return tokens
-
-
-def _default_name(i):
-    return ["x", "y", "z", "w"][i] if i < 4 else f"c{i}"
-
-
-def _xyz_name(i):
-    return ["x", "y", "z"][i] if i < 3 else f"c{i}"
-
-
-def _parse_delimited(text, default_names):
-    """Parse whitespace/comma-delimited numeric columns, matching the JS
-    parseDelimitedColumns: a non-numeric header supplies names, empty tokens
-    are missing values (NaN), the width comes from the header when present
-    (else the widest row), short rows are padded with NaN, and only rows
-    wider than the width are skipped."""
-    # Comment lines (# or //) are metadata, not a header. Scientific data
-    # files routinely start with one, and treating it as the header produced
-    # nonsense column names (e.g. "# Illustrative demo data ..." -> "#").
-    lines = [l.strip() for l in text.splitlines()]
-    lines = [l for l in lines if l and not l.startswith("#") and not l.startswith("//")]
-    header = []
-    rows = []
-    for line in lines:
-        tokens = _split_tokens(line)
-        if not tokens:
-            continue
-        # The first data-bearing line is a header when it contains any
-        # non-empty non-numeric token (matching the JS parser); a data row
-        # like '0,' has only numeric + empty tokens and stays data.
-        if not header and not rows and any(t != "" and not _is_num(t) for t in tokens):
-            header = tokens
-            continue
-        try:
-            rows.append([float(t) if t else float("nan") for t in tokens])
-        except (ValueError, TypeError):
-            continue
-    if not rows:
-        raise ValueError("no numeric data found")
-    # A header narrower than the data (e.g. 'x,y' + '1,2,' — Excel likes a
-    # trailing delimiter) is NOT a reason to throw away every good row. Take
-    # the widest shape and pad missing cells with NaN; name the extra columns
-    # from the default sequence. Only genuinely non-numeric tokens are skipped
-    # above, so no valid data disappears silently here.
-    width = max(len(header), max(len(r) for r in rows))
-    columns = [[] for _ in range(width)]
-    for r in rows:
-        for i in range(width):
-            columns[i].append(r[i] if i < len(r) else float("nan"))
-    names = [header[i] if i < len(header) else default_names(i) for i in range(width)]
-    return DataTable("data", list(zip(names, columns)), provenance="load")
+        payload = studio_bridge.parseDelimited(text, name_scheme)
+    except Exception as err:
+        raise ValueError(str(err)) from err
+    columns = []
+    for col in payload["columns"]:
+        if col["type"] == "f64":
+            data = [_py_number(v) for v in col["data"]]
+        else:
+            data = ["" if v is None else str(v) for v in col["data"]]
+        columns.append((col["name"], data))
+    return DataTable("data", columns, provenance="load")
 
 
 def _load_json(text):

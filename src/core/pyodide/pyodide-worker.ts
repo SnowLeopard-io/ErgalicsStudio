@@ -12,6 +12,12 @@
 // ==========================================================================
 
 import type { PyodideInterface } from 'pyodide';
+import {
+  nameSchemeFunction,
+  parseDelimitedColumns,
+  toPortableDelimitedTable,
+  type DelimitedNameScheme,
+} from '@/core/data/parseDelimited';
 import { STUDIO_PYTHON_SOURCE } from './studio.py';
 import {
   collectWorkspaceOutputs,
@@ -197,12 +203,21 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
 
   // JS side of `studio_bridge`: Python's studio.plot / studio.print /
   // studio.notify call into these functions; each posts a message to the host.
+  // `parseDelimited` is the one bridge call that returns data: the Python
+  // `studio` module delegates all CSV parsing to the canonical TS parser so
+  // Notebook, workbench and editor API cannot drift apart.
   py.registerJsModule('studio_bridge', {
     // String args convert cleanly to JS; a Python dict would arrive as a
     // JsProxy that structured-clone (postMessage) cannot serialize.
     plot: (pluginId: string, text: string) => postPlot({ pluginId, text }),
     log: postLog,
     notify: postNotify,
+    parseDelimited: (text: string, nameScheme: string) => {
+      const scheme: DelimitedNameScheme = nameScheme === 'xyz' ? 'xyz' : 'default';
+      return py.toPy(
+        toPortableDelimitedTable(parseDelimitedColumns(text, nameSchemeFunction(scheme))),
+      );
+    },
   });
 
   // Pyodide's `batched` mode calls back once per line WITHOUT the trailing

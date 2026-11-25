@@ -8,144 +8,20 @@
 // ==========================================================================
 
 import { createDataTable, type DataTable } from '@/types/datatable';
-import { isNumericToken } from '@/core/io/numericToken';
-import { splitLooseTokens } from '@/core/io/delimited';
+import {
+  defaultDelimitedName,
+  parseDelimitedColumns,
+  xyzDelimitedName,
+  type ParsedDelimitedTable,
+} from '@/core/data/parseDelimited';
 import { stripBOM } from '@/core/io/text';
 
-interface ParsedColumn {
-  name: string;
-  type: 'f64' | 'string';
-  data: Float64Array | string[];
-}
-
-interface ParsedColumns {
-  columns: ParsedColumn[];
-  rows: number;
-}
-
-/**
- * Split a delimited line into tokens.
- *
- * Supports RFC4180-style double-quoted fields (`"a,b"` stays one token and
- * `""` is an escaped quote) alongside the comma / whitespace separation used by
- * plain numeric data. A comma always closes a field — so `1,,3` yields an
- * explicit empty middle field — while runs of whitespace collapse into a single
- * separator (so `1   2` is two fields, not three).
- *
- * The implementation lives in core/io/delimited (shared with the chunked
- * reader, the cleaning wizard and the data-engine parsers).
- */
-function splitTokens(line: string): string[] {
-  return splitLooseTokens(line);
-}
-
-/**
- * Parse whitespace/comma-delimited data into typed columns.
- *
- * A header line (any line containing a non-numeric token) supplies column
- * names. Column count comes from the first data row; a header narrower or wider
- * than the data is padded/truncated so valid rows are never silently dropped.
- *
- * Column *types* are inferred per column, not per row: a column whose tokens
- * are all numeric becomes `f64`; a column with any numeric token keeps its
- * numbers and demotes unparseable cells to NaN (missing); a column with no
- * numeric token at all (e.g. a categorical `group` / `sample` label) becomes a
- * `string` column. Rows are only dropped when they are longer than the table
- * width. This is what lets a two-column categorical + numeric study CSV like
- * `sample,group,activity` load into a table instead of throwing
- * "no numeric data found" just because it carries a label column.
- */
-function parseDelimitedColumns(
-  text: string,
-  defaultName: (i: number) => string,
-): ParsedColumns {
-  const lines = stripBOM(text)
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  let headerArr: string[] | null = null;
-  const raw: string[][] = [];
-
-  for (const line of lines) {
-    const tokens = splitTokens(line);
-    // Separator-only lines (`,,` / blank runs) carry no data.
-    if (tokens.length === 0 || tokens.every((t) => t === '')) continue;
-    // `#` comment lines are the shared convention across the bundled sample
-    // data (provenance notes, column dictionaries) — never data, never header.
-    if (tokens[0]!.startsWith('#')) continue;
-
-    // The first data-bearing line is a header when it contains any non-numeric
-    // token (NaN / Infinity / overflowing literals are numeric cells — see
-    // isNumericToken). Once data rows exist the table width is fixed, so a
-    // later header can no longer be detected — matching the old behaviour.
-    if (headerArr === null && raw.length === 0 && tokens.some((t) => t !== '' && !isNumericToken(t))) {
-      headerArr = tokens;
-      continue;
-    }
-
-    if (raw.length === 0) {
-      for (let i = 0; i < tokens.length; i += 1) raw.push([]);
-    }
-    const width = raw.length;
-    // Only genuinely over-long rows are malformed and dropped; a short row
-    // keeps the cells it has and pads the remainder with missing values.
-    if (tokens.length > width) continue;
-    for (let i = 0; i < width; i += 1) {
-      raw[i]!.push(i < tokens.length ? tokens[i]! : '');
-    }
-  }
-
-  if (raw.length === 0) {
-    throw new Error('no numeric data found');
-  }
-
-  const rows = raw[0]!.length;
-  const columns: ParsedColumn[] = raw.map((cells, i) => {
-    const name = headerArr?.[i] ?? defaultName(i);
-    // Same numeric-cell rule as header detection: NaN / Infinity / overflow
-    // literals count as numeric, otherwise an all-Infinity column would be
-    // misread as categorical ("no numeric data found").
-    const numeric = cells.filter((c) => c !== '' && isNumericToken(c));
-    if (numeric.length === 0) {
-      // Categorical / label column — keep its strings.
-      return { name, type: 'string' as const, data: [...cells] };
-    }
-    // Numeric column (missing / stray tokens become NaN).
-    return {
-      name,
-      type: 'f64' as const,
-      data: Float64Array.from(cells.map((c) => (c !== '' && isNumericToken(c) ? Number(c) : NaN))),
-    };
-  });
-
-  // A result with only categorical columns has nothing numeric to analyze.
-  if (!columns.some((c) => c.type === 'f64')) {
-    throw new Error('no numeric data found');
-  }
-
-  return { columns, rows };
-}
-
-function tableFromParsed(parsed: ParsedColumns, provenance: string): DataTable {
+function tableFromParsed(parsed: ParsedDelimitedTable, provenance: string): DataTable {
   return createDataTable(
     provenance,
     parsed.columns.map((c) => ({ name: c.name, type: c.type, data: c.data })),
     { provenance },
   );
-}
-
-function defaultColumnName(i: number): string {
-  // Headerless scientific data is conventionally x, y, z, w, then c4…, so the
-  // canonical "load galaxy.dat → normalize column x" reads naturally.
-  return ['x', 'y', 'z', 'w'][i] ?? `c${i}`;
-}
-
-function xyzColumnName(i: number): string {
-  if (i === 0) return 'x';
-  if (i === 1) return 'y';
-  if (i === 2) return 'z';
-  return `c${i}`;
 }
 
 /**
@@ -228,13 +104,13 @@ export function loadJSON(text: string): DataTable {
 export function parseDataText(text: string, fileName: string): DataTable {
   const lower = fileName.toLowerCase();
   if (lower.endsWith('.csv')) {
-    return tableFromParsed(parseDelimitedColumns(text, defaultColumnName), 'loadCSV');
+    return tableFromParsed(parseDelimitedColumns(text, defaultDelimitedName), 'loadCSV');
   }
   if (lower.endsWith('.xyz')) {
-    return tableFromParsed(parseDelimitedColumns(text, xyzColumnName), 'loadXYZ');
+    return tableFromParsed(parseDelimitedColumns(text, xyzDelimitedName), 'loadXYZ');
   }
   if (lower.endsWith('.json')) {
     return loadJSON(text);
   }
-  return tableFromParsed(parseDelimitedColumns(text, defaultColumnName), `load:${fileName}`);
+  return tableFromParsed(parseDelimitedColumns(text, defaultDelimitedName), `load:${fileName}`);
 }

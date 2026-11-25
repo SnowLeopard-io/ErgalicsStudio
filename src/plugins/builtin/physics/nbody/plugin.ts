@@ -228,12 +228,18 @@ export class NBodyPlugin implements Plugin {
       { key: 'dt', label: 'Timestep', labelI18n: { 'zh-CN': '时间步长', 'en-US': 'Timestep' }, type: 'range', min: 0.0005, max: 0.02, step: 0.0005, value: this.state.dt, hint: this.zh() ? '模拟单位 T，范围 0.0005–0.02（辛欧拉积分器）' : 'simulation units T, range 0.0005–0.02 (symplectic Euler integrator)' },
       { key: 'steps', label: 'Compute steps', labelI18n: { 'zh-CN': '计算步数', 'en-US': 'Compute steps' }, type: 'range', min: 10, max: 400, step: 10, value: this.state.steps },
       { key: 'seed', label: 'RNG seed', labelI18n: { 'zh-CN': '随机种子', 'en-US': 'RNG seed' }, type: 'number', min: 0, max: 4294967295, step: 1, value: this.state.seed, hint: this.zh() ? 'mulberry32 种子：相同种子生成完全相同的随机初始条件' : 'mulberry32 seed: the same seed regenerates identical random ICs' },
+      // First action for a new user: ICs are generated only on this explicit
+      // request — never silently in start(). See the note above generateSeededICs().
+      actionButton('genICs', 'Seeded Random ICs', '随机初始条件（种子）', 'primary'),
       {
         key: 'start',
         label: 'Run',
         type: 'toggle',
         value: this.state.running,
-        offLabelI18n: { 'zh-CN': '▶ 开始模拟', 'en-US': '▶ Run' },
+        offLabelI18n: {
+          'zh-CN': '▶ 开始模拟（先生成或加载）',
+          'en-US': '▶ Run (generate or load first)',
+        },
         onLabelI18n: { 'zh-CN': '■ 停止模拟', 'en-US': '■ Stop' },
       },
       {
@@ -245,7 +251,6 @@ export class NBodyPlugin implements Plugin {
         labelI18n: { 'zh-CN': 'GPU 全配对计算', 'en-US': 'GPU all-pairs' },
       },
       actionButton('exportCsv', 'Export Bodies CSV', '导出天体 CSV'),
-      actionButton('genICs', 'Seeded Random ICs', '随机初始条件（种子）'),
       actionButton('runKepler', 'Two-Body Kepler Benchmark', '二体开普勒基准（benchmark）', 'primary'),
     ];
   }
@@ -410,8 +415,8 @@ export class NBodyPlugin implements Plugin {
       this.api.notify(
         'warning',
         this.api.locale === 'zh-CN'
-          ? '请先加载数据 — 拖入 .json 文件或打开「示例数据」'
-          : 'Load data first — drop a .json file or open sample data',
+          ? '请先点「随机初始条件（种子）」，或拖入 .json 文件 / 打开「示例数据」'
+          : 'Click "Seeded Random ICs" first, or drop a .json file / open sample data',
       );
       return;
     }
@@ -637,8 +642,8 @@ export class NBodyPlugin implements Plugin {
       this.api.notify(
         'warning',
         this.api.locale === 'zh-CN'
-          ? '请先加载数据 — 拖入 .json 文件或打开「示例数据」'
-          : 'Load data first — drop a .json file or open sample data',
+          ? '请先点「随机初始条件（种子）」，或拖入 .json 文件 / 打开「示例数据」'
+          : 'Click "Seeded Random ICs" first, or drop a .json file / open sample data',
       );
       return;
     }
