@@ -170,6 +170,8 @@ interface JsPdfModule {
       y: number,
       width: number,
       height: number,
+      alias?: string,
+      compression?: string,
     ) => void;
     output?: (type: string) => unknown;
   };
@@ -222,6 +224,11 @@ export async function buildPDF(
     (PDF_PAGE_HEIGHT_MM - height) / 2,
     width,
     height,
+    undefined,
+    // jsPDF stores PNGs uncompressed by default: a 600 dpi A4 figure became
+    // ~11 MB (raw RGBA) and could exceed download/capture limits. FAST deflate
+    // is lossless for the bitmap and cuts the file to a few hundred KB.
+    'FAST',
   );
   const raw = pdf.output?.('arraybuffer');
   if (!(raw instanceof ArrayBuffer)) throw new Error('jsPDF arraybuffer output unavailable');
