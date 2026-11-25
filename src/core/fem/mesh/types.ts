@@ -138,13 +138,17 @@ export function compactMesh(mesh: PlanarMesh, keep: (el: TriElement) => boolean)
     el.b = remap(el.b);
     el.c = remap(el.c);
   }
+  const tagMap = new Map<string, number>();
+  for (const e of mesh.boundaryEdges) {
+    tagMap.set(edgeKey(remap(e.a), remap(e.b)), e.tag);
+  }
   const compacted: PlanarMesh = {
     nodes: Float64Array.from(coords),
     nodeTags: Int32Array.from(tags),
     elements,
     boundaryEdges: [],
   };
-  compacted.boundaryEdges = rebuildBoundaryEdges(compacted, undefined);
+  compacted.boundaryEdges = rebuildBoundaryEdges(compacted, tagMap);
   return compacted;
 }
 

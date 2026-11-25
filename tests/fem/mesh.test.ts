@@ -15,7 +15,7 @@ import {
   pointInsideDomain,
 } from '../../src/core/fem/mesh/domain';
 import { refineToSize, longestEdge } from '../../src/core/fem/mesh/refine';
-import { meshQuality } from '../../src/core/fem/mesh/quality';
+import { dropDegenerateTriangles, meshQuality } from '../../src/core/fem/mesh/quality';
 import { nodeCount, nodeX, nodeY, edgeKey } from '../../src/core/fem/mesh/types';
 
 /** Deterministic LCG in [0, 1) so failures reproduce. */
@@ -263,5 +263,23 @@ describe('fem mesh: uniform refinement with boundary preservation', () => {
     const tags = new Set(refined.elements.map((e) => e.tag));
     expect(tags.has(1)).toBe(true);
     expect(tags.has(2)).toBe(true);
+  });
+});
+
+describe('fem mesh: compaction preserves boundary tags', () => {
+  it('keeps every rectangle edge tag through dropDegenerateTriangles', () => {
+    const mesh = meshDomain(rectangleDomain(1, 1), { targetSize: 0.25, seed: 3 });
+    const sideCount = (m: typeof mesh, tag: number): number =>
+      m.boundaryEdges.filter((e) => e.tag === tag).length;
+    expect([...new Set(mesh.boundaryEdges.map((e) => e.tag))].sort()).toEqual([1, 2, 3, 4]);
+
+    const compact = dropDegenerateTriangles(mesh);
+    // Regression: rebuildBoundaryEdges without a tag map used to reset every
+    // boundary tag to 0, so Dirichlet selectors matched nothing and the
+    // default Poisson solve diverged instead of converging.
+    expect([...new Set(compact.boundaryEdges.map((e) => e.tag))].sort()).toEqual([1, 2, 3, 4]);
+    for (const tag of [1, 2, 3, 4]) {
+      expect(sideCount(compact, tag)).toBe(sideCount(mesh, tag));
+    }
   });
 });
