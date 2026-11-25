@@ -46,6 +46,7 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
   const loadingIds = usePluginStore((s) => s.loadingIds);
   const notify = useAppStore((s) => s.notify);
   const load = usePluginStore((s) => s.load);
+  const activate = usePluginStore((s) => s.activate);
   const unload = usePluginStore((s) => s.unload);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +120,11 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
     try {
       const plugin = await info.load();
       await load(plugin);
+      // Match the .cspkg install path (confirmInstall): installing a builtin
+      // must make it immediately usable, not just add it to the sidebar list.
+      // Otherwise the dialog reports "已加载" while the canvas still shows the
+      // empty state and the user has to close the modal and click again.
+      await activate(manifest.id);
       notify('success', `${manifest.nameI18n?.[locale] ?? manifest.name} ${t('plugin.loaded')}`);
     } catch (err) {
       notify('error', `${t('plugin.load_failed')}: ${String(err)}`);
