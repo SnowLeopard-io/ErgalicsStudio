@@ -696,6 +696,7 @@ export const zhCN: LocaleDictionary = {
   'io.parse_failed': '科学数据解析失败，请确认文件格式是否正确',
   'io.choose_plugin_title': '选择要打开此文件的插件',
   'io.choose_plugin_hint': '以下已加载插件均支持此格式，请选择一个',
+  'io.choose_plugin_no_match': '没有匹配的插件',
 
   'perf.warning.fps': '低帧率',
   'perf.warning.memory': '显存不足',
