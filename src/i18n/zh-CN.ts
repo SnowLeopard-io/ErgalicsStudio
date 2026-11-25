@@ -80,7 +80,6 @@ export const zhCN: LocaleDictionary = {
   'workbench.sidebar.plugins': '插件',
   'workbench.sidebar.plugin_search': '搜索插件（名称、ID、描述）',
   'workbench.sidebar.plugin_search_none': '没有匹配的插件',
-  'workbench.sidebar.fresh': '竞赛求解器',
   'workbench.sidebar.tools': '工具',
   'workbench.sidebar.data_files': '数据文件',
   // ---- 活动栏 ----

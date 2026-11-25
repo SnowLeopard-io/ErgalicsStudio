@@ -30,9 +30,6 @@ const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
  *  registry so a newly registered group (e.g. publish) shows up here too. */
 const RESEARCH_GROUP_IDS = GRID_GROUPS.filter((group) => group !== 'utils');
 
-/** Plugins showcased in the sidebar "New Releases" section (topmost group). */
-const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
-
 /** Collapsed discipline groups persist per-machine so the sidebar layout
  *  survives reloads (mirrors the panel-prefs persistence in appStore). */
 const GROUPS_PREFS_KEY = 'ergalics:sidebar-groups';
@@ -182,23 +179,12 @@ export function Sidebar() {
     }));
   }, [visibleRegistry, locale]);
 
-  // "New Releases" showcase group pinned above the discipline groups; only
-  // shown while at least one featured plugin is actually loaded.
-  const allGroups = useMemo(() => {
-    const fresh = visibleRegistry.filter((e) => FRESH_PLUGIN_IDS.includes(e.id));
-    if (fresh.length === 0) return groups;
-    return [
-      { id: 'fresh', label: t('workbench.sidebar.fresh'), entries: fresh },
-      ...groups,
-    ];
-  }, [groups, visibleRegistry, t]);
-
   // Search spans both locales' names/descriptions so a Chinese query still
   // finds a plugin while the UI is in English (and vice versa).
   const filteredGroups = useMemo(() => {
     const q = pluginQuery.trim().toLowerCase();
-    if (!q) return allGroups;
-    return allGroups
+    if (!q) return groups;
+    return groups
       .map((group) => ({
         ...group,
         entries: group.entries.filter((entry) =>
@@ -216,7 +202,7 @@ export function Sidebar() {
         ),
       }))
       .filter((group) => group.entries.length > 0);
-  }, [allGroups, pluginQuery]);
+  }, [groups, pluginQuery]);
   const searching = pluginQuery.trim().length > 0;
 
   const researchGroups = useMemo(() => {
