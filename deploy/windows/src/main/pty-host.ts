@@ -70,13 +70,12 @@ const cmdProvider: ShellProvider = {
 function buildPythonEnv(cwd?: string): Record<string, string> {
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
   try {
-    const candidates = [
-      pathMod.join(process.resourcesPath ?? '', 'resources', 'python'),
-      pathMod.join(process.resourcesPath ?? '', 'resources', 'python', 'Scripts'),
-    ].filter((p) => fsMod.existsSync(p));
+    const root = pathMod.join(process.resourcesPath ?? '', 'resources', 'python');
+    const bin = process.platform === 'win32' ? 'Scripts' : 'bin';
+    const candidates = [root, pathMod.join(root, bin)].filter((p) => fsMod.existsSync(p));
     if (candidates.length > 0) {
-      env.PATH = `${candidates.join(';')};${env.PATH ?? ''}`;
-      env.VIRTUAL_ENV = candidates[0];
+      env.PATH = `${candidates.join(pathMod.delimiter)}${pathMod.delimiter}${env.PATH ?? ''}`;
+      env.VIRTUAL_ENV = root;
     }
   } catch {
     /* stay with the inherited environment */
@@ -84,7 +83,24 @@ function buildPythonEnv(cwd?: string): Record<string, string> {
   return env;
 }
 
-const PROVIDERS: ShellProvider[] = [powershellProvider, cmdProvider];
+/** Unix shell: the only provider registered on Linux/macOS builds. */
+const posixProvider: ShellProvider = {
+  name: 'bash',
+  async detect() {
+    return process.platform !== 'win32';
+  },
+  build(cwd) {
+    const shell = process.env.SHELL || '/bin/sh';
+    // Re-exec the interactive shell in the requested cwd; quoting the cwd
+    // keeps paths with spaces or shell metacharacters from being interpreted.
+    const args = cwd ? ['-c', `cd ${JSON.stringify(cwd)} && exec ${shell}`] : [];
+    return { file: shell, args, env: buildPythonEnv(cwd) };
+  },
+};
+
+const PROVIDERS: ShellProvider[] = process.platform === 'win32'
+  ? [powershellProvider, cmdProvider]
+  : [posixProvider];
 
 type Broadcaster = (channel: string, payload: Record<string, unknown>) => void;
 

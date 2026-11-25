@@ -34,12 +34,23 @@ interface Session {
 type Broadcaster = (payload: Record<string, unknown>) => void;
 
 function findPythonExecutable(app: App): { exe: string; portable: boolean } {
-  const bundled = path.join(process.resourcesPath ?? '', 'resources', 'python', 'python.exe');
-  if (fs.existsSync(bundled)) return { exe: bundled, portable: true };
-  // Dev layout: deploy/windows/resources/python.
-  const dev = path.join(app.getAppPath(), 'resources', 'python', 'python.exe');
-  if (fs.existsSync(dev)) return { exe: dev, portable: true };
-  return { exe: 'python', portable: false };
+  // Windows bundles python.exe at the portable root; Unix portable layouts
+  // conventionally use bin/python3 (or bin/python). Keep the Windows search
+  // order first so the existing installer behaviour is unchanged.
+  const names = process.platform === 'win32'
+    ? ['python.exe']
+    : ['bin/python3', 'bin/python', 'python3', 'python'];
+  const roots = [
+    path.join(process.resourcesPath ?? '', 'resources', 'python'),
+    path.join(app.getAppPath(), 'resources', 'python'),
+  ];
+  for (const root of roots) {
+    for (const name of names) {
+      const candidate = path.join(root, name);
+      if (fs.existsSync(candidate)) return { exe: candidate, portable: true };
+    }
+  }
+  return { exe: process.platform === 'win32' ? 'python' : 'python3', portable: false };
 }
 
 function findRunnerPath(app: App): string {

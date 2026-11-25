@@ -8,7 +8,7 @@
 | 目录 | 平台 | 状态 | 载体 |
 | --- | --- | --- | --- |
 | `windows/` | Windows | ✅ 已实现 | Electron + NSIS 安装器 |
-| `linux/` | Linux | 占位，待实现 | Electron → AppImage / deb |
+| `linux/` | Linux | ✅ 已实现 | Electron → AppImage / deb |
 | `macos/` | macOS | 占位，待实现 | Electron → dmg（arm64 + x64） |
 | `android/` | Android | ✅ 已实现 | Capacitor 8 → 未签名 APK |
 | `pwa/` | 全平台"安装" | 占位，建议优先 | manifest + service worker |
@@ -64,6 +64,16 @@ npm run dev:desktop                    # Electron 窗口连到这个 dev server�
 node scripts/desktop-dev.mjs -- --remote-debugging-port=9222
 ```
 
+## Linux 打包命令
+
+前置：Linux 构建机（CI 用 `ubuntu-latest`），并在 `deploy/linux/` 下 `npm install`。
+
+```bash
+npm run build:linux                # Web 构建 → 共享主进程打包 → AppImage + deb
+```
+
+产物：`deploy/linux/release/*.AppImage` 与 `*.deb`。完整说明见 `linux/README.md`。
+
 ## Android 打包命令
 
 前置：JDK 21 + Android SDK Platform 36，并在 `deploy/android/` 下 `npm install`。
@@ -88,8 +98,9 @@ npm run preview                        # 本地预览构建产物
 
 ## 各待实现端的入口
 
-- Linux / macOS：给 `deploy/windows/electron-builder.yml` 加对应 target
-  或复制配置；构建机必须是目标平台（或 CI）。详见各目录 README
+- Linux：`npm run build:linux`；共享主进程 + AppImage/deb 配置见 `linux/README.md`
+- macOS：给 `deploy/windows/electron-builder.yml` 加对应 target
+  或复制配置；构建机必须是 Mac（或 CI）。详见 `macos/README.md`
 - Android：`npm run build:android`；工程结构、前置条件与 CI 见 `android/README.md`
 - PWA：`vite-plugin-pwa` 方案见 `pwa/README.md`
 - 自托管：Dockerfile + nginx 要点见 `selfhost/README.md`

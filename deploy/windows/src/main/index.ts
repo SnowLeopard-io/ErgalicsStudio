@@ -73,7 +73,8 @@ function serveRenderer(): void {
 }
 
 function createWindow(): BrowserWindow {
-  const iconPath = path.join(process.resourcesPath ?? app.getAppPath(), 'resources', 'icon.ico');
+  const iconName = process.platform === 'win32' ? 'icon.ico' : 'icon.png';
+  const iconPath = path.join(process.resourcesPath ?? app.getAppPath(), 'resources', iconName);
   const win = new BrowserWindow({
     width: 1600,
     height: 950,

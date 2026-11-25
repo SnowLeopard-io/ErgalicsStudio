@@ -116,5 +116,12 @@ deploy/android/android/app/build/
 deploy/android/android/app/src/main/assets/public/
 deploy/android/android/app/src/main/assets/capacitor.config.json
 
+# Linux (Electron) desktop edition build artifacts. Main-process sources are
+# shared with deploy/windows/src and stay tracked there.
+deploy/linux/node_modules/
+deploy/linux/dist-electron/
+deploy/linux/app-dist/
+deploy/linux/release/
+
 
 industrial-capability-benchmark/
