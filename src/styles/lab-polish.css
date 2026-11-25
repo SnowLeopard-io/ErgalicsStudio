@@ -94,6 +94,30 @@
   min-height: 30px;
 }
 
+/* ---- Sweep Studio: fluid result charts --------------------------------- */
+
+/* buildSurface() emits a 620 px PlotSpec, which was also baked into the card
+   width: wide screens wasted the rest of the stage and narrow screens clipped
+   the chart. Both charts carry a viewBox, so let them fill the stage instead. */
+.sweep-results .research-chart-card {
+  width: 100%;
+  align-items: stretch;
+}
+
+.sweep-results .research-chart-card .analysis-svg {
+  max-height: none;
+  overflow: visible;
+  width: 100%;
+}
+
+.sweep-results .research-chart-card .analysis-svg svg,
+.sweep-results .research-chart-card svg.sweep-heat {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
 /* ---- Gallery: hover feedback + consistent rhythm ---- */
 
 .gallery-card-hit {
