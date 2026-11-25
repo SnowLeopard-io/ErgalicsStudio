@@ -43,6 +43,7 @@
 | 科学求解器 | 稀疏厄密特征值求解器（厚重启 Lanczos / LOBPCG / Jacobi-Davidson + MINRES 移位求逆、2D 谱报告 + 3D 模态场）和 1D–3D 流体网络双向耦合器（多速率时间步协调 + 粗细子循环），均在 Pyodide Worker 中运行——`em-eigensolver`、`fluid-cfd-coupler` | 已完成 |
 | 插件市场 | 插件注册表 UI 和远程安装；`.cspkg` 包签名门禁（ed25519，FR-05）已上线 | 签名门禁：已完成 · 注册表/安装：下一步 |
 | CI | GitHub Actions——5 个工作流：ci / bench / deploy / release / security | 已完成 |
+| 可信计算单元 | 每次运行生成不可变 `ResultRecord`，指标条与 AI 回答统一读取该记录；来源卡片、导出 sidecar、论文包、独立复现脚本、L4 验收卡与发布门禁（`/l4`） | 已实现（L4 证据待补） |
 | 错误处理 | 错误边界、回退、重试 | 部分完成 |
 
 ## 里程碑
