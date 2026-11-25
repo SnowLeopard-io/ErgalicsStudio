@@ -2,7 +2,7 @@
 // FEM core — triangle quality metrics and degenerate-element handling.
 // ==========================================================================
 
-import { PlanarMesh, TriElement, rebuildBoundaryEdges, triangleSignedArea } from './types';
+import { PlanarMesh, TriElement, edgeKey, rebuildBoundaryEdges, triangleSignedArea } from './types';
 
 export interface MeshQualityStats {
   nodeCount: number;
@@ -112,10 +112,14 @@ export function dropDegenerateTriangles(mesh: PlanarMesh, minArea?: number): Pla
   }
   const fallback = Math.max((maxX - minX) * (maxY - minY), 1) * 1e-14;
   const threshold = minArea ?? fallback;
-  const elements = mesh.elements.filter((el) => {
-    const area = Math.abs(triangleSignedArea(mesh.nodes, el.a, el.b, el.c));
-    return Number.isFinite(area) && area > threshold;
-  });
+  // Clone the surviving elements: the remap below must not mutate the caller's
+  // mesh, which may still be cached elsewhere.
+  const elements = mesh.elements
+    .filter((el) => {
+      const area = Math.abs(triangleSignedArea(mesh.nodes, el.a, el.b, el.c));
+      return Number.isFinite(area) && area > threshold;
+    })
+    .map((el) => ({ ...el }));
   // Remap node indices to drop orphan nodes.
   const remap = new Map<number, number>();
   const coords: number[] = [];
@@ -134,13 +138,22 @@ export function dropDegenerateTriangles(mesh: PlanarMesh, minArea?: number): Pla
     el.b = idOf(el.b);
     el.c = idOf(el.c);
   }
+  // Carry boundary tags across the index remap, otherwise every boundary edge
+  // loses its tag and Dirichlet/Neumann selectors silently match nothing.
+  const tagMap = new Map<string, number>();
+  for (const e of mesh.boundaryEdges) {
+    const a = remap.get(e.a);
+    const b = remap.get(e.b);
+    if (a === undefined || b === undefined) continue;
+    tagMap.set(edgeKey(a, b), e.tag);
+  }
   const compacted: PlanarMesh = {
     nodes: Float64Array.from(coords),
     nodeTags: Int32Array.from(tags),
     elements,
     boundaryEdges: [],
   };
-  compacted.boundaryEdges = rebuildBoundaryEdges(compacted);
+  compacted.boundaryEdges = rebuildBoundaryEdges(compacted, tagMap);
   return compacted;
 }
 
