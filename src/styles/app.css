@@ -3066,10 +3066,22 @@
   font-size: var(--font-size-sm);
 }
 
+.file-router-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.file-router-body p {
+  margin: 0;
+}
+
 .file-router-options {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .plugin-local-pane {
