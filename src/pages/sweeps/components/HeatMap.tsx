@@ -21,7 +21,14 @@ export function HeatMap({ xVals, yVals, grid, lo, hi, xName, yName, colorAt }: H
   const width = pad + xVals.length * cell + 20;
   const height = pad + yVals.length * cell + 30;
   return (
-    <svg className="sweep-heat" width={width} height={height} role="img" aria-label={`${xName} × ${yName}`}>
+    <svg
+      className="sweep-heat"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label={`${xName} × ${yName}`}
+    >
       {grid.map((row, yi) =>
         row.map((value, xi) => (
           <rect
