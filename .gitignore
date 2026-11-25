@@ -105,5 +105,16 @@ deploy/windows/build-dist.log
 # Portable CPython bundled into the installer (downloaded on demand).
 deploy/windows/resources/python/
 
+# Android (Capacitor) build artifacts. The native project sources are tracked;
+# web assets are copied in by `npm run build:android` / `cap sync` each time.
+deploy/android/node_modules/
+deploy/android/app-dist/
+deploy/android/release/
+deploy/android/android/.gradle/
+deploy/android/android/local.properties
+deploy/android/android/app/build/
+deploy/android/android/app/src/main/assets/public/
+deploy/android/android/app/src/main/assets/capacitor.config.json
+
 
 industrial-capability-benchmark/
