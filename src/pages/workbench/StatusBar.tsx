@@ -69,7 +69,26 @@ export function StatusBar() {
     };
   }, [perfOpen]);
 
-  const lowFps = perf.fps > 0 && perf.fps < 30;
+  // Chromium throttles requestAnimationFrame to ~1 Hz in background / unfocused
+  // tabs. That is a browser policy, not a product slowdown — do not surface it
+  // as a scary "1 FPS" warning. Track visibility/focus and label it as idle.
+  const [tabIdle, setTabIdle] = useState(
+    () => document.visibilityState === 'hidden' || !document.hasFocus(),
+  );
+  useEffect(() => {
+    const sync = () =>
+      setTabIdle(document.visibilityState === 'hidden' || !document.hasFocus());
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('focus', sync);
+    window.addEventListener('blur', sync);
+    return () => {
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('blur', sync);
+    };
+  }, []);
+
+  const lowFps = !tabIdle && perf.fps > 0 && perf.fps < 30;
 
   // Local clock in the right corner — ticks every 15 s (minute precision is
   // enough for an ambient status readout; fewer timers than per-second).
@@ -166,7 +185,7 @@ export function StatusBar() {
           data-perf-trigger
           onClick={() => setPerfOpen((v) => !v)}
         >
-          {perf.fps} FPS
+          {tabIdle ? t('ux.perf.idle') : `${perf.fps} FPS`}
         </button>
       </div>
       <div className="statusbar-right">
@@ -185,8 +204,14 @@ export function StatusBar() {
           <dl className="statusbar-popover-grid">
             <dt>{t('ux.perf.fps')}</dt>
             <dd className={lowFps ? 'is-warn' : ''}>
-              {perf.fps.toFixed(0)} <span className="statusbar-popover-unit">fps</span>
-              {lowFps && <span className="statusbar-popover-warn">{t('ux.perf.warn_fps')}</span>}
+              {tabIdle ? (
+                <span className="statusbar-popover-warn">{t('ux.perf.idle_hint')}</span>
+              ) : (
+                <>
+                  {perf.fps.toFixed(0)} <span className="statusbar-popover-unit">fps</span>
+                  {lowFps && <span className="statusbar-popover-warn">{t('ux.perf.warn_fps')}</span>}
+                </>
+              )}
             </dd>
             <dt>{t('ux.perf.gpu')}</dt>
             <dd className={highGpu ? 'is-warn' : ''}>
