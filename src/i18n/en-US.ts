@@ -694,6 +694,7 @@ export const enUS: LocaleDictionary = {
   'io.parse_failed': 'Failed to parse the scientific data — please check the file format',
   'io.choose_plugin_title': 'Choose a plugin to open this file',
   'io.choose_plugin_hint': 'All of the loaded plugins below support this format — pick one',
+  'io.choose_plugin_no_match': 'No matching plugin',
 
   'perf.warning.fps': 'Low FPS',
   'perf.warning.memory': 'Low memory',
