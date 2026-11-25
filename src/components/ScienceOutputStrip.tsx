@@ -14,6 +14,7 @@ import { useEngineeringStore } from '@/stores/engineeringStore';
 import { useAppStore } from '@/stores/appStore';
 import { industrialStripMetrics } from '@/pages/industrial/labels';
 import { useT } from '@/i18n';
+import { appendMetricUnit } from '@/core/result/format';
 import { ProvenanceCard } from './ProvenanceCard';
 
 /** Research suites the staged data file can be deep-linked into. */
@@ -267,8 +268,10 @@ export function ScienceOutputStrip() {
           {entry?.pluginId === activeId && displayMetrics.map((m, i) => {
             const valueText = m.display ?? String(m.value);
             // Some plugins already bake the unit into their formatted value
-            // (e.g. "3.3 ms"). Do not print it twice when `unit` is also set.
-            const unitAlreadyShown = m.unit ? valueText.trimEnd().endsWith(m.unit.trim()) : false;
+            // (e.g. "3.3 ms"). The append rule lives in core/result/format —
+            // derive the styled suffix from it so all surfaces agree.
+            const withUnit = appendMetricUnit(valueText, m.unit);
+            const unitSuffix = withUnit !== valueText ? m.unit : undefined;
             return (
               <span
               key={`${activeId}:${m.key}`}
@@ -279,7 +282,7 @@ export function ScienceOutputStrip() {
                 <span className="science-metric-label">{m.label}</span>
                 <span className="science-metric-value">
                   <AnimatedMetricValue text={valueText} />
-                  {m.unit && !unitAlreadyShown ? <span className="science-metric-unit"> {m.unit}</span> : null}
+                  {unitSuffix ? <span className="science-metric-unit"> {unitSuffix}</span> : null}
                 </span>
               </span>
             );

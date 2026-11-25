@@ -9,6 +9,8 @@ export interface FileEntry {
   mimeType: string;
   format: string;
   content: string; // base64 or text content
+  /** SHA-256 hex of the ingested bytes (FR-1 provenance); absent on legacy entries. */
+  sha256?: string;
 }
 
 export interface CameraState {

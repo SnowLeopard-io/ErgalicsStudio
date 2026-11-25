@@ -21,6 +21,8 @@ import {
 } from '@/core/io/scientific';
 import { datasetToTable } from '@/types/datatable';
 import { logger } from '@/core/logger';
+import { sha256Blob } from '@/core/result/hash';
+import { setCurrentDataSource } from '@/core/result/activeData';
 import { isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { resolvePluginDataSchemas } from '@/core/data-schema/presets';
@@ -65,6 +67,16 @@ export function useFileRouting() {
   const loadIntoPlugin = async (id: string, file: File) => {
     const pluginStore = usePluginStore.getState();
     if (pluginStore.activeId !== id) await pluginStore.activate(id);
+    // FR-1: fingerprint the bytes actually handed to the plugin. Binary/
+    // plugin-native files bypass addDataFile entirely, so this is their only
+    // provenance capture point; for text data files addDataFile records the
+    // same file and this simply re-asserts it. Non-fatal on failure.
+    try {
+      const hash = await sha256Blob(file);
+      setCurrentDataSource({ name: file.name, hash, bytes: file.size });
+    } catch (err) {
+      logger.warn('io', 'ingest sha256 failed', err);
+    }
     // Register the dropped file so both import surfaces reflect it:
     //  - text data files → project data list (top-bar count + dialog) AND a
     //    workspace data/ mirror for the file explorer (addDataFile does both);
