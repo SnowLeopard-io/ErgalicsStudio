@@ -1583,7 +1583,7 @@ export const zhCN: LocaleDictionary = {
   'sql.tables': '数据表',
   'sql.filter_tables': '筛选表 / 列名…',
   'files.filter_placeholder': '搜索文件…',
-  'sql.tables_empty': '尚无已注册的数据表',
+  'sql.tables_empty': '尚无已注册的数据表——先在项目中添加 CSV/TSV 数据文件，或用右侧「导入大文件」直接导入',
   'sql.insert_hint': '点击表名或列名插入到编辑器',
   'sql.run': '运行 (Ctrl+Enter)',
   'sql.cancel': '取消',
