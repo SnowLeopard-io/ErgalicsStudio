@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "search-insights": "^2.17.3",
-    "vitepress": "2.0.0-alpha.6"
+    "vitepress": "2.0.0-alpha.21"
   }
 }
