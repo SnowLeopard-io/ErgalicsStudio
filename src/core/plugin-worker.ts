@@ -257,12 +257,12 @@ export function createPluginWorkerRuntime(
             if (typeof entrySource !== 'string' || entrySource.length === 0) {
               throw new Error('boot: entry source must be a non-empty string');
             }
-            // codeql[js/code-injection] Intentional plugin-code sandbox: the
-            // payload is the plugin's own entry module, executed inside this
-            // dedicated Worker with a proxied host API (see SECURITY.md).
             const factory = new Function('api', `"use strict";\n${entrySource}`) as (
               api: PluginApi,
             ) => Plugin;
+            // codeql[js/code-injection] Intentional plugin-code sandbox: the
+            // payload is the plugin's own entry module, executed inside this
+            // dedicated Worker with a proxied host API (see SECURITY.md).
             const instance = factory(api);
             if (!instance || typeof instance !== 'object') {
               throw new Error('entry did not return a plugin object');

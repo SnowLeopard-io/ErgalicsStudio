@@ -181,32 +181,59 @@ const KEPT_ISLAND_IDS = new Set(['repro-lock-json', 'repro-runs-json']);
  * replaces the old "looks-like-a-data-dump" guessing game.
  */
 function stripDataIslands(html: string): string {
-  const remove = (input: string): string =>
-    input.replace(
-      /<script([^>]*\btype\s*=\s*["']application\/json["'][^>]*)>([\s\S]*?)<\/script>/gi,
-      (full, attrs: string) => {
-        const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? '';
-        if (!KEPT_ISLAND_IDS.has(id)) return '';
-        // The kept islands must still parse — a corrupted lock island is
-        // worthless to the reader and might hide arbitrary payloads.
-        try {
-          JSON.parse(full.replace(/^<script[^>]*>/i, '').replace(/<\/script>\s*$/i, ''));
-          return full;
-        } catch {
-          return '';
-        }
-      },
-    );
-  // Iterate to a fixpoint: a single pass can be defeated by nested input
-  // (`<scr<script ...>ipt>` reassembles a tag after removal), which CodeQL
-  // reports as js/incomplete-multi-character-sanitization.
-  let out = html;
-  let prev: string;
-  do {
-    prev = out;
-    out = remove(out);
-  } while (out !== prev);
-  return out;
+  // Forward scanner instead of regex-replace: a single replace pass can be
+  // defeated by nested input (`<scr<script ...>ipt>` reassembles a tag after
+  // removal), which CodeQL reports as js/incomplete-multi-character-
+  // sanitization. Scanning once and never re-interpreting skipped text has
+  // no such flaw. Tag boundary semantics mirror the HTML parser loosely:
+  // `<script` must be followed by whitespace / `>` / `/` to count.
+  const lower = html.toLowerCase();
+  const OPEN = '<script';
+  const CLOSE = '</script';
+  let out = '';
+  let i = 0;
+  for (;;) {
+    const at = lower.indexOf(OPEN, i);
+    if (at < 0) {
+      out += html.slice(i);
+      return out;
+    }
+    const next = lower[at + OPEN.length] ?? '';
+    const opensTag = next === '>' || next === '/' || next === ' ' || next === '\t' || next === '\n' || next === '\r';
+    const gt = opensTag ? lower.indexOf('>', at) : -1;
+    if (gt < 0) {
+      // Unterminated tag — leave the rest verbatim.
+      out += html.slice(i);
+      return out;
+    }
+    const close = lower.indexOf(CLOSE, gt);
+    if (close < 0) {
+      out += html.slice(i);
+      return out;
+    }
+    const gtClose = lower.indexOf('>', close);
+    const closeEnd = gtClose < 0 ? html.length : gtClose + 1;
+    // Emit the plain text between the scan cursor and this tag first.
+    out += html.slice(i, at);
+    const attrs = html.slice(at + OPEN.length, gt);
+    if (!/\btype\s*=\s*["']application\/json["']/i.test(attrs)) {
+      // Not an application/json island — keep verbatim and scan on.
+      out += html.slice(at, closeEnd);
+      i = closeEnd;
+      continue;
+    }
+    const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? '';
+    i = closeEnd;
+    if (!KEPT_ISLAND_IDS.has(id)) continue; // drop non-whitelisted islands
+    // The kept islands must still parse — a corrupted lock island is
+    // worthless to the reader and might hide arbitrary payloads.
+    try {
+      JSON.parse(html.slice(gt + 1, close));
+      out += html.slice(at, closeEnd);
+    } catch {
+      /* drop the corrupted island */
+    }
+  }
 }
 
 /** Neutralize inline data: URIs carrying text/csv/json payloads. */

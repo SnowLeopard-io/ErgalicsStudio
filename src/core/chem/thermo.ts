@@ -35,7 +35,7 @@ const ORDER_SUFFIX: Record<number, string> = { 1: '', 2: '=', 3: '#' };
 export function bondEnergyKey(a: string, b: string, order = 1): string {
   const [lo, hi] = a.localeCompare(b) <= 0 ? [a, b] : [b, a];
   const suff = ORDER_SUFFIX[order] ?? '';
-  const direct = `${lo}${suff}${hi}`.replace(/#/, '#');
+  const direct = `${lo}${suff}${hi}`;
   // Prefer the explicit-typed key; fall back to generic single-bond lookup.
   if (BOND_ENERGIES[direct]) return direct;
   if (BOND_ENERGIES[`${lo}-${hi}`]) return `${lo}-${hi}`;

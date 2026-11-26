@@ -74,8 +74,7 @@ export async function downloadBlob(
     // can only ever be a `blob:` URL; the guard also closes any path where a
     // caller-supplied string could reach the href sink.
     if (!url.startsWith('blob:')) throw new Error('unexpected download URL scheme');
-    // codeql[js/xss] The href is a locally generated blob: URL (opaque
-    // origin, no javascript:/data: possible); no user HTML is interpreted.
+    // codeql[js/xss] Local blob: URL only; no user HTML is interpreted here.
     a.href = url;
     a.download = fileName;
     a.rel = 'noopener';

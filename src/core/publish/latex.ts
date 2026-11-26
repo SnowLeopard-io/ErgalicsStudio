@@ -140,19 +140,30 @@ export interface LatexDocument {
   sections: LatexSection[];
 }
 
+/** Per-character LaTeX escape map — applied in a single forward pass. */
+const LATEX_ESCAPES: Record<string, string> = {
+  '\\': '\\textbackslash{}',
+  '&': '\\&',
+  '%': '\\%',
+  '$': '\\$',
+  '#': '\\#',
+  '_': '\\_',
+  '{': '\\{',
+  '}': '\\}',
+  '~': '\\textasciitilde{}',
+  '^': '\\textasciicircum{}',
+};
+
 function escapeLatex(s: string): string {
-  // Backslashes first via a placeholder: the literal `\textbackslash{}` that
-  // ends up in the output must not have its braces re-escaped by the next pass.
-  // (U+E000 is a private-use char; any stray occurrence in the source is
-  // dropped first so it cannot collide with the placeholder and break the
-  // placeholder round-trip.)
-  return s
-    .replace(/\uE000/g, '')
-    .replace(/\\/g, '\uE000')
-    .replace(/([&%$#_{}])/g, '\\$1')
-    .replace(/~/g, '\\textasciitilde{}')
-    .replace(/\^/g, '\\textasciicircum{}')
-    .replace(/\uE000/g, '\\textbackslash{}');
+  // Single forward pass: each special character is mapped exactly once, so
+  // escape output (e.g. `\textbackslash{}`) is never re-processed by a later
+  // rule. Multi-pass replace chains with a placeholder are reported by
+  // CodeQL as js/incomplete-sanitization; a scan cannot have that flaw.
+  let out = '';
+  for (const ch of s) {
+    out += LATEX_ESCAPES[ch] ?? ch;
+  }
+  return out;
 }
 
 /** Escape plain text for insertion into a LaTeX document. */

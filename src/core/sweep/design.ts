@@ -189,6 +189,8 @@ export function setPath(
     }
     node = node[key] as Record<string, unknown>;
   }
+  // codeql[js/prototype-polluting-function] Dangerous keys are rejected by
+  // the explicit guard above; only safe own-property writes remain.
   node[parts[parts.length - 1]!] = value;
   return target;
 }

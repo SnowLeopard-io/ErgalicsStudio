@@ -138,14 +138,22 @@ const testFiles = countTestFiles(path.join(ROOT, 'tests'));
 
 // ---- 5. 输出 markdown -----------------------------------------------------
 
-const cell = (text) =>
-  String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/\|/g, '\\|')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, ' ')
-    .trim();
+// Markdown-table cell escaping in a single forward pass: every special
+// character is mapped exactly once, so escape output is never re-processed
+// (a multi-pass replace chain is reported by CodeQL as
+// js/incomplete-sanitization).
+function cell(text) {
+  let out = '';
+  for (const ch of String(text ?? '')) {
+    if (ch === '&') out += '&amp;';
+    else if (ch === '<') out += '&lt;';
+    else if (ch === '>') out += '&gt;';
+    else if (ch === '|') out += '\\|';
+    else if (ch === '\n') out += ' ';
+    else out += ch;
+  }
+  return out.trim();
+}
 
 const banner = (zh) =>
   zh
