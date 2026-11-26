@@ -21,12 +21,15 @@ import {
 } from '@/core/gallery/share';
 import {
   addShared,
+  galleryStorageStats,
   getSharedEntry,
   listShared,
   listSharedEntries,
   markTakedown,
+  pruneOldest,
   removeShared,
   setGalleryStorageForTests,
+  snapshotKey,
   GALLERY_SHARED_KEY,
 } from '@/core/gallery/store';
 import {
@@ -537,9 +540,11 @@ describe('gallery shared store', () => {
     expect(markTakedown('share-ffff0007')).toEqual({ ok: false, reason: 'quota' });
     // Not persisted => still publicly listed, which is the truth the UI shows.
     expect(listShared().map((x) => x.id)).toEqual(['share-ffff0007']);
-    // Same for delete: no silent success.
+    // Same for delete: no silent success. The snapshot is erased FIRST, so
+    // even when the index write fails the HTML is gone (privacy wins); the
+    // orphaned row is skipped by readEntry and never listed again.
     expect(removeShared('share-ffff0007')).toEqual({ ok: false, reason: 'quota' });
-    expect(listShared()).toHaveLength(1);
+    expect(listShared()).toHaveLength(0);
   });
 
   it('recovers from a corrupted store by replacing it on the next write', () => {
@@ -550,6 +555,47 @@ describe('gallery shared store', () => {
 
   it('rejects invalid entries', () => {
     expect(() => addShared({ item: {} as GalleryItem, html: '' })).toThrow(/invalid/);
+  });
+
+  it('stores each snapshot under its own key instead of rewriting them all', () => {
+    const a = entryFor('share-split-a');
+    const b = entryFor('share-split-b');
+    expect(addShared(a).ok).toBe(true);
+    expect(addShared(b).ok).toBe(true);
+    const index = JSON.parse(mem.getItem(GALLERY_SHARED_KEY) ?? '[]') as Array<{ html?: string }>;
+    expect(index).toHaveLength(2);
+    expect(index.every((row) => row.html === undefined)).toBe(true);
+    expect(mem.getItem(snapshotKey('share-split-a'))).toBe(a.html);
+    expect(mem.getItem(snapshotKey('share-split-b'))).toBe(b.html);
+    expect(getSharedEntry('share-split-a')?.html).toBe(a.html);
+  });
+
+  it('re-adding an id replaces only that snapshot', () => {
+    addShared(entryFor('share-split-c'));
+    const replacement = entryFor('share-split-c');
+    replacement.html = '<p>replacement</p>';
+    expect(addShared(replacement).ok).toBe(true);
+    expect(mem.getItem(snapshotKey('share-split-c'))).toBe('<p>replacement</p>');
+    expect(listSharedEntries()).toHaveLength(1);
+  });
+
+  it('keeps v1 entries with inline HTML readable', () => {
+    const legacy = entryFor('share-legacy');
+    mem.setItem(GALLERY_SHARED_KEY, JSON.stringify([{ item: legacy.item, html: legacy.html }]));
+    expect(getSharedEntry('share-legacy')?.html).toBe(legacy.html);
+    expect(galleryStorageStats()).toMatchObject({ works: 1, legacy: 1 });
+  });
+
+  it('reports byte usage from the index and prunes the oldest works', () => {
+    addShared(entryFor('share-old-prune', '2026-01-01'));
+    addShared(entryFor('share-new-prune', '2026-06-01'));
+    const stats = galleryStorageStats();
+    expect(stats.works).toBe(2);
+    expect(stats.bytes).toBeGreaterThan(0);
+    expect(pruneOldest(1)).toEqual({ ok: true });
+    expect(listShared().map((x) => x.id)).toEqual(['share-new-prune']);
+    expect(mem.getItem(snapshotKey('share-old-prune'))).toBeNull();
+    expect(galleryStorageStats().works).toBe(1);
   });
 });
 

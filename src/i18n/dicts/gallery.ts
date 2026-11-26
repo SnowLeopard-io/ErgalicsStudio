@@ -75,6 +75,10 @@ export const galleryZh: LocaleDictionary = {
   'gallery.mine.empty_desc': '在工作台的「分享」对话框中生成可复现快照，并勾选「分享到画廊」即可发布到此列表。',
   'gallery.mine.hint': '以下作品仅保存在本机；下架后可重新查看或删除记录。',
   'gallery.mine.show_takedown': '显示已下架',
+  'gallery.mine.usage': '本机占用：{n} 件作品 · {size}',
+  'gallery.mine.prune': '清理最早 {n} 件',
+  'gallery.mine.prune_done': '已清理 {n} 件旧作品',
+  'gallery.mine.prune_failed': '清理失败：{reason}',
   // ---- 筛选无结果 ----
   'gallery.empty.filtered_title': '没有符合条件的作品',
   'gallery.empty.filtered_desc': '试试放宽学科、图表类型或复现状态筛选。',
@@ -177,6 +181,10 @@ export const galleryEn: LocaleDictionary = {
   'gallery.mine.empty_desc': 'Generate a reproducible snapshot in the workbench Share dialog and tick “Share to gallery” to publish it here.',
   'gallery.mine.hint': 'These works live on this device only; taken-down entries can still be reviewed or deleted.',
   'gallery.mine.show_takedown': 'Show taken down',
+  'gallery.mine.usage': 'On this device: {n} works · {size}',
+  'gallery.mine.prune': 'Remove oldest {n}',
+  'gallery.mine.prune_done': 'Removed {n} older works',
+  'gallery.mine.prune_failed': 'Cleanup failed: {reason}',
   // ---- filtered empty state ----
   'gallery.empty.filtered_title': 'No works match these filters',
   'gallery.empty.filtered_desc': 'Try widening the subject, chart type or repro status filter.',

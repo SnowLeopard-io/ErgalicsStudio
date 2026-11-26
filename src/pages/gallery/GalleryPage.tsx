@@ -25,10 +25,13 @@ import { useProjectStore } from '@/stores/projectStore';
 import { listCuratedGallery } from '@/core/gallery/catalog';
 import { filterGallery, type GalleryFilter } from '@/core/gallery/filter';
 import { galleryFailureKey } from '@/core/gallery/messages';
+import { formatBytes } from '@/core/storage';
 import {
+  galleryStorageStats,
   getSharedEntry,
   listSharedEntries,
   markTakedown,
+  pruneOldest,
   removeShared,
 } from '@/core/gallery/store';
 import {
@@ -163,6 +166,10 @@ export default function GalleryPage() {
   /** Bumped after every store mutation so the local list re-reads. */
   const [refresh, setRefresh] = useState(0);
 
+  // The index is small: reading it on render is cheap and keeps the usage
+  // figure honest after every mutation (refresh triggers a re-render).
+  const storageStats = tab === 'mine' ? galleryStorageStats() : null;
+
   // `refresh` is an intentional re-read trigger: listSharedEntries() snapshots
   // store state directly, so the memo must re-run after every store mutation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,6 +255,17 @@ export default function GalleryPage() {
       notify('success', t('gallery.delete_done'));
     } else {
       notify('error', t('gallery.delete_failed', { reason: t(galleryFailureKey(result.reason)) }));
+    }
+  };
+
+  const pruneNow = () => {
+    const n = Math.min(5, storageStats?.works ?? 0);
+    const result = pruneOldest(5);
+    setRefresh((x) => x + 1);
+    if (result.ok) {
+      notify('success', t('gallery.mine.prune_done', { n }));
+    } else {
+      notify('error', t('gallery.mine.prune_failed', { reason: t(galleryFailureKey(result.reason)) }));
     }
   };
 
@@ -366,6 +384,21 @@ export default function GalleryPage() {
 
         <div className="gallery-list-head">
           <span className="analysis-note">{t('gallery.count', { n: items.length })}</span>
+          {tab === 'mine' && (
+            <div className="gallery-storage-row">
+              <span className="analysis-note">
+                {t('gallery.mine.usage', {
+                  n: storageStats?.works ?? 0,
+                  size: formatBytes(storageStats?.bytes ?? 0),
+                })}
+              </span>
+              {(storageStats?.works ?? 0) > 0 && (
+                <button type="button" className="btn btn-sm" onClick={pruneNow}>
+                  {t('gallery.mine.prune', { n: Math.min(5, storageStats?.works ?? 0) })}
+                </button>
+              )}
+            </div>
+          )}
           {tab === 'mine' && (
             <label className="gallery-show-td">
               <input
