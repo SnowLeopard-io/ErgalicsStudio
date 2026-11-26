@@ -14,6 +14,11 @@ import { registerIpc } from './ipc';
 
 const isDev = !!process.env.ERGALICS_DEV;
 
+/** Schemes a renderer link may hand to the OS. Deliberately excludes file:,
+ *  ms-*, and every custom protocol: those can start local programs or reveal
+ *  the filesystem, and nothing in the app needs them. */
+const EXTERNAL_LINK_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
+
 // Custom scheme must be registered as privileged before app ready so module
 // scripts, fetch and workers see a proper (secure) origin.
 protocol.registerSchemesAsPrivileged([
@@ -97,9 +102,25 @@ function createWindow(): BrowserWindow {
   Menu.setApplicationMenu(null);
   win.setMenu(null);
 
-  // Open external links in the default browser, never in-app.
+  // Open external links in the default browser, never in-app — but only the
+  // schemes a link is actually allowed to use. Forwarding the URL verbatim
+  // would hand file:, ms-*, or any registered custom protocol to the OS,
+  // which is the same class of hole as "sandboxed iframes can launch external
+  // protocol handlers": page content picks the target the shell activates.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    let scheme: string;
+    try {
+      scheme = new URL(url).protocol;
+    } catch {
+      return { action: 'deny' };
+    }
+    if (EXTERNAL_LINK_SCHEMES.has(scheme)) {
+      void shell.openExternal(url);
+    } else {
+      // Do not silently swallow it: blob:/data: previews and app: routes are
+      // deliberately not forwarded, and a deny with no trace is hard to debug.
+      console.warn(`[window-open] refused external scheme "${scheme}"`);
+    }
     return { action: 'deny' };
   });
 
