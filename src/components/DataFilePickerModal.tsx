@@ -33,6 +33,7 @@ import { useChunkStore } from '@/stores/chunkStore';
 import { useDataEditorStore } from '@/stores/dataEditorStore';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { capturePluginInput } from '@/core/result/inputCapture';
 import type { CompatibilityAssessment, PluginDataSchema } from '@/types/dataSchema';
 import type { FileEntry } from '@/types/project';
 
@@ -389,6 +390,15 @@ function DataFilesManagerBody({ onClose }: { onClose: () => void }) {
       }
       const blob = new File([text], name, {
         type: entry?.mimeType ?? 'text/plain',
+      });
+      // FR-1: plugins without a data schema get the file directly, so this
+      // branch is its own capture point.
+      await capturePluginInput({
+        pluginId: activeEntry.id,
+        fileName: name,
+        text,
+        fileId: entry?.id,
+        origin: entry ? 'project-file' : 'example',
       });
       await plugin.loadData?.(blob);
       // The import may have changed the plugin's own parameter set.

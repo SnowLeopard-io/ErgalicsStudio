@@ -20,8 +20,8 @@ import { setResultPublisher, type ScienceMetric } from '@/core/research/scienceO
 import { setExportSidecarHook } from '@/core/result/exportHook';
 import { buildSidecar, downloadSidecar, hashDownloadData } from '@/core/result/sidecar';
 import {
-  getCurrentDataSource,
   getCurrentDataHash,
+  getPluginDataSource,
   setCurrentDataHash,
 } from '@/core/result/activeData';
 
@@ -33,6 +33,8 @@ export {
   getCurrentDataSource,
   setCurrentDataSource,
   resetCurrentDataSource,
+  getPluginDataSource,
+  setPluginDataSource,
 } from '@/core/result/activeData';
 
 interface ResultStore {
@@ -74,9 +76,10 @@ export const useResultStore = create<ResultStore>((set, get) => ({
     const gpu = getGpuBackend();
     const resolvedBackend = gpu.available && !gpu.fallback ? 'webgpu' : 'cpu';
     const backend = args.environment?.backend ?? resolvedBackend;
-    // FR-1: default the input fingerprint to the most recent data ingest;
-    // explicit args always win.
-    const activeSource = getCurrentDataSource();
+    // FR-1: default the input fingerprint to the data this plugin was fed.
+    // Plugin-scoped first (a project may hold several datasets at once),
+    // then the global fallback for plugin-agnostic load paths.
+    const activeSource = getPluginDataSource(pluginId);
     const record = createResultRecord({
       ...args,
       pluginId,

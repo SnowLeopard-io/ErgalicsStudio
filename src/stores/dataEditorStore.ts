@@ -29,6 +29,7 @@ import { on } from '@/core/events';
 import { logger } from '@/core/logger';
 import { getLocale } from '@/i18n';
 import { useAppStore } from './appStore';
+import { capturePluginInput } from '@/core/result/inputCapture';
 import { usePluginStore, runTracked, refreshParamDefs } from './pluginStore';
 import { useProjectStore } from './projectStore';
 
@@ -330,6 +331,18 @@ export const useDataEditorStore = create<DataEditorStore>((set, get) => ({
     const zh = locale.toLowerCase().startsWith('zh');
     const schemas = resolvePluginDataSchemas(plugin.manifest);
     const schema = pickSchemaForFile(schemas, opts.fileName, opts.schemaId);
+
+    // FR-1: fingerprint the input BEFORE the plugin sees it, so the record
+    // published by this run can name the exact bytes that produced it. The
+    // capture reads the project's stored fingerprint when the payload came
+    // from a project file, and hashes the payload otherwise.
+    await capturePluginInput({
+      pluginId: opts.pluginId,
+      fileName: opts.fileName,
+      text: opts.text,
+      fileId: opts.fileId,
+      origin: opts.origin,
+    });
 
     // Legacy fallback: plugins without a declared dataSchema keep existing behavior.
     if (!schema || schema.kind === 'binary') {

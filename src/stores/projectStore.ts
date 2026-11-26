@@ -121,6 +121,10 @@ interface ProjectStore {
    *  its `id` stable), mirroring to VFS `data/` and broadcasting a sync event
    *  so bound plugins/suites can detect the update. */
   updateDataFile: (id: string, content: string, sourcePluginId?: string) => Promise<boolean>;
+  /** Attach a provenance fingerprint to a data file that predates the
+   *  fingerprint feature (FR-1). Content is untouched; only `sha256` is
+   *  filled in so future loads can cite the file without re-hashing it. */
+  setDataFileHash: (id: string, sha256: string) => boolean;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
   /** Rename a data-file entry in place (workspace explorer rename/move sync;
@@ -1101,6 +1105,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       replaced: true,
       sourcePluginId,
     });
+    return true;
+  },
+
+  setDataFileHash: (id, sha256) => {
+    const current = get().project;
+    if (!current || !sha256) return false;
+    const existing = current.data.files.find((f) => f.id === id);
+    if (!existing || existing.sha256 === sha256) return false;
+    const files = current.data.files.map((f) =>
+      f.id === id ? { ...f, sha256 } : f,
+    );
+    set({ project: { ...current, data: { ...current.data, files } } });
+    get().setDirty(true);
+    setProjectFiles(files);
     return true;
   },
 

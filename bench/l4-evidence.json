@@ -1,1 +1,1044 @@
-[]
+[
+  {
+    "pluginId": "example.em-eigensolver",
+    "discipline": "physics / electromagnetics",
+    "limitations": [
+      "Headless collector skipped: requires a Web Worker; not available in the Node collector",
+      "Requires a real browser E2E run."
+    ]
+  },
+  {
+    "pluginId": "example.fluid-cfd-coupler",
+    "discipline": "physics / fluid dynamics",
+    "limitations": [
+      "Headless collector skipped: requires document.baseURI + Pyodide worker; not available in Node",
+      "Requires a real browser E2E run."
+    ]
+  },
+  {
+    "pluginId": "example.fluid",
+    "discipline": "physics / fluid dynamics",
+    "extremeParams": {
+      "u0": 0.18
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": false,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics differed"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ]
+  },
+  {
+    "pluginId": "example.nbody",
+    "discipline": "physics / gravitation",
+    "defaultMetrics": {
+      "bench-T-sim": "19.87",
+      "bench-T-kepler": "19.87",
+      "bench-period-err": "1.133e-6",
+      "bench-energy-drift": "1.600e-6"
+    },
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "bench-T-sim": "19.87",
+      "bench-T-kepler": "19.87",
+      "bench-period-err": "1.133e-6",
+      "bench-energy-drift": "1.600e-6"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "19.87",
+        "19.87"
+      ],
+      "firstLine": "19.87",
+      "lastLine": "19.87",
+      "sidecar": [
+        "19.87",
+        "19.87"
+      ]
+    },
+    "independent": {
+      "expression": "two-body Kepler period vs integrator period",
+      "expected": "19.87",
+      "actual": "19.87",
+      "detail": "integrator period 19.87 vs analytic Kepler period 19.87"
+    }
+  },
+  {
+    "pluginId": "example.wave",
+    "discipline": "physics / waves",
+    "extremeParams": {
+      "speed": 0.7
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": false,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics differed"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ]
+  },
+  {
+    "pluginId": "example.fem-lab",
+    "discipline": "engineering / FEM",
+    "defaultMetrics": {
+      "poissonL2": "6.027e-3",
+      "poissonOrder": "1.96",
+      "uniaxial": "2.50e-17",
+      "heatDecay": "1.67e-3",
+      "heatEnergy": "1.37e-13"
+    },
+    "extremeParams": {
+      "h": 0.25
+    },
+    "extremeMetrics": {
+      "poissonL2": "6.027e-3",
+      "poissonOrder": "1.96",
+      "uniaxial": "2.50e-17",
+      "heatDecay": "1.67e-3",
+      "heatEnergy": "1.37e-13"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "2.50e-17",
+        "1.37e-13"
+      ],
+      "firstLine": "2.50e-17",
+      "lastLine": "1.37e-13",
+      "sidecar": [
+        "2.50e-17",
+        "1.37e-13"
+      ]
+    },
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: poissonOrder=1.96"
+    }
+  },
+  {
+    "pluginId": "example.eng-truss",
+    "discipline": "engineering / structures",
+    "defaultMetrics": {
+      "max-disp": "0.6656",
+      "max-tension": "10.02",
+      "max-compression": "-11.11",
+      "react-0-x": "-1.091e-11",
+      "react-0-y": "25000",
+      "react-2-y": "25000",
+      "equilibrium": "1.091e-11"
+    },
+    "extremeParams": {
+      "deformScale": 5000
+    },
+    "extremeMetrics": {
+      "max-disp": "0.6656",
+      "max-tension": "10.02",
+      "max-compression": "-11.11",
+      "react-0-x": "-1.091e-11",
+      "react-0-y": "25000",
+      "react-2-y": "25000",
+      "equilibrium": "1.091e-11"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0.6656",
+        "1.091e-11"
+      ],
+      "firstLine": "0.6656",
+      "lastLine": "1.091e-11",
+      "sidecar": [
+        "0.6656",
+        "1.091e-11"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.eng-heat",
+    "discipline": "engineering / heat transfer",
+    "defaultMetrics": {
+      "tmax": "373",
+      "tmin": "293",
+      "residual": "0.000994",
+      "courant": "9"
+    },
+    "extremeParams": {
+      "plateW": 2
+    },
+    "extremeMetrics": {
+      "tmax": "373",
+      "tmin": "293",
+      "residual": "0.001",
+      "courant": "9"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "373",
+        "293"
+      ],
+      "firstLine": "373",
+      "lastLine": "293",
+      "sidecar": [
+        "373",
+        "293"
+      ]
+    },
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: residual=0.000994"
+    }
+  },
+  {
+    "pluginId": "example.eng-control",
+    "discipline": "engineering / control",
+    "defaultMetrics": {
+      "overshoot": "37.23",
+      "rel-err-sigma": "8.24e-5%",
+      "peak-time": "1.646",
+      "rel-err-tp": "0.039%",
+      "settling-time": "5.616",
+      "rel-err-ts": "0.0171%",
+      "ess": "0.0006465",
+      "bandwidth": "2.907"
+    },
+    "extremeParams": {
+      "tau": 10
+    },
+    "extremeMetrics": {
+      "overshoot": "37.23",
+      "rel-err-sigma": "8.24e-5%",
+      "peak-time": "1.646",
+      "rel-err-tp": "0.039%",
+      "settling-time": "5.616",
+      "rel-err-ts": "0.0171%",
+      "ess": "0.0006465",
+      "bandwidth": "2.907"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0.039%",
+        "0.0171%"
+      ],
+      "firstLine": "0.039%",
+      "lastLine": "0.0171%",
+      "sidecar": [
+        "0.039%",
+        "0.0171%"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.eng-circuit",
+    "discipline": "engineering / circuits",
+    "defaultMetrics": {
+      "v-vcc": "12",
+      "v-mid": "8",
+      "v-out": "8",
+      "i-Vs": "-0.004",
+      "power-diss": "0.048",
+      "power-balance": "0"
+    },
+    "extremeParams": {
+      "iterations": 1,
+      "epochs": 1,
+      "steps": 1
+    },
+    "extremeMetrics": {
+      "v-vcc": "12",
+      "v-mid": "8",
+      "v-out": "8",
+      "i-Vs": "-0.004",
+      "power-diss": "0.048",
+      "power-balance": "0"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "12",
+        "0"
+      ],
+      "firstLine": "12",
+      "lastLine": "0",
+      "sidecar": [
+        "12",
+        "0"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.chem-titration",
+    "discipline": "chemistry",
+    "defaultMetrics": {
+      "bench-strong-eq": "7",
+      "bench-weak-eq-err": "0.0006338",
+      "bench-dilution-err": "4.281e-8"
+    },
+    "extremeParams": {
+      "kaCustom": 1
+    },
+    "extremeMetrics": {
+      "bench-strong-eq": "7",
+      "bench-weak-eq-err": "0.0006338",
+      "bench-dilution-err": "4.281e-8"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-strong-eq=7, bench-weak-eq-err=0.0006338, bench-dilution-err=4.281e-8"
+    }
+  },
+  {
+    "pluginId": "example.chem-reaction-order",
+    "discipline": "chemistry / kinetics",
+    "defaultMetrics": {
+      "bench-order1": "n=1, 0.03775%",
+      "bench-order2": "n=2, 0.4222%",
+      "bench-arrhenius": "3.197e-12"
+    },
+    "extremeParams": {
+      "iterations": 1,
+      "epochs": 1,
+      "steps": 1
+    },
+    "extremeMetrics": {
+      "bench-order1": "n=1, 0.03775%",
+      "bench-order2": "n=2, 0.4222%",
+      "bench-arrhenius": "3.197e-12"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-arrhenius=3.197e-12"
+    }
+  },
+  {
+    "pluginId": "example.chem-crystal",
+    "discipline": "chemistry / crystallography",
+    "defaultMetrics": {
+      "cell_volume": "177.5",
+      "density_est": "2.187",
+      "density_dev": "0",
+      "lattice_dev": "-0.3546"
+    },
+    "extremeParams": {
+      "iterations": 1,
+      "epochs": 1,
+      "steps": 1
+    },
+    "extremeMetrics": {
+      "cell_volume": "177.5",
+      "density_est": "2.187",
+      "density_dev": "0",
+      "lattice_dev": "-0.3546"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ]
+  },
+  {
+    "pluginId": "example.bio-pk",
+    "discipline": "biology / pharmacokinetics",
+    "defaultMetrics": {
+      "pk-bench-one-iv": "7.040e-13",
+      "pk-bench-one-oral": "7.279e-11",
+      "pk-bench-two-iv": "1.930e-12",
+      "pk-bench-two-oral": "1.113e-10",
+      "pk-bench-auc": "8.333e-6",
+      "cmax": "11.43",
+      "tmax": "0",
+      "half-life": "6.931",
+      "auc-err": "3.031e-5"
+    },
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "pk-bench-one-iv": "7.040e-13",
+      "pk-bench-one-oral": "7.279e-11",
+      "pk-bench-two-iv": "1.930e-12",
+      "pk-bench-two-oral": "1.113e-10",
+      "pk-bench-auc": "8.333e-6",
+      "cmax": "11.43",
+      "tmax": "0",
+      "half-life": "6.931",
+      "auc-err": "3.031e-5"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "7.040e-13",
+        "6.931"
+      ],
+      "firstLine": "7.040e-13",
+      "lastLine": "6.931",
+      "sidecar": [
+        "7.040e-13",
+        "6.931"
+      ]
+    },
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: auc-err=3.031e-5"
+    }
+  },
+  {
+    "pluginId": "example.bio-epidemic",
+    "discipline": "biology / epidemiology",
+    "defaultMetrics": {
+      "n-conservation": "2.445e-15",
+      "r0": "4",
+      "rt-early": "3.675",
+      "peak-day": "21",
+      "final-size": "9.608e-7%"
+    },
+    "extremeParams": {
+      "r0": 8
+    },
+    "extremeMetrics": {
+      "n-conservation": "1.048e-15",
+      "r0": "8",
+      "rt-early": "6.715",
+      "peak-day": "10",
+      "final-size": "1.746e-6%"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "2.445e-15",
+        "21"
+      ],
+      "firstLine": "2.445e-15",
+      "lastLine": "21",
+      "sidecar": [
+        "2.445e-15",
+        "21"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.bio-seqalign",
+    "discipline": "bioinformatics",
+    "extremeParams": {
+      "gapOpen": -1
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": false,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics differed"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ]
+  },
+  {
+    "pluginId": "example.bio-popgen",
+    "discipline": "biology / population genetics",
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "heterozygosity_initial": "0.5",
+      "heterozygosity_final_obs": "0.2662",
+      "heterozygosity_final_exp": "0.2736",
+      "variance_p_final": "0.1161",
+      "mean_fixation_time": "44.88",
+      "fixed_lost": "3 / 5"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": false,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics differed"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ]
+  },
+  {
+    "pluginId": "example.stats-bayes",
+    "discipline": "statistics / Bayesian",
+    "defaultMetrics": {
+      "bench-posterior-mean": "0.06744",
+      "bench-posterior-sigma": "0.07518",
+      "bench-gibbs-analytic": "0.00258",
+      "bench-rhat-convergence": "0.01953"
+    },
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "bench-posterior-mean": "0.06744",
+      "bench-posterior-sigma": "0.07518",
+      "bench-gibbs-analytic": "0.00258",
+      "bench-rhat-convergence": "0.01953"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-posterior-mean=0.06744, bench-posterior-sigma=0.07518, bench-gibbs-analytic=0.00258, bench-rhat-convergence=0.01953"
+    }
+  },
+  {
+    "pluginId": "example.stats-timeseries",
+    "discipline": "statistics / time series",
+    "defaultMetrics": {
+      "bench-ar1-recovery": "0.036334",
+      "bench-adf-stationarity": "0.000000",
+      "bench-seasonal-recovery": "4.95e-15"
+    },
+    "extremeParams": {
+      "period": 24
+    },
+    "extremeMetrics": {
+      "bench-ar1-recovery": "0.036334",
+      "bench-adf-stationarity": "0.000000",
+      "bench-seasonal-recovery": "4.95e-15"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-ar1-recovery=0.036334, bench-adf-stationarity=0.000000, bench-seasonal-recovery=4.95e-15"
+    }
+  },
+  {
+    "pluginId": "example.stats-survival",
+    "discipline": "statistics / survival",
+    "defaultMetrics": {
+      "bench-km-hand-product": "0.00e+0",
+      "bench-logrank-computable": "0.00e+0",
+      "bench-cox-hr-recovery": "0.090202"
+    },
+    "extremeParams": {
+      "conf": 0.99
+    },
+    "extremeMetrics": {
+      "bench-km-hand-product": "0.00e+0",
+      "bench-logrank-computable": "0.00e+0",
+      "bench-cox-hr-recovery": "0.090202"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0.00e+0",
+        "0.00e+0"
+      ],
+      "firstLine": "0.00e+0",
+      "lastLine": "0.00e+0",
+      "sidecar": [
+        "0.00e+0",
+        "0.00e+0"
+      ]
+    },
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-km-hand-product=0.00e+0, bench-logrank-computable=0.00e+0, bench-cox-hr-recovery=0.090202"
+    }
+  },
+  {
+    "pluginId": "example.stats-multivariate",
+    "discipline": "statistics / multivariate",
+    "defaultMetrics": {
+      "bench-pca-pc1": "0.005781",
+      "bench-kmeans-separation": "0.000000",
+      "bench-lda-accuracy": "0.000000"
+    },
+    "extremeParams": {
+      "clusters": 8
+    },
+    "extremeMetrics": {
+      "bench-pca-pc1": "0.005781",
+      "bench-kmeans-separation": "0.000000",
+      "bench-lda-accuracy": "0.000000"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-pca-pc1=0.005781, bench-kmeans-separation=0.000000, bench-lda-accuracy=0.000000"
+    }
+  },
+  {
+    "pluginId": "example.stats-meta",
+    "discipline": "statistics / meta-analysis",
+    "defaultMetrics": {
+      "bench-fixed-effect-hand": "0",
+      "bench-heterogeneity-bounds": "0",
+      "bench-random-effect-ci": "0"
+    },
+    "extremeParams": {
+      "iterations": 1,
+      "epochs": 1,
+      "steps": 1
+    },
+    "extremeMetrics": {
+      "bench-fixed-effect-hand": "0",
+      "bench-heterogeneity-bounds": "0",
+      "bench-random-effect-ci": "0"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0",
+        "0"
+      ],
+      "firstLine": "0",
+      "lastLine": "0",
+      "sidecar": [
+        "0",
+        "0"
+      ]
+    },
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-fixed-effect-hand=0, bench-heterogeneity-bounds=0, bench-random-effect-ci=0"
+    }
+  },
+  {
+    "pluginId": "example.stats-doe",
+    "discipline": "statistics / design of experiments",
+    "defaultMetrics": {
+      "bench-doe-full-factorial-recovery": "0.00e+0",
+      "bench-doe-orthogonality": "0.00e+0"
+    },
+    "extremeParams": {
+      "iterations": 1,
+      "epochs": 1,
+      "steps": 1
+    },
+    "extremeMetrics": {
+      "bench-doe-full-factorial-recovery": "0.00e+0",
+      "bench-doe-orthogonality": "0.00e+0"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0.00e+0",
+        "0.00e+0"
+      ],
+      "firstLine": "0.00e+0",
+      "lastLine": "0.00e+0",
+      "sidecar": [
+        "0.00e+0",
+        "0.00e+0"
+      ]
+    },
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-doe-full-factorial-recovery=0.00e+0, bench-doe-orthogonality=0.00e+0"
+    }
+  },
+  {
+    "pluginId": "example.stats-conformal",
+    "discipline": "statistics / conformal inference",
+    "defaultMetrics": {
+      "cov": "92.0% / 90%",
+      "covGauss": "87.3%",
+      "covTercile": "95% / 87%",
+      "covTercileGauss": "100% / 71%",
+      "q": "2.185",
+      "width": "0.9228",
+      "widthGauss": "0.9029",
+      "rmse": "0.3042",
+      "ncal": "300",
+      "sigma": "0.2745"
+    },
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "cov": "92.0% / 90%",
+      "covGauss": "87.3%",
+      "covTercile": "95% / 87%",
+      "covTercileGauss": "100% / 71%",
+      "q": "2.185",
+      "width": "0.9228",
+      "widthGauss": "0.9029",
+      "rmse": "0.3042",
+      "ncal": "300",
+      "sigma": "0.2745"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "87.3%",
+        "0.3042"
+      ],
+      "firstLine": "87.3%",
+      "lastLine": "0.3042",
+      "sidecar": [
+        "87.3%",
+        "0.3042"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.geo-seismic",
+    "discipline": "geoscience / seismology",
+    "defaultMetrics": {
+      "p-arrival": "1067.6",
+      "s-arrival": "1841.0",
+      "s-p": "773.4",
+      "p-shadow": "103.0–142.0",
+      "s-shadow": "103.0–180.0",
+      "energy": "1.259e+14",
+      "mmi": "7.74",
+      "nodal": "21° / 317°"
+    },
+    "extremeParams": {
+      "magnitude": 9
+    },
+    "extremeMetrics": {
+      "p-arrival": "1067.6",
+      "s-arrival": "1841.0",
+      "s-p": "773.4",
+      "p-shadow": "103.0–142.0",
+      "s-shadow": "103.0–180.0",
+      "energy": "1.995e+18",
+      "mmi": "11.3",
+      "nodal": "21° / 317°"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "1067.6",
+        "1841.0"
+      ],
+      "firstLine": "1067.6",
+      "lastLine": "1841.0",
+      "sidecar": [
+        "1067.6",
+        "1841.0"
+      ]
+    },
+    "independent": {
+      "expression": "S arrival - P arrival",
+      "expected": "773.4",
+      "actual": "773.4",
+      "detail": "S-P differential time = 1841 - 1067.6 = 773.4 s"
+    }
+  },
+  {
+    "pluginId": "example.geo-hydrology",
+    "discipline": "geoscience / hydrology",
+    "defaultMetrics": {
+      "bench-scs-cn-handcalc": "0.000%",
+      "bench-scs-uh-peak": "0.036%",
+      "bench-scs-mass-conservation": "0.000%",
+      "bench-scs-superposition": "0.000%"
+    },
+    "extremeParams": {
+      "cn": 99
+    },
+    "extremeMetrics": {
+      "bench-scs-cn-handcalc": "0.000%",
+      "bench-scs-uh-peak": "0.036%",
+      "bench-scs-mass-conservation": "0.000%",
+      "bench-scs-superposition": "0.000%"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0.000%",
+        "0.000%"
+      ],
+      "firstLine": "0.000%",
+      "lastLine": "0.000%",
+      "sidecar": [
+        "0.000%",
+        "0.000%"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.geo-soilwater",
+    "discipline": "geoscience / soil water",
+    "defaultMetrics": {
+      "bench-vg-sand-recovery": "0.702%",
+      "bench-vg-capacity-derivative": "0.000%",
+      "bench-vg-rmse-convergence": "0.000%"
+    },
+    "extremeParams": {
+      "thr0": 0.3
+    },
+    "extremeMetrics": {
+      "bench-vg-sand-recovery": "0.702%",
+      "bench-vg-capacity-derivative": "0.000%",
+      "bench-vg-rmse-convergence": "0.000%"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "export": {
+      "page": [
+        "0.702%",
+        "0.000%"
+      ],
+      "firstLine": "0.702%",
+      "lastLine": "0.000%",
+      "sidecar": [
+        "0.702%",
+        "0.000%"
+      ]
+    }
+  },
+  {
+    "pluginId": "example.geo-minerals",
+    "discipline": "geoscience / mineralogy",
+    "defaultMetrics": {
+      "bench-cell-cubic": "pass",
+      "bench-cell-hexagonal": "pass",
+      "bench-retardation-calcite": "pass",
+      "bench-identify-quartz": "pass",
+      "bench-database-sanity": "pass"
+    },
+    "extremeParams": {
+      "hardness": 10
+    },
+    "extremeMetrics": {
+      "bench-cell-cubic": "pass",
+      "bench-cell-hexagonal": "pass",
+      "bench-retardation-calcite": "pass",
+      "bench-identify-quartz": "pass",
+      "bench-database-sanity": "pass"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": true,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics matched"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-cell-cubic=pass, bench-cell-hexagonal=pass, bench-retardation-calcite=pass, bench-identify-quartz=pass"
+    }
+  },
+  {
+    "pluginId": "ai.automl",
+    "discipline": "machine learning",
+    "defaultMetrics": {
+      "bench-rows": "2000",
+      "bench-total": "1233 ms",
+      "bench-rate": "1622 rows/s",
+      "bench-best": "logistic"
+    },
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "bench-rows": "2000",
+      "bench-total": "1257 ms",
+      "bench-rate": "1591 rows/s",
+      "bench-best": "logistic"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": false,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics differed"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-rows=2000"
+    }
+  },
+  {
+    "pluginId": "ai.nlp",
+    "discipline": "machine learning / NLP",
+    "defaultMetrics": {
+      "bench-docs": "300",
+      "bench-total": "87.07 ms",
+      "bench-rate": "3445 docs/s",
+      "bench-tfidf": "pass",
+      "bench-lda": "pass"
+    },
+    "extremeParams": {
+      "seed": 1234567
+    },
+    "extremeMetrics": {
+      "bench-docs": "300",
+      "bench-total": "118.2 ms",
+      "bench-rate": "2539 docs/s",
+      "bench-tfidf": "pass",
+      "bench-lda": "pass"
+    },
+    "refresh": {
+      "paramsMatch": true,
+      "metricsMatch": false,
+      "detail": "fresh plugin instance restored params via api.getParam; metrics differed"
+    },
+    "limitations": [
+      "Headless collector exercises kernels and benchmark actions, not the full UI canvas.",
+      "Timing-derived metrics are environment-dependent and are not used as acceptance numbers."
+    ],
+    "independent": {
+      "detail": "Embedded analytic oracle cross-checks the kernel against seeded truth: bench-docs=300, bench-tfidf=pass, bench-lda=pass"
+    }
+  }
+]

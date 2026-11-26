@@ -19,7 +19,11 @@ export function methodDescription(record: ResultRecord, locale: 'zh' | 'en'): st
   const created = new Date(record.createdAt).toISOString();
   const seed = record.seed === undefined ? 'not seeded' : String(record.seed);
   const params = canonicalJSON(record.params);
-  const hash = record.input.dataHash || 'no input file';
+  const hash =
+    record.input.dataHash ||
+    (locale === 'zh'
+      ? '未记录（该计算未绑定输入文件）'
+      : 'not recorded (this computation was not bound to an input file)');
   if (locale === 'zh') {
     return (
       `使用 Ergalics Studio ${record.environment.appVersion}（${record.pluginId} v${record.pluginVersion}，` +
@@ -31,7 +35,7 @@ export function methodDescription(record: ResultRecord, locale: 'zh' | 'en'): st
   return (
     `Computations were performed with Ergalics Studio ${record.environment.appVersion} ` +
     `(${record.pluginId} v${record.pluginVersion}, backend ${record.environment.backend}). ` +
-    `The input data SHA-256 was ${hash}; the complete parameter snapshot was ${params}; ` +
+    `The input data SHA-256 is ${hash}; the complete parameter snapshot was ${params}; ` +
     `the random seed was ${seed}. The reported metrics were: ${metricPhrase(record)}. ` +
     `This result was recorded at ${created} under identifier ${record.resultId}.`
   );
