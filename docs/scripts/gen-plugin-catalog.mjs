@@ -140,6 +140,7 @@ const testFiles = countTestFiles(path.join(ROOT, 'tests'));
 
 const cell = (text) =>
   String(text ?? '')
+    .replace(/&/g, '&amp;')
     .replace(/\|/g, '\\|')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

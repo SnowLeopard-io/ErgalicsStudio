@@ -143,8 +143,11 @@ export interface LatexDocument {
 function escapeLatex(s: string): string {
   // Backslashes first via a placeholder: the literal `\textbackslash{}` that
   // ends up in the output must not have its braces re-escaped by the next pass.
-  // (U+E000 is a private-use char that never appears in source text.)
+  // (U+E000 is a private-use char; any stray occurrence in the source is
+  // dropped first so it cannot collide with the placeholder and break the
+  // placeholder round-trip.)
   return s
+    .replace(/\uE000/g, '')
     .replace(/\\/g, '\uE000')
     .replace(/([&%$#_{}])/g, '\\$1')
     .replace(/~/g, '\\textasciitilde{}')

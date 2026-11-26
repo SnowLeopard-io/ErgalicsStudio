@@ -64,7 +64,15 @@ let browser;
     .locator('.welcome-footer a')
     .evaluateAll((els) => els.map((e) => e.getAttribute('href')));
   step('footer external links', footerHrefs);
-  step('footer has real GitHub repo link', footerHrefs.includes('https://github.com/SnowLeopard-io/ErgalicsStudio'));
+  step('footer has real GitHub repo link', footerHrefs.some((href) => {
+    if (typeof href !== 'string') return false;
+    try {
+      const url = new URL(href);
+      return url.host === 'github.com' && url.pathname === '/SnowLeopard-io/ErgalicsStudio';
+    } catch {
+      return false;
+    }
+  }));
   step('footer has docs link', footerHrefs.includes('./docs/'));
 
   // "Market" navigates to the workbench and opens the plugin dialog.

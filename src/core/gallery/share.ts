@@ -98,9 +98,20 @@ const SUMMARY_HEADER_MARKERS = [
   '种子',
 ];
 
+/** Strip tag-like spans repeatedly until stable (nested markup cannot resurrect). */
+function stripTagSpans(s: string): string {
+  let out = s;
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(/<[^>]*>/g, '');
+  } while (out !== prev);
+  return out;
+}
+
 function isSummaryTable(table: string): boolean {
   const headers = [...table.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)]
-    .map((m) => (m[1] ?? '').replace(/<[^>]*>/g, '').toLowerCase());
+    .map((m) => stripTagSpans(m[1] ?? '').toLowerCase());
   return headers.some((h) => SUMMARY_HEADER_MARKERS.some((k) => h.includes(k)));
 }
 
@@ -170,21 +181,32 @@ const KEPT_ISLAND_IDS = new Set(['repro-lock-json', 'repro-runs-json']);
  * replaces the old "looks-like-a-data-dump" guessing game.
  */
 function stripDataIslands(html: string): string {
-  return html.replace(
-    /<script([^>]*\btype\s*=\s*["']application\/json["'][^>]*)>([\s\S]*?)<\/script>/gi,
-    (full, attrs: string) => {
-      const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? '';
-      if (!KEPT_ISLAND_IDS.has(id)) return '';
-      // The kept islands must still parse — a corrupted lock island is
-      // worthless to the reader and might hide arbitrary payloads.
-      try {
-        JSON.parse(full.replace(/^<script[^>]*>/i, '').replace(/<\/script>\s*$/i, ''));
-        return full;
-      } catch {
-        return '';
-      }
-    },
-  );
+  const remove = (input: string): string =>
+    input.replace(
+      /<script([^>]*\btype\s*=\s*["']application\/json["'][^>]*)>([\s\S]*?)<\/script>/gi,
+      (full, attrs: string) => {
+        const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? '';
+        if (!KEPT_ISLAND_IDS.has(id)) return '';
+        // The kept islands must still parse — a corrupted lock island is
+        // worthless to the reader and might hide arbitrary payloads.
+        try {
+          JSON.parse(full.replace(/^<script[^>]*>/i, '').replace(/<\/script>\s*$/i, ''));
+          return full;
+        } catch {
+          return '';
+        }
+      },
+    );
+  // Iterate to a fixpoint: a single pass can be defeated by nested input
+  // (`<scr<script ...>ipt>` reassembles a tag after removal), which CodeQL
+  // reports as js/incomplete-multi-character-sanitization.
+  let out = html;
+  let prev: string;
+  do {
+    prev = out;
+    out = remove(out);
+  } while (out !== prev);
+  return out;
 }
 
 /** Neutralize inline data: URIs carrying text/csv/json payloads. */

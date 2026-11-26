@@ -938,7 +938,14 @@ function splitParagraphBlocks(blocks) {
       }
       if (depth === 0 && '。？！'.includes(c) && i + 1 < inner.length) cuts.push(i + 1);
     }
-    const visible = (s) => s.replace(/<[^>]+>/g, '').length;
+    // Strip tags repeatedly until stable: a single pass can be defeated by
+    // nested input like `<scr<script>ipt>` reassembling a tag afterwards.
+    const stripTags = (s) => {
+      let out = s, prev;
+      do { prev = out; out = out.replace(/<[^>]+>/g, ''); } while (out !== prev);
+      return out;
+    };
+    const visible = (s) => stripTags(s).length;
     const merged = [];
     let from = 0;
     for (const cut of cuts) {
@@ -965,7 +972,7 @@ function splitParagraphBlocks(blocks) {
       const cls = ['pfrag', i === 0 ? 'pfrag-first' : '', i === parts.length - 1 ? 'pfrag-last' : '']
         .filter(Boolean)
         .join(' ');
-      out.push({ kind: 'p', pid, fi: i, fc: parts.length, text: part.replace(/<[^>]+>/g, ''), ih: part, html: `<p class="${cls}">${part}</p>` });
+      out.push({ kind: 'p', pid, fi: i, fc: parts.length, text: stripTags(part), ih: part, html: `<p class="${cls}">${part}</p>` });
     });
   }
   return out;

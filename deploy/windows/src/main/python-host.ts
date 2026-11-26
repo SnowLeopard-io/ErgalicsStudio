@@ -12,6 +12,7 @@
 
 import { app, type App } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -80,7 +81,7 @@ export class PythonHost {
   }
 
   sessionStart(): { sessionId: string } {
-    const id = `py-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = `py-${randomUUID()}`;
     this.sessions.set(id, { id, child: null, dead: false, buffer: '', pending: [] });
     return { sessionId: id };
   }

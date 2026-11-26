@@ -92,33 +92,45 @@ export function setOnlineAuthorized(authorized: boolean): void {
   if (!authorized) writeMode('offline'); // revoking auth forces offline
 }
 
+/**
+ * The API key is intentionally kept in memory only (module scope, cleared on
+ * page reload) and never persisted. localStorage is readable by any script
+ * running in the page, so storing a credential there would expose it to
+ * XSS-grade attackers; the endpoint/model settings alone are safe to persist.
+ */
+let sessionApiKey = '';
+
 /** Read + sanitize the persisted provider config (never throws). */
 export function getProviderConfig(): AiProviderConfig {
   try {
     const raw = localStorage.getItem(PROVIDER_KEY);
-    if (!raw) return { ...EMPTY_PROVIDER_CONFIG };
+    if (!raw) return { ...EMPTY_PROVIDER_CONFIG, apiKey: sessionApiKey };
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) return { ...EMPTY_PROVIDER_CONFIG };
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { ...EMPTY_PROVIDER_CONFIG, apiKey: sessionApiKey };
+    }
     const p = parsed as Record<string, unknown>;
     return {
       endpoint: typeof p.endpoint === 'string' ? p.endpoint : '',
       model: typeof p.model === 'string' ? p.model : '',
-      apiKey: typeof p.apiKey === 'string' ? p.apiKey : '',
+      apiKey: sessionApiKey,
       vision: p.vision === true,
     };
   } catch {
-    return { ...EMPTY_PROVIDER_CONFIG };
+    return { ...EMPTY_PROVIDER_CONFIG, apiKey: sessionApiKey };
   }
 }
 
 export function setProviderConfig(config: AiProviderConfig): void {
+  // The key lives only for this session; persisting it in clear text is not
+  // an acceptable trade-off (CodeQL: clear text storage of sensitive data).
+  sessionApiKey = config.apiKey ?? '';
   try {
     localStorage.setItem(
       PROVIDER_KEY,
       JSON.stringify({
         endpoint: (config.endpoint ?? '').trim(),
         model: (config.model ?? '').trim(),
-        apiKey: config.apiKey ?? '',
         vision: config.vision === true,
       }),
     );

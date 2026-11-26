@@ -360,7 +360,7 @@ export function parseVcfGenotypes(text: string): GenotypeCounts | null {
     for (let i = 9; i < tokens.length; i += 1) {
       const gt = tokens[i]!.split(':')[0]!;
       if (!gt || gt === './.' || gt === '.') continue;
-      const alleles = gt.replace('|', '/').split('/');
+      const alleles = gt.replace(/\|/g, '/').split('/');
       if (alleles.length !== 2) continue;
       const a = alleles[0]!;
       const b = alleles[1]!;

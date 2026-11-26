@@ -24,7 +24,9 @@ if (lock.lockfileVersion !== 3) {
   process.exit(1);
 }
 
-const purlOf = (name) => `pkg:npm/${name.replace(/^@/, '').replace('/', '%2f')}`;
+// purl spec: scope `@` is percent-encoded as %40; `/` separates namespace
+// from name and stays a literal separator (CycloneDX purl grammar).
+const purlOf = (name) => `pkg:npm/${name.replace(/^@/, '%40')}`;
 
 const components = [];
 for (const [pathKey, entry] of Object.entries(lock.packages ?? {})) {

@@ -84,11 +84,42 @@ const byFile = new Map(assets.map((a) => [a.file, a]));
 // ---- 1. first-screen set: entry script + modulepreloads in index.html -----
 const html = readFileSync(path.join(outDir, 'index.html'), 'utf8');
 const eager = new Set();
-const linkRe = /<link[^>]+rel="modulepreload"[^>]+href="([^"]+)"[^>]*>/g;
-const scriptRe = /<script[^>]+src="([^"]+)"[^>]*><\/script>/g;
-let m;
-while ((m = linkRe.exec(html))) eager.add(m[1].replace(/^\.\//, ''));
-while ((m = scriptRe.exec(html))) eager.add(m[1].replace(/^\.\//, ''));
+
+// Attribute lookup inside one already-extracted tag. No HTML-matching
+// regexes: scanning with indexOf avoids the js/bad-tag-filter class of
+// "filtering regexp can be bypassed by malformed markup" entirely, and the
+// input here is Vite's own build output anyway.
+function attrOf(tag, name) {
+  const key = name + '=';
+  const at = tag.indexOf(key);
+  if (at < 0) return null;
+  const rest = tag.slice(at + key.length).trimStart();
+  const q = rest[0];
+  if (q === '"' || q === "'") {
+    const close = rest.indexOf(q, 1);
+    return close < 0 ? null : rest.slice(1, close);
+  }
+  const end = rest.search(/[\s>]/);
+  return end < 0 ? rest : rest.slice(0, end);
+}
+
+let pos = 0;
+while ((pos = html.indexOf('<', pos)) !== -1) {
+  if (html.startsWith('<link', pos) || html.startsWith('<script', pos)) {
+    const close = html.indexOf('>', pos);
+    if (close < 0) break;
+    const tag = html.slice(pos, close + 1);
+    const rel = attrOf(tag, 'rel');
+    const src = attrOf(tag, 'src') ?? attrOf(tag, 'href');
+    const isEager =
+      (html.startsWith('<link', pos) && rel === 'modulepreload') ||
+      (html.startsWith('<script', pos) && src !== null);
+    if (isEager && src) eager.add(src.replace(/^\.\//, ''));
+    pos = close + 1;
+  } else {
+    pos += 1;
+  }
+}
 
 const eagerJs = [...eager].filter((f) => f.endsWith('.js')).map((f) => byFile.get(f) ?? { file: f, raw: 0, gzip: 0 });
 const firstScreenGzipKb = eagerJs.reduce((s, a) => s + a.gzip, 0) / 1024;

@@ -77,6 +77,52 @@ function extractElements(src: string, tagName: string): { tag: string; body: str
   return results;
 }
 
+/**
+ * Drop tag-shaped spans from source text with a single forward scan.
+ *
+ * Deliberately not a regex replace: stitching removed text back together can
+ * resurrect markup (`<scr<script>ipt>` → `<script>`), which CodeQL reports as
+ * js/incomplete-multi-character-sanitization. Scanning once and never
+ * re-interpreting what was skipped avoids that class entirely. This is a
+ * label heuristic over trusted, in-repo JSX — not an HTML sanitizer.
+ */
+function stripTagLike(s: string): string {
+  let out = '';
+  let i = 0;
+  while (i < s.length) {
+    const lt = s.indexOf('<', i);
+    if (lt < 0) {
+      out += s.slice(i);
+      break;
+    }
+    // Only `<` followed by a name, `/`, `!` or `>` starts a tag; anything else
+    // (e.g. a comparison in prose) is literal text.
+    if (!/[A-Za-z/!>]/.test(s[lt + 1] ?? '')) {
+      out += s.slice(i, lt + 1);
+      i = lt + 1;
+      continue;
+    }
+    out += s.slice(i, lt);
+    let j = lt + 1;
+    let quote = '';
+    for (; j < s.length; j++) {
+      const c = s[j] as string;
+      if (quote) {
+        if (c === '\\') j++;
+        else if (c === quote) quote = '';
+        continue;
+      }
+      if (c === '"' || c === "'" || c === '`') {
+        quote = c;
+        continue;
+      }
+      if (c === '>') break;
+    }
+    i = j + 1; // skip the whole tag; unmatched `<` drops the remainder
+  }
+  return out;
+}
+
 /** Strip JSX expressions and nested elements; leftover text = visible label. */
 function visibleText(body: string): string {
   let s = body;
@@ -84,7 +130,7 @@ function visibleText(body: string): string {
   for (let pass = 0; pass < 3; pass++) {
     s = s.replace(/\{[^{}]*\}/g, '');
   }
-  s = s.replace(/<[^>]*>/g, '');
+  s = stripTagLike(s);
   return s.replace(/&nbsp;/g, ' ').trim();
 }
 

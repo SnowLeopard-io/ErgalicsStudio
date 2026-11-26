@@ -70,6 +70,12 @@ export async function downloadBlob(
   const url = URL.createObjectURL(blob);
   try {
     const a = document.createElement('a');
+    // Defense in depth: the URL is locally minted by URL.createObjectURL and
+    // can only ever be a `blob:` URL; the guard also closes any path where a
+    // caller-supplied string could reach the href sink.
+    if (!url.startsWith('blob:')) throw new Error('unexpected download URL scheme');
+    // codeql[js/xss] The href is a locally generated blob: URL (opaque
+    // origin, no javascript:/data: possible); no user HTML is interpreted.
     a.href = url;
     a.download = fileName;
     a.rel = 'noopener';

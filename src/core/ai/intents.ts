@@ -206,13 +206,16 @@ export function matchIntent(text: string, locale: Locale = 'zh-CN'): IntentMatch
 // ---- code synthesis ----------------------------------------------------------
 
 function sourceLine(slots: IntentSlots, dataFiles: string[]): string {
-  if (slots.source) return `df = studio.load('${slots.source.replace(/'/g, "\\'")}')`;
+  // Escape backslashes BEFORE quotes: a value ending in `\` would otherwise
+  // re-escape the quote and break out of the Python string literal.
+  const py = (f: string) => `'${f.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  if (slots.source) return `df = studio.load(${py(slots.source)})`;
   if (dataFiles.length > 0) {
     // Project data exists: default to the first file instead of fabricating
     // synthetic samples, so statistics describe the user's actual data.
-    const first = dataFiles[0]!.replace(/'/g, "\\'");
-    const rest = dataFiles.slice(1).map((f) => `'${f.replace(/'/g, "\\'")}'`).join(', ');
-    return `df = studio.load('${first}')  # 项目数据文件${rest ? `（其余可用：${rest}）` : ''}`;
+    const first = py(dataFiles[0]!);
+    const rest = dataFiles.slice(1).map(py).join(', ');
+    return `df = studio.load(${first})  # 项目数据文件${rest ? `（其余可用：${rest}）` : ''}`;
   }
   return 'df = studio.exampleData(200, 1)  # 无数据文件时合成正弦+噪声样本';
 }

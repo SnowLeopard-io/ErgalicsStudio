@@ -248,7 +248,18 @@ export function createPluginWorkerRuntime(
             if (locale && locale in (dict ?? {})) currentLocale = locale as Locale;
             if (dict) dictionaries = dict;
             api = createApiProxy();
-             
+            // Executing the plugin entry source IS the worker's purpose: this
+            // dedicated Worker is the sandbox boundary, entrySource is the
+            // payload by design, and the host-side loader is the only channel
+            // that can reach it (no remote/user origin can postMessage here).
+            // Type-check the payload before compiling so a malformed boot
+            // message fails with a clear error instead of a SyntaxError.
+            if (typeof entrySource !== 'string' || entrySource.length === 0) {
+              throw new Error('boot: entry source must be a non-empty string');
+            }
+            // codeql[js/code-injection] Intentional plugin-code sandbox: the
+            // payload is the plugin's own entry module, executed inside this
+            // dedicated Worker with a proxied host API (see SECURITY.md).
             const factory = new Function('api', `"use strict";\n${entrySource}`) as (
               api: PluginApi,
             ) => Plugin;

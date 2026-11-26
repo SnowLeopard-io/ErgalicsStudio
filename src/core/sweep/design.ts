@@ -176,6 +176,11 @@ export function setPath(
   value: unknown,
 ): Record<string, unknown> {
   const parts = path.split('.');
+  // Dotted paths are untrusted input: reject keys that would walk or
+  // overwrite Object.prototype (`__proto__`, `constructor`, `prototype`).
+  if (parts.some((p) => p === '__proto__' || p === 'constructor' || p === 'prototype')) {
+    throw new Error(`forbidden prototype-polluting path: ${path}`);
+  }
   let node = target;
   for (let i = 0; i < parts.length - 1; i += 1) {
     const key = parts[i]!;

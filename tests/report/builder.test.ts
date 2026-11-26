@@ -258,7 +258,13 @@ describe('F8 security / packaging', () => {
     const out = safeJsonScript({ evil: '</script><img src=x onerror=alert(1)>' }, 'x');
     expect(out).not.toContain('</script><img');
     expect(out).toContain('\\u003c/script\\u003e');
-    expect(() => JSON.parse(out.replace(/^<script[^>]*>/, '').replace('</script>', ''))).not.toThrow();
+    expect(() =>
+      JSON.parse(
+        out
+          .slice(out.indexOf('>') + 1)
+          .slice(0, out.lastIndexOf('</script>') - out.indexOf('>') - 1),
+      ),
+    ).not.toThrow();
   });
 
   it('escapeHtml covers & < > " \' ', () => {
@@ -276,7 +282,7 @@ describe('F8 security / packaging', () => {
     expect(html).not.toMatch(/https?:\/\//);
     expect(html).toMatch(/<style>[\s\S]*<\/style>/);
     // exactly one inline controller script + json data scripts
-    expect((html.match(/<script>/g) ?? []).length).toBe(1);
+    expect(html.split('<script>').length - 1).toBe(1);
   });
 
   it('supports dark theme and Chinese chrome labels', async () => {
