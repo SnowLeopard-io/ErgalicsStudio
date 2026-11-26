@@ -1,0 +1,160 @@
+# Dependabot configuration.
+#
+# Why this exists: without groups, Dependabot opened one PR per transitive
+# package of the Electron build chain (electron-builder, app-builder-lib,
+# builder-util-runtime, tar, ...). Those PRs all rewrite the same
+# deploy/*/package-lock.json, so they conflicted with each other and with main.
+# Grouping makes each toolchain move in exactly one PR.
+#
+# Majors are still opened (except Electron itself, which needs a manual
+# runtime smoke test across desktop packagers) — they are just grouped with
+# the ecosystem they belong to instead of scattered.
+version: 2
+
+updates:
+  # ---- main app -----------------------------------------------------------
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 8
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      runtime-minor-patch:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+      dev-minor-patch:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+    # Major bumps stay ungrouped: one PR each, so a breaking change can be
+    # reviewed and reverted on its own.
+
+  # ---- desktop shells -----------------------------------------------------
+  # Windows and Linux share deploy/windows/src; their lockfiles must be
+  # regenerated together, hence identical grouping rules.
+  - package-ecosystem: npm
+    directory: "/deploy/windows"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps-win)"
+    groups:
+      electron-toolchain:
+        patterns:
+          - electron
+          - electron-builder
+          - app-builder-lib
+          - builder-util*
+          - dmg-builder
+          - electron-builder-squirrel-windows
+          - "@electron/*"
+          - tar
+          - minimatch
+        update-types: ["minor", "patch"]
+      other-minor-patch:
+        patterns: ["*"]
+        exclude-patterns:
+          - electron
+          - electron-builder
+          - app-builder-lib
+          - builder-util*
+          - dmg-builder
+          - electron-builder-squirrel-windows
+          - "@electron/*"
+          - tar
+          - minimatch
+        update-types: ["minor", "patch"]
+    ignore:
+      # Electron majors change the Chromium/Node runtime; they need a packaged
+      # build smoke test, so they are upgraded deliberately (see 33 -> 45).
+      # Patch/minor releases still arrive automatically, and security alerts
+      # are unaffected by this ignore rule.
+      - dependency-name: electron
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: "/deploy/linux"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps-linux)"
+    groups:
+      electron-toolchain:
+        patterns:
+          - electron
+          - electron-builder
+          - app-builder-lib
+          - builder-util*
+          - dmg-builder
+          - electron-builder-squirrel-windows
+          - "@electron/*"
+          - tar
+          - minimatch
+        update-types: ["minor", "patch"]
+      other-minor-patch:
+        patterns: ["*"]
+        exclude-patterns:
+          - electron
+          - electron-builder
+          - app-builder-lib
+          - builder-util*
+          - dmg-builder
+          - electron-builder-squirrel-windows
+          - "@electron/*"
+          - tar
+          - minimatch
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: electron
+        update-types: ["version-update:semver-major"]
+
+  # ---- Android package ----------------------------------------------------
+  - package-ecosystem: npm
+    directory: "/deploy/android"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps-android)"
+    groups:
+      capacitor:
+        patterns:
+          - "@capacitor/*"
+          - "@capacitor-community/*"
+        update-types: ["minor", "patch"]
+      other-minor-patch:
+        patterns: ["*"]
+        exclude-patterns:
+          - "@capacitor/*"
+          - "@capacitor-community/*"
+        update-types: ["minor", "patch"]
+
+  # ---- workflow actions ---------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+      time: "06:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
