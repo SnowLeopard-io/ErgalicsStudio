@@ -17,7 +17,7 @@
 <p>
 <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
-<img alt="Tests" src="https://img.shields.io/badge/Tests-4259%2B%20passing-1f2937?style=flat-square" />
+<img alt="Tests" src="https://img.shields.io/badge/Tests-4529%2B%20passing-1f2937?style=flat-square" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
 </p>
 
@@ -58,6 +58,8 @@
 - [Industrial Suite](#industrial-suite)
 - [Version Control](#version-control-git-backed-projects)
 - [Plugin System](#plugin-system)
+- [AI Assistant](#ai-assistant)
+- [Trusted Computing Units & Provenance](#trusted-computing-units--provenance)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
 - [Testing](#testing)
 - [Documentation](#documentation)
@@ -88,8 +90,9 @@ What ships today:
 | Area              | Shipped today |
 | ----------------- | ------------- |
 | Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
-| Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
-| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), **declarative plugin data contracts (bidirectional JSON Schema ↔ Zod v4) + smart column mapping + dual-mode online table/JSON editor (live-sync bottom drawer / modal, Excel block paste, global project data sync & compatibility badges)**, publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
+| Compute | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, and an **agentic AI assistant** (online tool-calling agent with policy-gated host tools, result citations and optional canvas vision; offline rule engine as a graceful fallback). |
+| Trusted computing units | Every published result now has an immutable `ResultRecord`: plugin/version, full parameters, **SHA-256 input fingerprint**, environment/backend, metrics and export hashes. A source card, bilingual method description, standalone reproduction script, export sidecar and an L4 acceptance report make "where did this number come from?" answerable. |
+| Data & plots | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), **one canonical delimited-text parser shared by workbench, StudioApi and the Python/Notebook studio module** (the 120k-row streaming reader keeps its own performance contract), **declarative plugin data contracts (bidirectional JSON Schema ↔ Zod v4) + smart column mapping + dual-mode online table/JSON editor (live-sync bottom drawer / modal, Excel block paste, global project data sync & compatibility badges)**, publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, **content-addressed incremental build system for Flow runs** (hit-rate UI, per-node cache badges, dry-run preview, verifiable provenance, portable cache snapshots, one-click reproducibility bundles), 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **35 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Industrial        | **11 engineering tools** on the same workbench (geometry / mesh / materials / cases / solver / post / design scan / quick fluid / fingerprint / report / calculators), 8 CAD/CAE formats parsed into one neutral study, CSV/JSON/SVG/PNG/PDF/HTML exports |
@@ -1407,6 +1410,53 @@ The WebGPU compute pipeline itself is real and exercised by plugins:
 
 ---
 
+## AI Assistant
+
+One panel, two engines (`src/core/ai/chat.ts`):
+
+| Engine | When it answers | What it does |
+| --- | --- | --- |
+| **Online agent** | Online mode + a configured OpenAI-compatible endpoint + user authorization | A tool-calling loop (`agent.ts`) over declarative host tools; streams intermediate model turns and tool events; obeys the per-tool policy store; optionally inspects the canvas through `get_canvas_snapshot`. |
+| **Offline rule engine** | Default, and as the fallback when a network call fails | Intent matching plus code synthesis from the current project's data files (`intents.ts`); the assistant never dead-ends. |
+
+The agent never emits arbitrary DOM/JS. Capabilities are published as JSON-Schema tools (`src/core/ai/tools/`):
+
+- Registry & UI: `list_plugins`, `activate_plugin`, `get_plugin_params`, `set_plugin_params`, `press_plugin_action`.
+- Canvas & data: `get_canvas_snapshot`, `list_data_files`, `read_data_file`.
+- Numbers: `get_science_outputs` returns published conclusions **with their `resultId`**; the system prompt tells the model to quote that id verbatim instead of re-deriving numbers.
+- Schema-aware data editing: `get_plugin_data_schema`, `set_plugin_data`, `patch_plugin_data`, `load_data_file_to_plugin`, `write_data_file` — Zod self-healing plus autonomous column mapping.
+- Runtime: `run_code`, `notify_user`.
+
+Mutating tools are authorized separately from read-only ones, and individual tools can be switched off in the policy panel — disabled tools are removed from the model's tool list rather than rejected after a call.
+
+---
+
+## Trusted Computing Units & Provenance
+
+A computation is not complete until its numbers are attributable. Every `setScienceOutputs(...)` call produces one immutable `ResultRecord` (`src/core/result/`):
+
+| Field | What it records |
+| --- | --- |
+| `resultId` / `createdAt` | Unique id and ISO timestamp; a re-run mints a new id and never overwrites an old number. |
+| `pluginId` / `pluginVersion` / `kernelVersion` | Who produced the result. |
+| `input.dataHash` / `sources` | SHA-256 of the exact bytes ingested; captured on upload, drag-in, project-file pick, editor draft and AI-tool paths (`inputCapture.ts`). |
+| `params` / `seed` | Canonical full parameter snapshot, defaults included. |
+| `environment` | App version, locale and the **real** execution backend (`webgpu` vs `cpu`). |
+| `metrics` / `artifacts` / `benchmarks` | Published scientific conclusions, export hashes and benchmark verdicts. |
+
+Everything reads from that one record: the Σ strip shows an 8-character result id; the source card shows the full record with a copyable bilingual method description; plugin and Figure Studio exports get a sibling `.json` sidecar containing the record subset plus the export file's SHA-256; a standalone `reproduce.py` rechecks key numbers; Figure Studio panels carry `sourceResultId` and sweep results use `parentResultId`.
+
+L4 acceptance (`tests/acceptance/`, artifacts in `bench/`):
+
+```bash
+npm run l4:report   # regenerate bench/l4-report.md from bench/l4-evidence.json
+npm run l4:gate     # fail the release gate while any of the 30 cards lacks evidence
+```
+
+A card passes only with default results, a non-default run, export reconciliation, refresh restoration, independent recomputation and documented limitations. First honest baseline: **8 PASS / 22 FAIL** — failures are explicit, mostly reflecting headless-harness limits (no UI export CSV) and kernels that require browser Workers.
+
+---
+
 ## Testing
 
 Unit tests (Vitest, node environment):
@@ -1416,10 +1466,10 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**4259 tests passing (2 skipped) across 286 files**, covering:
-data & I/O, the statistics kernel, plugins & sandbox, the environmental and
+**4529 tests passing (11 skipped) across 323 files**, covering:
+data & I/O (including the canonical parser and SHA-256 ingestion fingerprints), the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
-the research-grade science-output bus, the block system, three-mode IR sync
+the research-grade science-output bus and trusted result records, the block system, three-mode IR sync
 (Block ↔ Flow ↔ Code round-trips), the research modules (uncertainty / units /
 runs / lineage / figures / packaging / notebook / model / profiler / signal /
 sweeps / SQL / report / repro-lock / inference / causal), the build engine, the reliability core, and
@@ -1491,7 +1541,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
 - [x] 35 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
 - [x] Research-grade reliability layer (error taxonomy + validation + data-quality engine)
-- [x] AI assistant (natural language → `studio.*` draft → run; offline / online modes)
+- [x] AI assistant (natural language → `studio.*` draft → run; offline rule engine / online agentic tool-calling with `resultId` citations and policy-gated tools)
 - [x] Full free-form R runtime (webR + CRAN, falling back to the IR engine when absent)
 - [x] Official website (gallery / theme marketplace / plugin marketplace); marketplace "Download" produces loadable `.cspkg`
 - [x] Five GitHub Actions workflows (ci / bench / deploy / release / security)
