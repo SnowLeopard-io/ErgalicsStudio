@@ -104,11 +104,20 @@ const PROVIDERS: ShellProvider[] = process.platform === 'win32'
 
 type Broadcaster = (channel: string, payload: Record<string, unknown>) => void;
 
+/** The subset of node-pty's IPty surface this host actually uses. */
+interface PtyLike {
+  write: (d: string) => void;
+  resize: (c: number, r: number) => void;
+  kill: () => void;
+  onData: (cb: (data: string) => void) => void;
+  onExit: (cb: (e: { exitCode: number }) => void) => void;
+}
+
 interface Term {
   id: string;
   provider: string;
   /** node-pty handle when available. */
-  pty?: { write: (d: string) => void; resize: (c: number, r: number) => void; kill: () => void };
+  pty?: PtyLike;
   child?: ChildProcess;
 }
 
@@ -118,7 +127,7 @@ export class PtyHost {
   // node-pty is optional: loaded dynamically so the app never hard-fails on a
   // missing native build.
    
-  private ptyModule: { spawn: (...a: unknown[]) => Term['pty'] } | null = (() => {
+  private ptyModule: { spawn: (...a: unknown[]) => PtyLike } | null = (() => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('node-pty');
@@ -145,17 +154,16 @@ export class PtyHost {
     };
 
     if (this.ptyModule) {
-      term.pty = this.ptyModule.spawn(file, args, {
+      const pty = this.ptyModule.spawn(file, args, {
         name: 'xterm-color',
         cols: opts.cols ?? 100,
         rows: opts.rows ?? 28,
         cwd: opts.cwd,
         env,
-      }) as Term['pty'];
-      term.pty.onData(onData);
-      (term.pty as unknown as { onExit: (cb: (e: { exitCode: number }) => void) => void }).onExit(
-        (e) => onExit(e.exitCode),
-      );
+      });
+      term.pty = pty;
+      pty.onData(onData);
+      pty.onExit((e) => onExit(e.exitCode));
     } else {
       const child = spawn(file, args, { env, cwd: opts.cwd, shell: false });
       term.child = child;
