@@ -63,19 +63,6 @@ export function initAmbienceEngine(): void {
     logger.error('ambience', 'daily login award failed', err);
   }
 
-  // First-visit hint: surface that sounds exist, exactly once ever.
-  const ambience = useAmbienceStore.getState();
-  if (ambience.settings.soundEnabled && !ambience.progress.flags.soundHintShown) {
-    useAmbienceStore.setState((s) => ({
-      progress: { ...s.progress, flags: { ...s.progress.flags, soundHintShown: true } },
-    }));
-    void import('@/stores/appStore').then(({ useAppStore }) => {
-      void import('@/i18n').then(({ t }) => {
-        useAppStore.getState().notify('info', t('ambience.sound_hint'));
-      });
-    });
-  }
-
   // ---- event-bus XP hooks --------------------------------------------------
 
   on<{ run: { failed?: boolean; source: string; inputFileIds: unknown[] } }>(RUN_COMPLETED, ({ run }) => {

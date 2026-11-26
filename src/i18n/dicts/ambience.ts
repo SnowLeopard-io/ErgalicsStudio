@@ -3,7 +3,6 @@
 import type { LocaleDictionary } from '../types';
 
 export const ambienceZh: LocaleDictionary = {
-  'ambience.sound_hint': '已启用界面音效，可在 设置 → 体验与氛围 中调整。',
   'settings.profile': '用户资料',
   'profile.section_desc': '个性化资料仅保存在本地浏览器中，不会上传或共享。',
   'profile.anonymous': '未命名用户',
@@ -119,7 +118,6 @@ export const ambienceZh: LocaleDictionary = {
 };
 
 export const ambienceEn: LocaleDictionary = {
-  'ambience.sound_hint': 'Interface sounds are on — adjust them in Settings → Experience.',
   'settings.profile': 'User profile',
   'profile.section_desc': 'Your profile stays in this browser only — nothing is uploaded or shared.',
   'profile.anonymous': 'Unnamed user',

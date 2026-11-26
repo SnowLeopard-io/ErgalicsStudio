@@ -185,7 +185,7 @@ export interface AmbienceProgress {
   usedPlugins: string[];
   runSources: string[];
   counters: { runs: number; ingests: number };
-  flags: { tourRewarded?: boolean; soundHintShown?: boolean };
+  flags: { tourRewarded?: boolean };
 }
 
 export const DEFAULT_SETTINGS: AmbienceSettings = {
