@@ -17,7 +17,7 @@
 <p>
 <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
 <a href="LICENSE"><img alt="许可证" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
-<img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-4259%2B%20passing-1f2937?style=flat-square" />
+<img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-4529%2B%20passing-1f2937?style=flat-square" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
 </p>
 
@@ -58,6 +58,8 @@
 - [工业套件](#工业套件)
 - [版本控制](#版本控制git-仓库化项目)
 - [插件系统](#插件系统)
+- [AI 助手](#ai-助手)
+- [可信计算单元与溯源](#可信计算单元与溯源)
 - [GPU 计算与原生核心](#gpu-计算与原生核心)
 - [测试](#测试)
 - [文档](#文档)
@@ -84,8 +86,9 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 领域 | 今日已交付 |
 | ---- | ---------- |
 | 工作台 | 四种模式、工作台文件资源管理器（工作区搜索 / Git 变更角标 / 外部文件拖入导入）+ 标签页中央区 + 多会话终端 + 按文件类型分派的编辑器（Code / Flow / Block）、**165 个内置插件（155 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
-| 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
-| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、**声明式插件数据契约（JSON Schema ↔ Zod v4 双向生成）+ 智能列映射 + 双态在线表格/JSON 编辑器（底部抽屉实时联动 / 大浮窗、Excel 块粘贴、全局项目数据同步与兼容徽章）**、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建系统**（命中率可视化、逐节点缓存徽章、干跑预览、可校验溯源、可移植缓存快照、一键复现包）、189 个示例数据集 + 11 个示例工程 |
+| 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件，以及**智能体式 AI 助手**（在线工具调用 agent：受策略管控的宿主工具、结果引用与可选画布视觉；离线规则引擎作为降级路径） |
+| 可信计算单元 | 每次发布的结果都生成不可变 `ResultRecord`：插件/版本、完整参数、**输入数据 SHA-256 指纹**、运行后端/环境、指标与导出文件哈希。来源卡片、中英双语方法描述、独立复现脚本、导出 sidecar 与 L4 验收报告，让"这个数字从哪来"始终可答。 |
+| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、**工作台 / StudioApi / Python Notebook 三入口共用的唯一分隔符解析内核**（12 万行流式读取器保留独立性能契约）、**声明式插件数据契约（JSON Schema ↔ Zod v4 双向生成）+ 智能列映射 + 双态在线表格/JSON 编辑器（底部抽屉实时联动 / 大浮窗、Excel 块粘贴、全局项目数据同步与兼容徽章）**、出版级 SVG/PDF 绘图、统计分析、可复现性支持、**流程运行的内容寻址增量构建系统**（命中率可视化、逐节点缓存徽章、干跑预览、可校验溯源、可移植缓存快照、一键复现包）、189 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide（import 科学计算包时按需自动安装）；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **35 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 工业 | **11 个工程工具**（几何 / 网格 / 材料 / 工况 / 求解 / 后处理 / 设计扫描 / 快速流体 / 复现指纹 / 工业报告 / 工程计算器）复用同一工作台，8 种 CAD/CAE 格式解析为统一工程模型，支持 CSV/JSON/SVG/PNG/PDF/HTML 导出 |
@@ -1189,6 +1192,53 @@ WebGPU 计算管线本身真实存在并被插件实际使用：
 
 ---
 
+## AI 助手
+
+同一个面板、两套引擎（`src/core/ai/chat.ts`）：
+
+| 引擎 | 何时回答 | 能做什么 |
+| --- | --- | --- |
+| **在线智能体** | 在线模式 + 已配置 OpenAI 兼容端点 + 用户授权 | 基于声明式宿主工具的 tool-calling 循环（`agent.ts`）；流式输出中间轮次与工具事件；遵守逐工具策略开关；开启视觉后可通过 `get_canvas_snapshot` 检查画布。 |
+| **离线规则引擎** | 默认，以及网络调用失败时的降级路径 | 基于当前项目数据文件的意图匹配与代码合成（`intents.ts`）；助手不会走进死路。 |
+
+智能体不产出任意 DOM/JS。能力以 JSON Schema 工具注册（`src/core/ai/tools/`）：
+
+- 注册表与界面：`list_plugins`、`activate_plugin`、`get_plugin_params`、`set_plugin_params`、`press_plugin_action`。
+- 画布与数据：`get_canvas_snapshot`、`list_data_files`、`read_data_file`。
+- 数值：`get_science_outputs` 返回已发布结论**及其 `resultId`**；系统提示要求模型逐字引用该 id，而不是自己重算数字。
+- 模式感知的数据编辑：`get_plugin_data_schema`、`set_plugin_data`、`patch_plugin_data`、`load_data_file_to_plugin`、`write_data_file`——Zod 自愈 + 自动列映射。
+- 运行时：`run_code`、`notify_user`。
+
+修改类工具与只读工具分开授权；策略面板可逐项关闭工具——被关闭的工具会从模型的工具清单中移除，而不是调用后再拒绝。
+
+---
+
+## 可信计算单元与溯源
+
+一个计算只有在数字可被追溯时才算完成。每次 `setScienceOutputs(...)` 都生成一条不可变 `ResultRecord`（`src/core/result/`）：
+
+| 字段 | 记录什么 |
+| --- | --- |
+| `resultId` / `createdAt` | 唯一 ID 与 ISO 时间；重跑生成新 ID，绝不覆盖旧数字。 |
+| `pluginId` / `pluginVersion` / `kernelVersion` | 谁产出了结果。 |
+| `input.dataHash` / `sources` | 实际摄入字节的 SHA-256；上传、拖入、项目文件选择、编辑器草稿与 AI 工具路径统一采集（`inputCapture.ts`）。 |
+| `params` / `seed` | 规范化完整参数快照，包含默认值。 |
+| `environment` | 应用版本、语言环境，以及**真实**执行后端（`webgpu` 或 `cpu`）。 |
+| `metrics` / `artifacts` / `benchmarks` | 已发布的科学结论、导出文件哈希与基准判定。 |
+
+所有展示面都读同一份记录：Σ 指标条显示 8 位结果 id；来源卡片展示完整记录并可复制中英双语方法描述；插件与 Figure Studio 的导出附带同名 `.json` sidecar（记录子集 + 导出文件 SHA-256）；独立 `reproduce.py` 复核关键数字；Figure Studio 面板携带 `sourceResultId`，扫描结果使用 `parentResultId`。
+
+L4 验收（`tests/acceptance/`，产物在 `bench/`）：
+
+```bash
+npm run l4:report   # 从 bench/l4-evidence.json 重新生成 bench/l4-report.md
+npm run l4:gate     # 30 张卡中任意一张缺证据即阻断发布
+```
+
+一张卡需同时具备默认结果、非默认参数运行、导出对账、刷新恢复、独立复算与已知限制才算 PASS。第一版诚实基线：**8 PASS / 22 FAIL**——失败原因逐条写明，主要来自 headless 采集器拿不到 UI 导出 CSV，以及少数必须依赖浏览器 Worker 的内核。
+
+---
+
 ## 测试
 
 单元测试（Vitest，node 环境）：
@@ -1198,7 +1248,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-**4259 个测试（2 个跳过）分布在 286 个测试文件中**，覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、工作区 VFS、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎 / 因果推断）、构建引擎、可靠性内核、平台。
+**4529 个测试（11 个跳过）分布在 323 个测试文件中**，覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、工作区 VFS、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎 / 因果推断）、构建引擎、可靠性内核、平台。
 
 E2E 套件（Playwright-core, headless Edge）：
 
@@ -1251,7 +1301,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核
 - [x] 35 个独立科研工具分 7 组（含免项目的 utils 小工具组），支持内嵌到工作台画布
 - [x] 研究级可靠性层（错误分类法 + 校验框架 + 数据质量引擎）
-- [x] AI 助手（自然语言 → `studio.*` 代码草稿 → 运行；离线 / 在线两种模式）
+- [x] AI 助手（自然语言 → `studio.*` 代码草稿 → 运行；离线规则引擎 / 在线智能体工具调用，带 `resultId` 引用与逐工具策略开关）
 - [x] 完整自由语法 R 运行时（webR + CRAN 包，缺失时回退 IR 引擎）
 - [x] 官方网站（画廊 / 主题市场 / 插件市场）+ 官网市场"下载"产出可加载 `.cspkg`
 - [x] 5 条 GitHub Actions 工作流（ci / bench / deploy / release / security）
