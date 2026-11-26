@@ -22,7 +22,7 @@ import {
 import { datasetToTable } from '@/types/datatable';
 import { logger } from '@/core/logger';
 import { sha256Blob } from '@/core/result/hash';
-import { setCurrentDataSource } from '@/core/result/activeData';
+import { setCurrentDataSource, setPluginDataSource } from '@/core/result/activeData';
 import { isEngineeringExtension, isGeometryExtension } from '@/core/engineering';
 import { useEngineeringStore } from '@/stores/engineeringStore';
 import { resolvePluginDataSchemas } from '@/core/data-schema/presets';
@@ -73,7 +73,11 @@ export function useFileRouting() {
     // same file and this simply re-asserts it. Non-fatal on failure.
     try {
       const hash = await sha256Blob(file);
-      setCurrentDataSource({ name: file.name, hash, bytes: file.size });
+      const source = { name: file.name, hash, bytes: file.size };
+      setCurrentDataSource(source);
+      // Bind the fingerprint to the target plugin as well, so a second
+      // plugin running on another dataset cannot inherit this file's hash.
+      setPluginDataSource(id, source);
     } catch (err) {
       logger.warn('io', 'ingest sha256 failed', err);
     }

@@ -120,6 +120,23 @@ export function sha256Text(text: string): string {
   return sha256Hex(encoder.encode(text));
 }
 
+/**
+ * SHA-256 of a text payload, using the platform's native digest when it is
+ * available. `crypto.subtle` is orders of magnitude faster than the pure
+ * TypeScript implementation, which matters for the ingestion path where a
+ * large CSV is hashed on every keystroke-driven live sync.
+ */
+export async function sha256TextAsync(text: string): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return sha256Text(text);
+  try {
+    const digest = await subtle.digest('SHA-256', encoder.encode(text));
+    return bytesToHex(new Uint8Array(digest));
+  } catch {
+    return sha256Text(text);
+  }
+}
+
 /** Hash a Blob in bounded chunks; never materialises the whole file at once. */
 export async function sha256Blob(blob: Blob, chunkSize = 1024 * 1024): Promise<string> {
   const size = Math.max(1, Math.floor(chunkSize));
