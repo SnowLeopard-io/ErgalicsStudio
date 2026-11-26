@@ -57,6 +57,10 @@ export function createGitBridge(fs: FsBridge): GitBridge {
         case 'isRepo': return (await g.checkIsRepo()).valueOf();
         case 'status': {
           const s = await g.status();
+          // `git status --porcelain` does not carry the HEAD sha, so resolve it
+          // separately. A freshly initialised repo has no HEAD yet — report ''.
+          let currentCommit = '';
+          try { currentCommit = (await g.revparse(['HEAD'])).trim(); } catch { /* unborn branch */ }
           return {
             clean: s.isClean(),
             staged: s.staged,
@@ -65,7 +69,7 @@ export function createGitBridge(fs: FsBridge): GitBridge {
             ahead: s.ahead,
             behind: s.behind,
             currentBranch: s.current ?? '',
-            currentCommit: s.commit,
+            currentCommit,
           };
         }
         case 'log': {
@@ -82,10 +86,20 @@ export function createGitBridge(fs: FsBridge): GitBridge {
         }
         case 'branches': {
           const res = await g.branchLocal();
+          // branchLocal() does not report upstream refs; ask git once rather
+          // than spawning one `rev-parse` per branch.
+          const upstreams = new Map<string, string>();
+          try {
+            const raw = await g.raw(['for-each-ref', '--format=%(refname:short)%09%(upstream:short)', 'refs/heads']);
+            for (const line of raw.split('\n')) {
+              const [name, upstream] = line.split('\t');
+              if (name && upstream) upstreams.set(name.trim(), upstream.trim());
+            }
+          } catch { /* upstream lookup is best-effort */ }
           return Object.entries(res.branches).map(([name, b]) => ({
             name,
             current: res.current === name,
-            upstream: b.remote ? `${b.remote}/${name}` : undefined,
+            upstream: upstreams.get(name),
             lastCommit: b.commit
               ? { hash: b.commit, shortHash: b.commit.slice(0, 7), message: b.label ?? '', author: { name: '', email: '' }, timestamp: 0, parents: [] }
               : undefined,
@@ -115,7 +129,10 @@ export function createGitBridge(fs: FsBridge): GitBridge {
         case 'merge': {
           try {
             const res = await g.merge([String(a[1]), '--no-edit']);
-            return { success: res.result === 'success', commitHash: res.commit, message: res.result };
+            // MergeResult carries no sha; report the resulting HEAD instead.
+            let commitHash = '';
+            try { commitHash = (await g.revparse(['HEAD'])).trim(); } catch { /* unborn branch */ }
+            return { success: res.result === 'success', commitHash, message: res.result };
           } catch (err) {
             return { success: false, message: String(err) };
           }
@@ -181,7 +198,10 @@ export function createGitBridge(fs: FsBridge): GitBridge {
           try { return (await g.revparse(['--show-toplevel'])) || null; } catch { return null; }
         }
         case 'getConfig': {
-          try { return (await g.getConfig(String(a[1]))).value.trim() || null; } catch { return null; }
+          try {
+            const res = await g.getConfig(String(a[1]));
+            return res?.value?.trim() || null;
+          } catch { return null; }
         }
         case 'setConfig': await g.addConfig(String(a[1]), String(a[2])); return undefined;
 
