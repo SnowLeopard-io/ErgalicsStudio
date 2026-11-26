@@ -21,6 +21,6 @@
     "esbuild": "^0.24.0"
   },
   "dependencies": {
-    "simple-git": "^3.27.0"
+    "simple-git": "^4.0.1"
   }
 }
