@@ -982,8 +982,8 @@
     "discipline": "machine learning",
     "defaultMetrics": {
       "bench-rows": "2000",
-      "bench-total": "1233 ms",
-      "bench-rate": "1622 rows/s",
+      "bench-total": "1214 ms",
+      "bench-rate": "1648 rows/s",
       "bench-best": "logistic"
     },
     "extremeParams": {
@@ -991,8 +991,8 @@
     },
     "extremeMetrics": {
       "bench-rows": "2000",
-      "bench-total": "1257 ms",
-      "bench-rate": "1591 rows/s",
+      "bench-total": "1237 ms",
+      "bench-rate": "1617 rows/s",
       "bench-best": "logistic"
     },
     "refresh": {
@@ -1013,8 +1013,8 @@
     "discipline": "machine learning / NLP",
     "defaultMetrics": {
       "bench-docs": "300",
-      "bench-total": "87.07 ms",
-      "bench-rate": "3445 docs/s",
+      "bench-total": "87.42 ms",
+      "bench-rate": "3432 docs/s",
       "bench-tfidf": "pass",
       "bench-lda": "pass"
     },
@@ -1023,8 +1023,8 @@
     },
     "extremeMetrics": {
       "bench-docs": "300",
-      "bench-total": "118.2 ms",
-      "bench-rate": "2539 docs/s",
+      "bench-total": "75.69 ms",
+      "bench-rate": "3963 docs/s",
       "bench-tfidf": "pass",
       "bench-lda": "pass"
     },

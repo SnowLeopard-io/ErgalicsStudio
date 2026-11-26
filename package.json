@@ -61,7 +61,7 @@
     "lz-string": "^1.5.0",
     "marked": "^18.2.1",
     "mermaid": "^12.3.0",
-    "monaco-editor": "^0.57.0",
+    "monaco-editor": "^0.58.0",
     "netcdfjs": "^4.0.0",
     "parquet-wasm": "^0.9.0",
     "pyodide": "^314.0.8",
