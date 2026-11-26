@@ -323,6 +323,11 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
 .home section { border-top: 1px solid var(--color-border); }
 /* one shared measure: full-bleed surfaces, 1280px content column */
 .home section:not(.hero):not(.closing) {
+  /* Escape .site-main (max 1200px) like .hero and .closing do. Without this
+     the viewport-based padding was subtracted from the already-constrained
+     column, so the measure SHRANK as the window grew (≈512px at 1920px,
+     collapsed at 2560px). */
+  margin-inline: calc(50% - 50vw);
   padding-inline: max(var(--space-5), calc(50vw - 640px));
 }
 /* breathing room between the hero fade and the first section */
