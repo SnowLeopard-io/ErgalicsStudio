@@ -178,31 +178,66 @@ async function runOnce(
     await within(plugin.loadData(file) ?? Promise.resolve(), 8000).catch(() => {});
   }
   const unsubscribe = subscribeScienceOutputs(() => {});
+  // Animation-style kernels (fluid, wave, …) publish their page metrics in the
+  // ComputeResult returned by updateParams instead of the science-output bus.
+  // The collector ignored those returns, which made the card look empty even
+  // though the UI shows real numbers. Capture them without inventing values.
+  const returned: Metrics = {};
+  const captureResult = (value: unknown): void => {
+    const metrics = (value as { metrics?: Record<string, unknown> } | undefined)?.metrics;
+    if (!metrics || typeof metrics !== 'object') return;
+    for (const [key, raw] of Object.entries(metrics)) {
+      if (typeof raw === 'number' && Number.isFinite(raw)) returned[key] = String(raw);
+      else if (typeof raw === 'string') returned[key] = raw;
+    }
+  };
+  const update = async (patch: Record<string, unknown>, ms: number): Promise<void> => {
+    captureResult(await within(plugin.updateParams?.(patch) ?? Promise.resolve(), ms));
+  };
   try {
-    await within(plugin.updateParams?.(values) ?? Promise.resolve(), 8000);
+    await update(values, 8000);
     // Fire the plugin's compute action — without it the kernel never runs and
     // no metric is published.
     const computeKey = findComputeAction(defs);
     if (computeKey) {
-      await within(plugin.updateParams?.({ [computeKey]: { action: computeKey } }) ?? Promise.resolve(), 15000);
+      await update({ [computeKey]: { action: computeKey } }, 15000);
       await delay(120);
     }
     const benchKey = findAction(defs, /bench/i);
     if (benchKey) {
-      await within(plugin.updateParams?.({ [benchKey]: { action: benchKey } }) ?? Promise.resolve(), 8000);
+      await update({ [benchKey]: { action: benchKey } }, 8000);
       // A few benchmarks are deliberately async (automl / nlp).
       await delay(80);
     }
     const exportKey = findAction(defs, /export|csv/i);
     if (exportKey) {
-      await within(plugin.updateParams?.({ [exportKey]: { action: exportKey } }) ?? Promise.resolve(), 8000);
+      await update({ [exportKey]: { action: exportKey } }, 8000);
       await Promise.all(
         capture.pendingBlobs.map(async ({ name, blob }) => {
           capture.exports.push({ name, text: await blob.text() });
         }),
       );
     }
-    return { metrics: readMetrics(pluginId), exports: capture.exports, defs, notices: capture.notices };
+    let metrics = { ...readMetrics(pluginId), ...returned };
+    // Animation plugins (fluid / wave) start their kernel from a button via
+    // rAF, so no ComputeResult reaches updateParams. Call the plugin's public
+    // compute() entry point directly when nothing was published yet — same
+    // kernel, no canvas. A browser-only kernel may still throw; in that case
+    // the card stays unverified instead of claiming a result.
+    if (Object.keys(metrics).length === 0 && typeof plugin.compute === 'function') {
+      try {
+        captureResult(await within(plugin.compute(undefined), 15000));
+        metrics = { ...readMetrics(pluginId), ...returned };
+      } catch {
+        /* no headless evidence — leave the card FAIL */
+      }
+    }
+    return {
+      metrics,
+      exports: capture.exports,
+      defs,
+      notices: capture.notices,
+    };
   } finally {
     unsubscribe();
     await within(plugin.destroy?.() ?? Promise.resolve(), 3000).catch(() => {});
