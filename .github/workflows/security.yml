@@ -35,7 +35,7 @@ jobs:
       # denied ("This API method requires billing to be enabled"), which broke
       # the v2.4.0 action on every run.
       - name: OSSF Scorecards analysis
-        uses: ossf/scorecard-action@v2.4.4
+        uses: ossf/scorecard-action@v2.6.0
         with:
           repo: ${{ github.repository }}
           ref: ${{ github.sha }}
