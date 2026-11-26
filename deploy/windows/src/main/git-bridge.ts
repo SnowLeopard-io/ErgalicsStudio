@@ -7,7 +7,8 @@
 // fs-bridge), so a compromised renderer cannot point simple-git at arbitrary
 // directories.
 
-import simpleGit, { type SimpleGit } from 'simple-git';
+// simple-git 4 ships no default export; the named factory works in v3 and v4.
+import { simpleGit, type SimpleGit } from 'simple-git';
 import * as path from 'node:path';
 import type { FsBridge } from './fs-bridge';
 
