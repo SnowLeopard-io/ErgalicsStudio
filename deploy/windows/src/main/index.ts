@@ -7,9 +7,10 @@
 // a real origin is required. All native capabilities are exposed through a
 // whitelisted IPC surface only; the renderer never gets Node integration.
 
-import { app, BrowserWindow, Menu, protocol, shell } from 'electron';
+import { app, BrowserWindow, Menu, protocol, session, shell } from 'electron';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import cspPolicy from '../../../../scripts/csp-policy.json';
 import { registerIpc } from './ipc';
 
 const isDev = !!process.env.ERGALICS_DEV;
@@ -74,6 +75,22 @@ function serveRenderer(): void {
       }
       return new Response('not found', { status: 404 });
     }
+  });
+}
+
+/**
+ * CSP arrives as a real response header. A `<meta http-equiv=...>` cannot
+ * deliver Report-Only policies (browsers ignore them), and the web edition
+ * needs the same header from Vite — both read scripts/csp-policy.json.
+ */
+function installReportOnlyCsp(): void {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy-Report-Only': [cspPolicy.reportOnly],
+      },
+    });
   });
 }
 
@@ -148,6 +165,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    installReportOnlyCsp();
     serveRenderer();
     registerIpc();
     createWindow();

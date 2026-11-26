@@ -2,6 +2,9 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!-- CSP is delivered as a RESPONSE HEADER, not a <meta>: browsers ignore
+         `Content-Security-Policy-Report-Only` in meta tags. See
+         scripts/csp-policy.json (shared by Vite and the Electron shell). -->
     <link rel="icon" href="/ico.ico" />
     <!-- FR-20: PWA manifest (Vite rewrites the absolute public path against
          the relative build base, so it resolves under /<repo>/app/ too). -->
@@ -108,30 +111,7 @@
         }
       }
     </style>
-    <script>
-      // Pre-hydration: apply saved theme/language to avoid flash of wrong theme
-      (function () {
-        try {
-          var theme = localStorage.getItem('ergalics:theme');
-          // First visit defaults to the instrument-console dark look — must
-          // match src/theme/index.ts detectInitialPreference() or the app
-          // paints light and then snaps to dark after hydration.
-          var resolved = 'dark';
-          if (theme === 'dark' || theme === 'light') {
-            resolved = theme;
-          } else if (theme === 'system') {
-            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'dark'
-              : 'light';
-          }
-          document.documentElement.dataset.theme = resolved;
-          var lang = localStorage.getItem('ergalics:lang') || 'zh-CN';
-          document.documentElement.lang = lang;
-        } catch (e) {
-          /* noop */
-        }
-      })();
-    </script>
+    <script src="/boot.js"></script>
   </head>
   <body>
     <!-- Static boot layer: visible from first parse (no JS required). React's

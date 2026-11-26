@@ -9,6 +9,7 @@ import { ensureBlocklyMedia } from './scripts/vendor-blockly-media.mjs';
 import { ensureWebRAssets } from './scripts/copy-webr.mjs';
 import { injectSwPrecache } from './scripts/gen-sw-precache.mjs';
 import { ensureWasmStub } from './scripts/make-wasm-stub.mjs';
+import cspPolicy from './scripts/csp-policy.json';
 
 /**
  * Vendoring is an optimisation, never a startup dependency. A fresh checkout
@@ -129,6 +130,11 @@ export default defineConfig({
     // regardless of which dev server starts first.
     port: 5173,
     strictPort: true,
+    // Report-only CSP must come from a header; browsers ignore the meta form.
+    headers: { 'Content-Security-Policy-Report-Only': cspPolicy.reportOnly },
+  },
+  preview: {
+    headers: { 'Content-Security-Policy-Report-Only': cspPolicy.reportOnly },
   },
   resolve: {
     alias: {
