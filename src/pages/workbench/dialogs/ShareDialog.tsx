@@ -14,6 +14,7 @@ import { buildLock } from '@/core/repro/lock';
 import { buildReproSnapshot } from '@/core/repro/snapshot';
 import { downloadBlob } from '@/core/download';
 import { buildGalleryShare } from '@/core/gallery/share';
+import { galleryFailureKey } from '@/core/gallery/messages';
 import { addShared } from '@/core/gallery/store';
 import {
   GALLERY_CHART_TYPES,
@@ -167,7 +168,16 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
         reproStatus: 'locked',
         license: galleryLicense,
       });
-      addShared({ item, html });
+      const share = addShared({ item, html });
+      if (!share.ok) {
+        // The dialog must not claim success for a write that did not happen
+        // (quota is easy to hit: snapshot HTML + ~5 MB localStorage).
+        notifyApp(
+          'error',
+          t('gallery.share_store_failed', { reason: t(galleryFailureKey(share.reason)) }),
+        );
+        return;
+      }
       notifyApp('success', t('gallery.share_success'));
       setGalleryEnabled(false);
     } catch (err) {

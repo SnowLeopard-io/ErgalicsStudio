@@ -24,6 +24,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { listCuratedGallery } from '@/core/gallery/catalog';
 import { filterGallery, type GalleryFilter } from '@/core/gallery/filter';
+import { galleryFailureKey } from '@/core/gallery/messages';
 import {
   getSharedEntry,
   listSharedEntries,
@@ -222,18 +223,32 @@ export default function GalleryPage() {
 
   const confirmTakedownNow = () => {
     if (!confirmTakedown) return;
-    markTakedown(confirmTakedown.id);
+    const result = markTakedown(confirmTakedown.id);
     setConfirmTakedown(null);
     setDetail(null);
     setRefresh((n) => n + 1);
-    notify('success', t('gallery.takedown_done'));
+    if (result.ok) {
+      notify('success', t('gallery.takedown_done'));
+    } else {
+      // A take-down that did not persist leaves the work PUBLIC. Re-read the
+      // store (the refresh above) and say so instead of hiding it here, so
+      // what the user sees matches what the next session will show.
+      notify(
+        'error',
+        t('gallery.takedown_failed', { reason: t(galleryFailureKey(result.reason)) }),
+      );
+    }
   };
 
   const deleteRecord = (item: GalleryItem) => {
-    removeShared(item.id);
+    const result = removeShared(item.id);
     setDetail(null);
     setRefresh((n) => n + 1);
-    notify('success', t('gallery.delete_done'));
+    if (result.ok) {
+      notify('success', t('gallery.delete_done'));
+    } else {
+      notify('error', t('gallery.delete_failed', { reason: t(galleryFailureKey(result.reason)) }));
+    }
   };
 
   const emptyState =

@@ -461,7 +461,7 @@ describe('gallery shared store', () => {
 
   it('take-down marks the entry and filters it from listings', () => {
     addShared(entryFor('share-cccc0003'));
-    expect(markTakedown('share-cccc0003')).toBe(true);
+    expect(markTakedown('share-cccc0003').ok).toBe(true);
     expect(listShared()).toHaveLength(0);
     // audit trail: the entry (with its html) is still retrievable
     const still = listSharedEntries().find((e) => e.item.id === 'share-cccc0003');
@@ -469,15 +469,15 @@ describe('gallery shared store', () => {
     expect(still?.html).toBeTruthy();
   });
 
-  it('markTakedown on an unknown id returns false', () => {
-    expect(markTakedown('nope')).toBe(false);
+  it('markTakedown on an unknown id reports not-found', () => {
+    expect(markTakedown('nope')).toEqual({ ok: false, reason: 'not-found' });
   });
 
   it('removeShared erases the record entirely', () => {
     addShared(entryFor('share-dddd0004'));
-    expect(removeShared('share-dddd0004')).toBe(true);
+    expect(removeShared('share-dddd0004').ok).toBe(true);
     expect(listSharedEntries()).toHaveLength(0);
-    expect(removeShared('share-dddd0004')).toBe(false);
+    expect(removeShared('share-dddd0004')).toEqual({ ok: false, reason: 'not-found' });
   });
 
   it('degrades gracefully when the storage backend throws (private mode)', () => {
@@ -493,8 +493,59 @@ describe('gallery shared store', () => {
       },
     });
     expect(listShared()).toEqual([]);
-    expect(() => addShared(entryFor('share-eeee0005'))).not.toThrow();
+    expect(addShared(entryFor('share-eeee0005'))).toEqual({ ok: false, reason: 'io' });
     expect(listShared()).toEqual([]);
+  });
+
+  it('reports quota exhaustion instead of claiming the share was saved', () => {
+    // A readable backend whose writes fail with the platform quota error.
+    let stored: string | null = null;
+    setGalleryStorageForTests({
+      getItem: () => stored,
+      setItem: () => {
+        const err = new Error('exceeded the quota');
+        err.name = 'QuotaExceededError';
+        throw err;
+      },
+      removeItem: () => {
+        stored = null;
+      },
+    });
+    expect(addShared(entryFor('share-ffff0006'))).toEqual({ ok: false, reason: 'quota' });
+    expect(listShared()).toEqual([]);
+  });
+
+  it('a failed take-down leaves the work listed and says so', () => {
+    const memLike = new Map<string, string>();
+    let writesFail = false;
+    setGalleryStorageForTests({
+      getItem: (k) => memLike.get(k) ?? null,
+      setItem: (k, v) => {
+        if (writesFail) {
+          const err = new Error('exceeded the quota');
+          err.name = 'QuotaExceededError';
+          throw err;
+        }
+        memLike.set(k, v);
+      },
+      removeItem: (k) => {
+        memLike.delete(k);
+      },
+    });
+    addShared(entryFor('share-ffff0007'));
+    writesFail = true;
+    expect(markTakedown('share-ffff0007')).toEqual({ ok: false, reason: 'quota' });
+    // Not persisted => still publicly listed, which is the truth the UI shows.
+    expect(listShared().map((x) => x.id)).toEqual(['share-ffff0007']);
+    // Same for delete: no silent success.
+    expect(removeShared('share-ffff0007')).toEqual({ ok: false, reason: 'quota' });
+    expect(listShared()).toHaveLength(1);
+  });
+
+  it('recovers from a corrupted store by replacing it on the next write', () => {
+    mem.setItem(GALLERY_SHARED_KEY, '{not json');
+    expect(addShared(entryFor('share-ffff0008')).ok).toBe(true);
+    expect(listShared().map((x) => x.id)).toEqual(['share-ffff0008']);
   });
 
   it('rejects invalid entries', () => {

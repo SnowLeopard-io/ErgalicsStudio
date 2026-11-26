@@ -8,11 +8,18 @@
 // serve. Take-down marks the entry (audit trail) and filters it from every
 // listing.
 //
+// Every mutation REPORTS its outcome. The snapshot HTML is easily hundreds of
+// KB and localStorage gives this origin ~5 MB, so a quota-exceeded write is a
+// routine event, not an edge case. It used to be swallowed by writeAll while
+// the dialogs still announced success — a take-down that silently did nothing
+// is a privacy problem, so callers now get GalleryWriteResult and must show
+// the failure.
+//
 // Storage pluggability: Vitest runs in a node environment without
 // localStorage, so every function accepts an injected `GalleryStorage`
 // (same adapter pattern as the theme-pack registry tests use). Without an
 // injection and without a global localStorage, reads return empty and
-// writes degrade to no-ops instead of throwing.
+// writes report `unavailable` instead of throwing.
 // ==========================================================================
 
 import {
@@ -37,6 +44,19 @@ export interface SharedGalleryEntry {
   item: GalleryItem;
   html: string;
 }
+
+/** Why a store mutation did not take effect. */
+export type GalleryWriteFailure =
+  /** The origin's storage quota is full (snapshot HTML is large). */
+  | 'quota'
+  /** No storage backend at all (SSR, storage disabled by policy). */
+  | 'unavailable'
+  /** A backend exists but threw while reading or writing. */
+  | 'io'
+  /** The id does not name a stored entry. */
+  | 'not-found';
+
+export type GalleryWriteResult = { ok: true } | { ok: false; reason: GalleryWriteFailure };
 
 let injected: GalleryStorage | null = null;
 
@@ -75,26 +95,73 @@ function isValidEntry(value: unknown): value is SharedGalleryEntry {
   return true;
 }
 
-function readAll(storage: GalleryStorage | null): SharedGalleryEntry[] {
-  if (!storage) return [];
+/** Chromium/Safari/Firefox all signal quota exhaustion differently. */
+function isQuotaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const { name, code } = err as { name?: unknown; code?: unknown };
+  return (
+    name === 'QuotaExceededError' ||
+    name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    name === 'QUOTA_EXCEEDED_ERR' ||
+    code === 22 ||
+    code === 1014
+  );
+}
+
+interface ReadState {
+  entries: SharedGalleryEntry[];
+  /**
+   * The backend exists but could not be read. Writes must not proceed: the
+   * in-memory view is incomplete, so persisting it would silently drop every
+   * share this read failed to see.
+   */
+  blocked: boolean;
+}
+
+function readState(storage: GalleryStorage | null): ReadState {
+  if (!storage) return { entries: [], blocked: true };
+  let raw: string | null;
   try {
-    const raw = storage.getItem(GALLERY_SHARED_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidEntry);
+    raw = storage.getItem(GALLERY_SHARED_KEY);
   } catch {
-    return [];
+    return { entries: [], blocked: true };
+  }
+  if (!raw) return { entries: [], blocked: false };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Garbage, not an unreadable backend: recoverable, let the next write
+    // replace it instead of blocking the feature forever.
+    return { entries: [], blocked: false };
+  }
+  if (!Array.isArray(parsed)) return { entries: [], blocked: false };
+  return { entries: parsed.filter(isValidEntry), blocked: false };
+}
+
+function writeAll(storage: GalleryStorage | null, entries: SharedGalleryEntry[]): GalleryWriteResult {
+  if (!storage) return { ok: false, reason: 'unavailable' };
+  try {
+    storage.setItem(GALLERY_SHARED_KEY, JSON.stringify(entries));
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: isQuotaError(err) ? 'quota' : 'io' };
   }
 }
 
-function writeAll(storage: GalleryStorage | null, entries: SharedGalleryEntry[]): void {
-  if (!storage) return;
-  try {
-    storage.setItem(GALLERY_SHARED_KEY, JSON.stringify(entries));
-  } catch {
-    /* private mode / quota — the share simply does not persist */
-  }
+/**
+ * Read → transform → write, reporting every failure. `transform` returns null
+ * when the target id does not exist (nothing to persist).
+ */
+function mutate(
+  transform: (entries: SharedGalleryEntry[]) => SharedGalleryEntry[] | null,
+): GalleryWriteResult {
+  const storage = resolveStorage();
+  const state = readState(storage);
+  if (state.blocked) return { ok: false, reason: storage ? 'io' : 'unavailable' };
+  const next = transform(state.entries);
+  if (!next) return { ok: false, reason: 'not-found' };
+  return writeAll(storage, next);
 }
 
 // --------------------------------------------------------------------------
@@ -103,7 +170,9 @@ function writeAll(storage: GalleryStorage | null, entries: SharedGalleryEntry[])
 
 /** All stored entries, newest first (take-down ones included). */
 export function listSharedEntries(): SharedGalleryEntry[] {
-  return readAll(resolveStorage()).sort((a, b) => b.item.createdAt.localeCompare(a.item.createdAt));
+  return readState(resolveStorage()).entries.sort((a, b) =>
+    b.item.createdAt.localeCompare(a.item.createdAt),
+  );
 }
 
 /** Locally shared works that are still publicly listed. */
@@ -113,38 +182,37 @@ export function listShared(): GalleryItem[] {
 
 /** Fetch one stored entry (including take-down-marked ones). */
 export function getSharedEntry(id: string): SharedGalleryEntry | null {
-  return readAll(resolveStorage()).find((e) => e.item.id === id) ?? null;
+  return readState(resolveStorage()).entries.find((e) => e.item.id === id) ?? null;
 }
 
 /** Add a share (idempotent by id — re-adding replaces the older copy). */
-export function addShared(entry: SharedGalleryEntry): void {
+export function addShared(entry: SharedGalleryEntry): GalleryWriteResult {
   if (!isValidEntry(entry)) throw new Error('gallery store: invalid entry');
-  const storage = resolveStorage();
-  const next = readAll(storage).filter((e) => e.item.id !== entry.item.id);
-  next.push(entry);
-  writeAll(storage, next);
+  return mutate((entries) => [
+    ...entries.filter((e) => e.item.id !== entry.item.id),
+    entry,
+  ]);
 }
 
 /**
  * Take a work down: flags the stored entry (kept for the audit trail) and
- * filters it from every listing. Returns false when the id is unknown.
+ * filters it from every listing. Reports `not-found` for an unknown id and a
+ * write failure when the flag could not be persisted — in that case the work
+ * is STILL PUBLIC and the caller must say so.
  */
-export function markTakedown(id: string): boolean {
-  const storage = resolveStorage();
-  const entries = readAll(storage);
-  const target = entries.find((e) => e.item.id === id);
-  if (!target) return false;
-  target.item.takedown = true;
-  writeAll(storage, entries);
-  return true;
+export function markTakedown(id: string): GalleryWriteResult {
+  return mutate((entries) => {
+    const target = entries.find((e) => e.item.id === id);
+    if (!target) return null;
+    target.item.takedown = true;
+    return entries;
+  });
 }
 
 /** Permanently delete a stored entry (privacy "erase" path). */
-export function removeShared(id: string): boolean {
-  const storage = resolveStorage();
-  const entries = readAll(storage);
-  const next = entries.filter((e) => e.item.id !== id);
-  if (next.length === entries.length) return false;
-  writeAll(storage, next);
-  return true;
+export function removeShared(id: string): GalleryWriteResult {
+  return mutate((entries) => {
+    const next = entries.filter((e) => e.item.id !== id);
+    return next.length === entries.length ? null : next;
+  });
 }

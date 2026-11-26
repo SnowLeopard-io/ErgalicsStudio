@@ -91,8 +91,16 @@ export const galleryZh: LocaleDictionary = {
   'gallery.share_submit': '分享到画廊',
   'gallery.share_success': '已分享到画廊（本机记录）',
   'gallery.share_failed': '分享失败：{error}',
+  'gallery.share_store_failed': '分享未写入本机记录：{reason}',
   'gallery.share_no_snapshot': '请先生成可复现快照，再分享到画廊',
   'gallery.share_missing_title': '请填写作品标题',
+  // ---- 本机存储失败的统一说明 ----
+  'gallery.store.quota': '本机存储空间已满，请先删除旧的本地作品，或改为导出快照文件',
+  'gallery.store.unavailable': '本地存储不可用（可能处于无痕/隐私模式）',
+  'gallery.store.io': '写入本机存储失败',
+  'gallery.store.not_found': '找不到该作品记录',
+  'gallery.takedown_failed': '下架未生效：{reason}，作品仍处于公开状态',
+  'gallery.delete_failed': '删除未生效：{reason}',
   'tool.gallery.title': '作品画廊',
   'tool.gallery.desc': '按学科、图表类型与复现状态浏览可复现作品，查看快照或在 Ergalics 中打开',
 };
@@ -185,8 +193,16 @@ export const galleryEn: LocaleDictionary = {
   'gallery.share_submit': 'Share to gallery',
   'gallery.share_success': 'Shared to the gallery (local record)',
   'gallery.share_failed': 'Share failed: {error}',
+  'gallery.share_store_failed': 'The share was not saved to this device: {reason}',
   'gallery.share_no_snapshot': 'Generate a reproducible snapshot before sharing to the gallery',
   'gallery.share_missing_title': 'Please provide a work title',
+  // ---- why a local store mutation failed ----
+  'gallery.store.quota': 'This device is out of local storage space; delete older local works or export the snapshot to a file instead',
+  'gallery.store.unavailable': 'Local storage is unavailable (private/incognito mode?)',
+  'gallery.store.io': 'Writing to local storage failed',
+  'gallery.store.not_found': 'No local record with that id',
+  'gallery.takedown_failed': 'Take-down did not take effect: {reason}. The work is still public',
+  'gallery.delete_failed': 'Delete did not take effect: {reason}',
   'tool.gallery.title': 'Work Gallery',
   'tool.gallery.desc': 'Browse reproducible works by subject, chart type and repro status; view the snapshot or open it in Ergalics',
 };
