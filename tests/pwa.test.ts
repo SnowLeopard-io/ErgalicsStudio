@@ -20,7 +20,7 @@ const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 
 describe('FR-20 manifest', () => {
   const manifest = JSON.parse(
-    readFileSync(join(ROOT, 'public', 'manifest.webmanifest'), 'utf8'),
+    readFileSync(join(ROOT, 'apps', 'studio', 'public', 'manifest.webmanifest'), 'utf8'),
   ) as Record<string, unknown>;
 
   it('is valid JSON with the required install fields', () => {
@@ -42,14 +42,14 @@ describe('FR-20 manifest', () => {
   });
 
   it('is linked from index.html', () => {
-    const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+    const html = readFileSync(join(ROOT, 'apps', 'studio', 'index.html'), 'utf8');
     expect(html).toContain('rel="manifest"');
     expect(html).toContain('manifest.webmanifest');
   });
 });
 
 describe('FR-20 service worker', () => {
-  const sw = readFileSync(join(ROOT, 'public', 'sw.js'), 'utf8');
+  const sw = readFileSync(join(ROOT, 'apps', 'studio', 'public', 'sw.js'), 'utf8');
 
   it('parses as JavaScript', () => {
     // new Function compiles (parses) without executing the body.
@@ -132,7 +132,7 @@ describe('FR-20 gen-sw-precache', () => {
       writeFileSync(join(dir, 'assets', 'core-1.js'), 'console.log(1)');
       writeFileSync(join(dir, 'assets', 'core-2.css'), 'body{}');
       writeFileSync(join(dir, 'assets', 'huge-3.js'), 'x'.repeat(600 * 1024)); // > 512 KiB cap
-      writeFileSync(join(dir, 'sw.js'), readFileSync(join(ROOT, 'public', 'sw.js'), 'utf8'));
+      writeFileSync(join(dir, 'sw.js'), readFileSync(join(ROOT, 'apps', 'studio', 'public', 'sw.js'), 'utf8'));
 
       const count = injectSwPrecache(dir);
       expect(count).toBe(7); // shell(5) + core-1.js + core-2.css (huge excluded)
@@ -156,7 +156,7 @@ describe('FR-20 gen-sw-precache', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ergalics-sw2-'));
     try {
       writeFileSync(join(dir, 'index.html'), '<html/>');
-      writeFileSync(join(dir, 'sw.js'), readFileSync(join(ROOT, 'public', 'sw.js'), 'utf8'));
+      writeFileSync(join(dir, 'sw.js'), readFileSync(join(ROOT, 'apps', 'studio', 'public', 'sw.js'), 'utf8'));
       expect(injectSwPrecache(dir)).toBeGreaterThan(0);
       expect(injectSwPrecache(dir)).toBe(0);
     } finally {

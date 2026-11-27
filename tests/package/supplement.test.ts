@@ -19,7 +19,7 @@ import { MemoryVfs } from '@/core/vfs';
 import { seedStandardSkeleton } from '@/core/vfs/skeleton';
 import { createEmptyProject } from '@/types/project';
 import type { Project } from '@/types/project';
-import { createRunRecord } from '@/core/experiment/record';
+import { createRunRecord } from '@ergalics/plugin-sdk/types';
 import { MemoryBuildCache } from '@/core/build/cache';
 import { encodeDataValue } from '@/core/build/codec';
 import { cacheBundleToJson, exportCacheBundle } from '@/core/build/bundle';

@@ -7,7 +7,7 @@
 // the shared `*_BINDINGS` constants; (c) orchestration fallback — with no
 // WebGPU device in Node, every `*Async` entry must land on the CPU twin.
 import { describe, it, expect } from 'vitest';
-import { mulberry32 } from '@/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 import {
   matmulKernelWGSL,
   matmulCPU,
@@ -42,7 +42,7 @@ import {
   spmvBytes,
   packSpmvParams,
   SPMV_BINDINGS,
-} from '@/core/wgsl';
+} from '@ergalics/sci-kernels/gpu/wgsl';
 import {
   GPU_KERNEL_THRESHOLDS,
   selectEngine,

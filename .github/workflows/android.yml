@@ -25,11 +25,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Setup JDK 21
         uses: actions/setup-java@v4
@@ -52,13 +55,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Install frontend deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Stub native module for web build (no Rust in CI)
         run: node scripts/make-wasm-stub.mjs
 
       - name: Build web app
-        run: npm run build:web
+        run: pnpm run build:web
         env:
           DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
 

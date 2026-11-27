@@ -18,23 +18,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Check citation metadata (FR-10)
         run: node scripts/check-citation.mjs
 
-      - name: Typecheck (tsc --noEmit)
-        run: npm run typecheck
+      - name: Stub native module (no Rust in CI; needed before typecheck + tests + web build)
+        run: node scripts/make-wasm-stub.mjs
 
-      - name: Lint (ESLint)
-        run: npm run lint:eslint
+      - name: Typecheck (Turborepo across all apps & packages)
+        run: pnpm run typecheck
+
+      - name: Lint (ESLint + Monorepo boundaries)
+        run: pnpm run lint:eslint
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -44,14 +50,11 @@ jobs:
       - name: Install Python deps (numpy required by studio.py tests)
         run: python -m pip install numpy
 
-      - name: Stub native module (no Rust in CI; needed before tests + web build)
-        run: node scripts/make-wasm-stub.mjs
-
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests (incl. plugin isolation guardrails)
+        run: pnpm test
 
       - name: Build web app
-        run: npm run build:web
+        run: pnpm run build:web
         env:
           DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
 
@@ -59,33 +62,34 @@ jobs:
         run: node scripts/build-budget.mjs
 
   # E2E smoke: the two fastest, most fundamental verifies (core interactions +
-  # post-redesign layout). Full suite stays local: `npm run test:e2e` runs all
+  # post-redesign layout). Full suite stays local: `pnpm run test:e2e` runs all
   # 11 scripts with --continue semantics via scripts/e2e-run.mjs.
   e2e-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Stub native module for web build (no Rust in CI)
         run: node scripts/make-wasm-stub.mjs
 
       - name: Build web app
-        run: npm run build:web
+        run: pnpm run build:web
         env:
           DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
 
       - name: E2E smoke (smoke + ui)
         run: node scripts/e2e-run.mjs smoke ui
         env:
-          # ubuntu runners ship Google Chrome; pin it so the harness does not
-          # need a Playwright browser download (playwright-core has no installer).
           CHROME_PATH: /usr/bin/google-chrome

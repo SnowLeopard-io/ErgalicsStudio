@@ -4,7 +4,7 @@
 // "no numeric points" for perfectly valid data.
 import { describe, expect, it } from 'vitest';
 import { serializeTabularRows } from '@/core/data-schema/column-mapper';
-import type { TabularDataSchema, TabularRow } from '@/types/dataSchema';
+import type { TabularDataSchema, TabularRow } from '@ergalics/plugin-sdk/types';
 
 const schema: TabularDataSchema = {
   kind: 'tabular',

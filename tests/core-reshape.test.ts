@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
 import { pivotLonger, pivotWider } from '@/core/dataeng/reshape';
 
 function wide() {

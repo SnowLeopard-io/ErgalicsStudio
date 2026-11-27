@@ -7,7 +7,7 @@ import {
 } from '@/editor/block';
 import { makeProgram, type IRNode } from '@/editor/ir';
 import { createStudioApi, type StudioApiHost } from '@/editor/runtime/studio-api';
-import { createDataTable, type ColumnSpec, type DataTable } from '@/types/datatable';
+import { createDataTable, type ColumnSpec, type DataTable } from '@ergalics/plugin-sdk/types';
 
 const str = (value: string): IRNode => ({ kind: 'String', value });
 const num = (value: number): IRNode => ({ kind: 'Number', value });

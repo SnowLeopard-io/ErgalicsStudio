@@ -12,8 +12,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const websiteDist = join(root, 'website', 'dist');
-const appDist = join(root, 'dist');
+const websiteDist = join(root, 'apps', 'website', 'dist');
+const appDist = join(root, 'apps', 'studio', 'dist');
 const out = join(root, 'pages-out');
 
 for (const [label, dir] of [['website', websiteDist], ['workstation', appDist]]) {

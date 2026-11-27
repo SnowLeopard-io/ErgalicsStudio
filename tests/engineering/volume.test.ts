@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { marchingTets } from '@/core/mesh3d';
+import { marchingTets } from '@ergalics/sci-kernels/gpu/mesh3d';
 import { sampleTetField } from '@/core/engineering/volume';
 import { solve3DSteadyHeat } from '@/core/engineering/solve3d';
 import { makeStudy, type EngineeringMesh } from '@/core/engineering';

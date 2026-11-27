@@ -1,8 +1,8 @@
 // Tests for src/core/numerics/interp: cubic splines and RBF interpolation.
 import { describe, expect, it } from 'vitest';
-import { NumericsError } from '../../src/core/numerics/errors';
-import { createSpline } from '../../src/core/numerics/interp/spline';
-import { createRBF } from '../../src/core/numerics/interp/rbf';
+import { NumericsError } from '../../apps/studio/src/core/numerics/errors';
+import { createSpline } from '../../apps/studio/src/core/numerics/interp/spline';
+import { createRBF } from '../../apps/studio/src/core/numerics/interp/rbf';
 
 function expectNumericsError(fn: () => unknown, code?: string): void {
   let threw = false;

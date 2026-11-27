@@ -4,7 +4,7 @@ import { DagExecutor } from '@/blocks/executor';
 import { createMemoryStorage } from '@/blocks/context';
 import { block, makeCountingRegistry } from './fixtures';
 import type { BlockConnection, BlockGraph, BlockInstance } from '@/types/block';
-import type { DataTable } from '@/types/datatable';
+import type { DataTable } from '@ergalics/plugin-sdk/types';
 
 function instance(id: string, blockId: string): BlockInstance {
   return { id, blockId, position: { x: 0, y: 0 }, params: {} };

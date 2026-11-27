@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kaplanMeier, logRankTest, survivalAt } from '@/core/stats/survival';
+import { kaplanMeier, logRankTest, survivalAt } from '@ergalics/sci-kernels/stats/survival';
 
 describe('stats/survival — Kaplan–Meier', () => {
   it('computes the product-limit curve and median', () => {

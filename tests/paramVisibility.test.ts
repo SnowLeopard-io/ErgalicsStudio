@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isParamVisible, type ParamDefinition } from '@/types/plugin';
-import { DataImageprocPlugin } from '@/plugins/builtin/data/imageproc/plugin';
-import { MathDistPlugin } from '@/plugins/builtin/math/dist/plugin';
-import { MathGamePlugin } from '@/plugins/builtin/math/game/plugin';
-import { MathGraphPlugin } from '@/plugins/builtin/math/graph/plugin';
-import { MathLinalgPlugin } from '@/plugins/builtin/math/linalg/plugin';
-import { MathOdefieldPlugin } from '@/plugins/builtin/math/odefield/plugin';
-import { MathTopologyPlugin } from '@/plugins/builtin/math/topology/plugin';
+import { isParamVisible, type ParamDefinition } from '@ergalics/plugin-sdk';
+import { DataImageprocPlugin } from '../packages/plugins/src/builtin/data/imageproc/plugin';
+import { MathDistPlugin } from '../packages/plugins/src/builtin/math/dist/plugin';
+import { MathGamePlugin } from '../packages/plugins/src/builtin/math/game/plugin';
+import { MathGraphPlugin } from '../packages/plugins/src/builtin/math/graph/plugin';
+import { MathLinalgPlugin } from '../packages/plugins/src/builtin/math/linalg/plugin';
+import { MathOdefieldPlugin } from '../packages/plugins/src/builtin/math/odefield/plugin';
+import { MathTopologyPlugin } from '../packages/plugins/src/builtin/math/topology/plugin';
 
 function withValue(
   params: ParamDefinition[],

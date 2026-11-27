@@ -1062,15 +1062,15 @@ _not recorded_
 - Default parameters: | metric | value |
 | --- | --- |
 | bench-rows | 2000 |
-| bench-total | 1233 ms |
-| bench-rate | 1622 rows/s |
+| bench-total | 1904 ms |
+| bench-rate | 1051 rows/s |
 | bench-best | logistic |
 - Extreme parameters: `{"seed":1234567}`
 - Extreme results: | metric | value |
 | --- | --- |
 | bench-rows | 2000 |
-| bench-total | 1257 ms |
-| bench-rate | 1591 rows/s |
+| bench-total | 2089 ms |
+| bench-rate | 957.3 rows/s |
 | bench-best | logistic |
 
 ### Export reconciliation
@@ -1099,16 +1099,16 @@ _not recorded_
 - Default parameters: | metric | value |
 | --- | --- |
 | bench-docs | 300 |
-| bench-total | 87.07 ms |
-| bench-rate | 3445 docs/s |
+| bench-total | 264.6 ms |
+| bench-rate | 1134 docs/s |
 | bench-tfidf | pass |
 | bench-lda | pass |
 - Extreme parameters: `{"seed":1234567}`
 - Extreme results: | metric | value |
 | --- | --- |
 | bench-docs | 300 |
-| bench-total | 118.2 ms |
-| bench-rate | 2539 docs/s |
+| bench-total | 321.6 ms |
+| bench-rate | 932.7 docs/s |
 | bench-tfidf | pass |
 | bench-lda | pass |
 

@@ -18,7 +18,7 @@ import type { SubmissionDoc } from '@/core/submit/checklist';
 import { draftCaption, deriveStatsFromPanels } from '@/core/submit/caption';
 import { submitZh, submitEn } from '@/i18n/dicts/submit';
 import type { FigurePanel } from '@/core/figure/compose';
-import type { PlotSpec } from '@/core/plot';
+import type { PlotSpec } from '@ergalics/plugin-sdk/plot';
 
 function linePanel(overrides: Partial<PlotSpec> = {}): FigurePanel {
   return {

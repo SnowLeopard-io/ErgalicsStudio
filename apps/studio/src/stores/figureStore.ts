@@ -1,0 +1,305 @@
+// ==========================================================================
+// Figure store (business layer)
+//
+// Figure Studio sheets are the single source of truth in
+// `project.state.figureSheets`; every mutation writes straight through to
+// the project and marks it dirty (autosave persists). Exports go through the
+// core `exportFigure` and announce `figure:exported` on the bus.
+// ==========================================================================
+
+import { create } from 'zustand';
+import { setFigureSheetHost } from '@ergalics/plugin-sdk/bridges';
+import { getLocale } from '@/i18n';
+import { FIGURE_EXPORTED, emit } from '@ergalics/plugin-sdk';
+import { exportFigure } from '@/core/figure/compose';
+import type { FigureExportFormat, FigurePanel } from '@/core/figure/compose';
+import type { PlotSpec } from '@ergalics/plugin-sdk/plot';
+import type { FigureSheet } from '@/types/project';
+import { useProjectStore } from '@/stores/projectStore';
+import { usePluginStore } from '@/stores/pluginStore';
+import { useResultStore } from '@/stores/resultStore';
+import { logger } from '@ergalics/plugin-sdk';
+
+/** Number of columns a new panel auto-places into (row-major fill). */
+const AUTO_COLS = 2;
+
+interface PanelPlacement {
+  row?: number;
+  col?: number;
+  tag?: string;
+  sourceResultId?: string;
+}
+
+interface FigureStore {
+  activeSheetId: string | null;
+  setActive: (id: string | null) => void;
+  /** Create a sheet and make it active; returns its id (null without a project). */
+  createSheet: (name?: string) => string | null;
+  deleteSheet: (id: string) => void;
+  updateSheet: (
+    id: string,
+    patch: Partial<Pick<FigureSheet, 'name' | 'templateId' | 'caption'>>,
+  ) => void;
+  /** Append a panel, auto-placing into the first free row-major cell. */
+  addPanel: (sheetId: string, spec: PlotSpec, placement?: PanelPlacement) => void;
+  /** Replace a panel's spec/placement in place. */
+  updatePanel: (
+    sheetId: string,
+    index: number,
+    spec: PlotSpec,
+    placement?: PanelPlacement,
+  ) => void;
+  removePanel: (sheetId: string, index: number) => void;
+  /** Compose + download; resolves after the export has been triggered. The
+   *  `dpi` is the rasterization resolution (the PDF carries a raster too). */
+  exportSheet: (
+    id: string,
+    format: FigureExportFormat,
+    dpi?: number,
+    options?: { pdfMode?: 'raster' | 'vector' },
+  ) => Promise<void>;
+}
+
+/** Resolve the provenance record bound to a sheet (first bound panel wins). */
+function resolveSheetRecord(panels: FigurePanel[]) {
+  const results = useResultStore.getState();
+  for (const panel of panels) {
+    if (!panel.sourceResultId) continue;
+    const found = results.getResult(panel.sourceResultId);
+    if (found) return found;
+  }
+  return results.getLatest(usePluginStore.getState().activeId ?? '');
+}
+
+function nextFreeCell(panels: FigurePanel[]): { row: number; col: number } {
+  const occupied = new Set(panels.map((p) => `${p.row}:${p.col}`));
+  for (let row = 0; ; row += 1) {
+    for (let col = 0; col < AUTO_COLS; col += 1) {
+      if (!occupied.has(`${row}:${col}`)) return { row, col };
+    }
+  }
+}
+
+/** True when another panel (not `self`) already occupies the given cell. */
+function cellOccupied(
+  panels: FigurePanel[],
+  row: number,
+  col: number,
+  self = -1,
+): boolean {
+  return panels.some((p, i) => i !== self && p.row === row && p.col === col);
+}
+
+/** Write-through: replace project.state.figureSheets and flag dirty. */
+function writeSheets(sheets: FigureSheet[]): void {
+  const { project, setDirty } = useProjectStore.getState();
+  if (!project) return;
+  useProjectStore.setState({
+    project: {
+      ...project,
+      state: { ...project.state, figureSheets: sheets },
+    },
+  });
+  setDirty(true);
+}
+
+/** Persist immediately. Destructive edits (panel/sheet removal) bypass the
+ *  dirty-debounce: a refresh inside the debounce window would otherwise
+ *  resurrect the deleted item from the stale stored snapshot. */
+function saveNow(): void {
+  void useProjectStore.getState().save();
+}
+
+// §3.4: `figure: <sheet title>` auto-commit. Panels update on every drag/
+// tweak, so the commit is debounced (1.5s trailing) — bursts collapse into
+// one commit, and commitWorkingTree skips no-op trees anyway.
+const FIGURE_COMMIT_DEBOUNCE_MS = 1_500;
+let figureCommitTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingFigureTitle = '';
+
+function scheduleFigureAutoCommit(title: string): void {
+  pendingFigureTitle = title;
+  // Pin the owning project so a mid-debounce project switch cannot commit
+  // this project's figure title onto whichever project is active later.
+  const ownerProjectId = useProjectStore.getState().project?.id ?? null;
+  if (figureCommitTimer) clearTimeout(figureCommitTimer);
+  figureCommitTimer = setTimeout(() => {
+    figureCommitTimer = null;
+    const currentProjectId = useProjectStore.getState().project?.id ?? null;
+    if (currentProjectId === null || currentProjectId !== ownerProjectId) return;
+    void useProjectStore.getState().autoCommit('figure', pendingFigureTitle);
+  }, FIGURE_COMMIT_DEBOUNCE_MS);
+}
+
+/** Apply `fn` to one sheet and persist; `fn` returning null declines the mutation. */
+function mutateSheet(
+  sheetId: string,
+  fn: (sheet: FigureSheet) => FigureSheet | null,
+): void {
+  const { project } = useProjectStore.getState();
+  const sheets = project?.state.figureSheets ?? [];
+  const idx = sheets.findIndex((s) => s.id === sheetId);
+  if (idx < 0) return;
+  const updated = fn(sheets[idx]!);
+  if (!updated) return;
+  const next = sheets.slice();
+  next[idx] = { ...updated, updatedAt: Date.now() };
+  writeSheets(next);
+  scheduleFigureAutoCommit(updated.name || 'figure');
+}
+
+export const useFigureStore = create<FigureStore>((set) => ({
+  activeSheetId: null,
+
+  setActive: (id) => set({ activeSheetId: id }),
+
+  createSheet: (name) => {
+    const { project } = useProjectStore.getState();
+    if (!project) {
+      logger.warn('figure', 'createSheet without an open project');
+      return null;
+    }
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    const sheet: FigureSheet = {
+      id,
+      name: name?.trim() || `Figure ${(project.state.figureSheets?.length ?? 0) + 1}`,
+      templateId: 'ieee_single',
+      caption: '',
+      panels: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    writeSheets([...(project.state.figureSheets ?? []), sheet]);
+    set({ activeSheetId: id });
+    scheduleFigureAutoCommit(sheet.name);
+    return id;
+  },
+
+  deleteSheet: (id) => {
+    const { project } = useProjectStore.getState();
+    const sheets = project?.state.figureSheets ?? [];
+    const next = sheets.filter((s) => s.id !== id);
+    writeSheets(next);
+    if (useFigureStore.getState().activeSheetId === id) {
+      set({ activeSheetId: next[0]?.id ?? null });
+    }
+    saveNow();
+  },
+
+  updateSheet: (id, patch) => {
+    mutateSheet(id, (sheet) => ({ ...sheet, ...patch }));
+  },
+
+  addPanel: (sheetId, spec, placement) => {
+    mutateSheet(sheetId, (sheet) => {
+      const auto = nextFreeCell(sheet.panels);
+      // A placement may name only ONE axis (the editor's row field can be
+      // filled while the column stays blank) — honour it per axis instead
+      // of discarding the whole placement.
+      let cell = {
+        row: placement?.row ?? auto.row,
+        col: placement?.col ?? auto.col,
+      };
+      // Two panels in the same cell overlap in the exported figure — the
+      // second one is simply drawn on top of the first. Fall back to the
+      // next free cell instead of silently losing a panel.
+      if (cellOccupied(sheet.panels, cell.row, cell.col)) {
+        cell = nextFreeCell(sheet.panels);
+      }
+      const panel: FigurePanel = {
+        row: cell.row,
+        col: cell.col,
+        tag: placement?.tag,
+        // Bind the panel to the result that produced its numbers. Callers
+        // may override; otherwise the active plugin's latest record is used.
+        sourceResultId:
+          placement?.sourceResultId ??
+          useResultStore.getState().getLatest(usePluginStore.getState().activeId ?? '')?.resultId,
+        spec,
+      };
+      return { ...sheet, panels: [...sheet.panels, panel] };
+    });
+  },
+
+  updatePanel: (sheetId, index, spec, placement) => {
+    mutateSheet(sheetId, (sheet) => {
+      const panel = sheet.panels[index];
+      if (!panel) return null;
+      let row = placement?.row ?? panel.row;
+      let col = placement?.col ?? panel.col;
+      if (cellOccupied(sheet.panels, row, col, index)) {
+        const free = nextFreeCell(sheet.panels.filter((_, i) => i !== index));
+        row = free.row;
+        col = free.col;
+      }
+      const next: FigurePanel = {
+        ...panel,
+        spec,
+        row,
+        col,
+        tag: placement?.tag !== undefined ? placement.tag : panel.tag,
+        ...(placement?.sourceResultId !== undefined
+          ? { sourceResultId: placement.sourceResultId }
+          : {}),
+      };
+      const panels = sheet.panels.slice();
+      panels[index] = next;
+      return { ...sheet, panels };
+    });
+  },
+
+  removePanel: (sheetId, index) => {
+    mutateSheet(sheetId, (sheet) => {
+      if (index < 0 || index >= sheet.panels.length) return null;
+      const panels = sheet.panels.slice();
+      panels.splice(index, 1);
+      return { ...sheet, panels };
+    });
+    saveNow();
+  },
+
+  exportSheet: async (id, format, dpi = 600, options) => {
+    const { project } = useProjectStore.getState();
+    const sheet = project?.state.figureSheets?.find((s) => s.id === id);
+    if (!sheet) return;
+    await exportFigure(
+      { panels: sheet.panels, templateId: sheet.templateId, caption: sheet.caption },
+      format,
+      sheet.name || 'figure',
+      dpi,
+      {
+        record: resolveSheetRecord(sheet.panels),
+        sourceResultIds: sheet.panels
+          .map((p) => p.sourceResultId)
+          .filter((id): id is string => Boolean(id)),
+        ...(options?.pdfMode ? { pdfMode: options.pdfMode } : {}),
+      },
+    );
+    emit(FIGURE_EXPORTED, { figureId: id, format: format === 'png600' ? 'png' : format });
+  },
+}));
+
+// The active sheet belongs to ONE project. Left across a project switch it
+// points at a sheet of the previous project, and every mutation for it
+// silently did nothing (the sheet is not in the new project's state) — a
+// "send plot to Figure Studio" looked successful but dropped the plot.
+let figureProjectId: string | null = useProjectStore.getState().project?.id ?? null;
+useProjectStore.subscribe((state) => {
+  const id = state.project?.id ?? null;
+  if (id === figureProjectId) return;
+  figureProjectId = id;
+  // The active sheet belonged to the previous project — drop it. (The
+  // Figure Studio page picks the new project's first sheet when it mounts.)
+  useFigureStore.setState({ activeSheetId: null });
+});
+
+// Self-register the Figure Studio host bridge whenever figureStore is loaded
+// (covers both app boot and isolated unit tests without eager store loading).
+setFigureSheetHost({
+  getActiveSheetId: () => useFigureStore.getState().activeSheetId,
+  getLocale: () => getLocale(),
+  createSheet: (title) => useFigureStore.getState().createSheet(title),
+  addPanel: (sheetId, spec, placement) => useFigureStore.getState().addPanel(sheetId, spec, placement),
+  updateSheet: (sheetId, patch) => useFigureStore.getState().updateSheet(sheetId, patch),
+});

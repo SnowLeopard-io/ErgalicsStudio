@@ -1,8 +1,8 @@
 // ==========================================================================
 // Ergalics Studio Plugin SDK v1 — ambient contract subset
 //
-// Copied from `src/types/plugin.ts` (the single source of truth). When the
-// host contract evolves, sync this file from it.
+// Copied from `packages/plugin-sdk/src/types/plugin.ts` (the single source of
+// truth). When the host contract evolves, sync this file from it.
 //
 // These declarations are intentionally GLOBAL (no `export`): the template
 // compiles in script mode (`"module": "none"`) because the host executes the

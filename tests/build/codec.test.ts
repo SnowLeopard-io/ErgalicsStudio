@@ -11,8 +11,8 @@ import {
   estimateEncodedSize,
 } from '@/core/build/codec';
 import { hashDataValue, hashTable } from '@/core/build/hash';
-import { createDataTable, isDataTable, isDataset } from '@/types/datatable';
-import type { ColumnData, DataValue, Dataset } from '@/types/datatable';
+import { createDataTable, isDataTable, isDataset } from '@ergalics/plugin-sdk/types';
+import type { ColumnData, DataValue, Dataset } from '@ergalics/plugin-sdk/types';
 
 describe('base64', () => {
   it('round-trips every tail length', () => {

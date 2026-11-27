@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { BUILTIN_PLUGINS, findBuiltin } from '@/plugins/builtin';
+import { BUILTIN_PLUGINS, findBuiltin } from '@ergalics/plugins/builtin';
 import {
   SHARED_DATA_PRESETS,
   resolvePluginDataSchemas,
@@ -8,7 +8,7 @@ import {
 } from '@/core/data-schema';
 import { BUILTIN_PLUGIN_DATA_SCHEMAS } from '@/core/data-schema/builtin-bindings';
 import { buildSchemaTemplateText } from '@/stores/dataEditorStore';
-import type { PluginApi } from '@/types/plugin';
+import type { PluginApi } from '@ergalics/plugin-sdk';
 
 function createSilentApi(warnings: string[]): PluginApi {
   return {

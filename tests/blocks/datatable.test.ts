@@ -6,8 +6,8 @@ import {
   isRenderedView,
   isScalar,
   datasetToTable,
-} from '@/types/datatable';
-import type { Dataset, Scalar, RenderedView } from '@/types/datatable';
+} from '@ergalics/plugin-sdk/types';
+import type { Dataset, Scalar, RenderedView } from '@ergalics/plugin-sdk/types';
 
 describe('MemoryDataTable', () => {
   it('stores columnar data and reads columns/rows', () => {

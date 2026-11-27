@@ -2,7 +2,7 @@
 // normalized 0–0.5 spectrum as hertz.
 
 import { describe, expect, it } from 'vitest';
-import { inferSampleRate, parseSamplingRateMetadata } from '@/core/signal';
+import { inferSampleRate, parseSamplingRateMetadata } from '@ergalics/sci-kernels/signal';
 
 describe('inferSampleRate', () => {
   it('recovers fs from a regular time axis', () => {

@@ -3,7 +3,7 @@ import { BuildEngine, type StepRunner } from '@/core/build/engine';
 import { MemoryBuildCache } from '@/core/build/cache';
 import { createBuildEnvironment } from '@/core/build/key';
 import { affectedBy, topoSort, type BuildPlan, type BuildStep } from '@/core/build/plan';
-import type { DataValue } from '@/types/datatable';
+import type { DataValue } from '@ergalics/plugin-sdk/types';
 
 /** Deterministic PRNG (mulberry32) — property tests must be reproducible. */
 function rng(seed: number): () => number {

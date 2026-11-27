@@ -13,8 +13,8 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { isParamVisible, type ParamDefinition, type PluginApi } from '@/types/plugin';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { isParamVisible, type ParamDefinition, type PluginApi } from '@ergalics/plugin-sdk';
 
 function fakeApi(): PluginApi {
   return {

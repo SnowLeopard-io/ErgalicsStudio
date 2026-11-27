@@ -10,7 +10,7 @@ import {
   chiSquareInv,
   fCdf,
   fInv,
-} from '@/core/stats/special';
+} from '@ergalics/sci-kernels/stats/special';
 
 const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 

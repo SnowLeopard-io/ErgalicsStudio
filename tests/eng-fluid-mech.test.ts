@@ -27,9 +27,9 @@ import {
   sphereCdSchillerNaumann,
   sphereCdStokes,
   sphereDragForce,
-} from '../src/plugins/builtin/engineering/fluid-mech/kernel';
-import { EngFluidPlugin } from '../src/plugins/builtin/engineering/fluid-mech/plugin';
-import { createDataTable, type DataTable } from '../src/types/datatable';
+} from '../packages/plugins/src/builtin/engineering/fluid-mech/kernel';
+import { EngFluidPlugin } from '../packages/plugins/src/builtin/engineering/fluid-mech/plugin';
+import { createDataTable, type DataTable } from '@ergalics/plugin-sdk/types';
 
 /** Unified relative-error yardstick: |computed − analytic| / |analytic|. */
 function relErr(computed: number, analytic: number): number {

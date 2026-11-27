@@ -4,7 +4,7 @@ import { registerBuiltinBlocks } from '@/blocks/catalog';
 import { compile } from '@/blocks/compiler';
 import { DagExecutor } from '@/blocks/executor';
 import { createMemoryStorage } from '@/blocks/context';
-import type { DataValue, DataTable } from '@/types/datatable';
+import type { DataValue, DataTable } from '@ergalics/plugin-sdk/types';
 import type { BlockConnection, BlockGraph, BlockInstance } from '@/types/block';
 
 function registry() {

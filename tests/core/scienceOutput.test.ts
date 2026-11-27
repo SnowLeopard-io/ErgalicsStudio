@@ -7,7 +7,7 @@ import {
   getScienceOutputs,
   setScienceOutputs,
   subscribeScienceOutputs,
-} from '@/core/research/scienceOutput';
+} from '@ergalics/plugin-sdk/bridges';
 
 describe('science output bus', () => {
   it('returns an identity-stable snapshot until a real publish or clear', () => {

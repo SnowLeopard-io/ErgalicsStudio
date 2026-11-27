@@ -17,13 +17,25 @@
 // ==========================================================================
 
 import { cp, mkdir, access, readFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const SRC = resolve(ROOT, 'node_modules/pyodide');
-const DEST = resolve(ROOT, 'public/pyodide');
+const STUDIO_DIR = resolve(ROOT, 'apps/studio');
+const studioRequire = createRequire(resolve(STUDIO_DIR, 'package.json'));
+
+function resolvePyodideDir() {
+  try {
+    return dirname(studioRequire.resolve('pyodide/package.json'));
+  } catch {
+    return resolve(ROOT, 'node_modules/pyodide');
+  }
+}
+
+const SRC = resolvePyodideDir();
+const DEST = resolve(STUDIO_DIR, 'public/pyodide');
 /** Written on every run so the runtime can tell a complete local bundle from
  *  a partial one (failed mirror) without probing every wheel over HTTP. */
 const STATUS = resolve(DEST, 'wheels.json');

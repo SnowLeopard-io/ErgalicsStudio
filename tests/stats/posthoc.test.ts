@@ -4,7 +4,7 @@ import {
   studentizedRangeCdf,
   studentizedRangeInv,
   tukeyHSD,
-} from '@/core/stats/posthoc';
+} from '@ergalics/sci-kernels/stats/posthoc';
 
 const close = (a: number, b: number, eps: number) => Math.abs(a - b) < eps;
 

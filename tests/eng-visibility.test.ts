@@ -3,12 +3,12 @@
 // and asserts that controls whose visibleWhen rule excludes the current
 // controlling value are hidden (isParamVisible === false).
 import { describe, expect, it } from 'vitest';
-import { isParamVisible, type ParamDefinition, type ParamVisibility } from '@/types/plugin';
+import { isParamVisible, type ParamDefinition, type ParamVisibility } from '@ergalics/plugin-sdk';
 
-import EngFluid from '@/plugins/builtin/engineering/fluid-mech/plugin';
-import EngVibration from '@/plugins/builtin/engineering/vibration/plugin';
-import EngHeat from '@/plugins/builtin/engineering/heat-transfer/plugin';
-import EngMechanism from '@/plugins/builtin/engineering/mechanism/plugin';
+import EngFluid from '../packages/plugins/src/builtin/engineering/fluid-mech/plugin';
+import EngVibration from '../packages/plugins/src/builtin/engineering/vibration/plugin';
+import EngHeat from '../packages/plugins/src/builtin/engineering/heat-transfer/plugin';
+import EngMechanism from '../packages/plugins/src/builtin/engineering/mechanism/plugin';
 
 interface PluginLike {
   getParams(): ParamDefinition[] | Promise<ParamDefinition[]>;

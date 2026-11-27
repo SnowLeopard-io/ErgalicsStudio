@@ -19,7 +19,7 @@ import {
   type ReproLock,
   type LockDependency,
 } from '@/core/repro/lock';
-import { createRunRecord, type RunRecord } from '@/core/experiment/record';
+import { createRunRecord, type RunRecord } from '@ergalics/plugin-sdk/types';
 import { createEmptyProject, type Project } from '@/types/project';
 
 function makeProject(): Project {

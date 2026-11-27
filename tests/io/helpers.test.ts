@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { asFloat64, sanitizeName, dataTableToCSV, toDataset } from '@/core/io/types';
-import { createDataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
 
 describe('io shared helpers', () => {
   it('asFloat64 passes through Float64Array', () => {

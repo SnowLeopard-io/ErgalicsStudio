@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mulberry32 } from '../src/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 import {
   bordaCounts,
   condorcetAnalysis,
@@ -12,7 +12,7 @@ import {
   runElection,
   runVotingBenchmark,
   type PreferenceProfile,
-} from '../src/plugins/builtin/socio/voting/kernel';
+} from '../packages/plugins/src/builtin/socio/voting/kernel';
 
 /** Expand weighted ballots into a uniform-culture preference profile. */
 function ballotsProfile(

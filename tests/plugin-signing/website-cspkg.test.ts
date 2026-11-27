@@ -12,10 +12,10 @@
 // ==========================================================================
 
 import { describe, it, expect } from 'vitest';
-import { buildCspkg, marketplacePackageId } from '../../website/src/cspkg-build';
+import { buildCspkg, marketplacePackageId } from '../../apps/website/src/cspkg-build';
 import { inspectCspkg, loadCspkg } from '@/core/cspkg';
 import { TRUSTED_KEYS } from '@/core/plugin-signing';
-import type { PluginApi } from '@/types/plugin';
+import type { PluginApi } from '@ergalics/plugin-sdk';
 
 const CATALOG_ID = 'example.fluid'; // collides with a built-in id on purpose
 

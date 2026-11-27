@@ -2,8 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useBlockStore, FLOW_RUN_FINISHED } from '@/stores/blockStore';
 import { blockRegistry } from '@/blocks/registry';
 import { block } from '../blocks/fixtures';
-import { on } from '@/core/events';
-import type { DataValue } from '@/types/datatable';
+import { on } from '@ergalics/plugin-sdk';
+import type { DataValue } from '@ergalics/plugin-sdk/types';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

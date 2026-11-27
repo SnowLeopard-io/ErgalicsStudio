@@ -6,14 +6,14 @@
 // ==========================================================================
 
 import { describe, it, expect } from 'vitest';
-import { movingAverage } from '@/core/signal/filter';
-import { decomposeAdditive } from '@/core/signal/decompose';
-import { peakFrequency, spectrum } from '@/core/signal/fft';
+import { movingAverage } from '@ergalics/sci-kernels/signal/filter';
+import { decomposeAdditive } from '@ergalics/sci-kernels/signal/decompose';
+import { peakFrequency, spectrum } from '@ergalics/sci-kernels/signal/fft';
 import { etlPivot, parseCsvTable } from '@/core/dataeng/etl';
 import { hashText, sanitizeTableName, uniqueTableNames } from '@/core/sql/engine';
 import { effectiveDpi, autoPanelTag } from '@/core/submit/checklist';
 import { figureSheetPath } from '@/core/publish/bridge';
-import { extent } from '@/core/stats';
+import { extent } from '@ergalics/sci-kernels/stats';
 
 describe('signal: moving average', () => {
   it('produces finite values for an EVEN window (no fractional indexing)', () => {

@@ -1,7 +1,7 @@
 // Numerics optimisation — reference problems and robustness tests.
 import { describe, it, expect } from 'vitest';
-import { NumericsError } from '../../src/core/numerics/errors';
-import { minimizeLBFGSB, minimizeNM, minimizeSLSQP, nnls } from '../../src/core/numerics/optim';
+import { NumericsError } from '../../apps/studio/src/core/numerics/errors';
+import { minimizeLBFGSB, minimizeNM, minimizeSLSQP, nnls } from '../../apps/studio/src/core/numerics/optim';
 
 const rosenbrock = (x: number[]): number => {
   const a = 1 - x[0]!;

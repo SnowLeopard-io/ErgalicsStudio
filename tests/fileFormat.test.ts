@@ -10,7 +10,7 @@ import {
   detectScientificFormat,
   scientificFormatFromName,
 } from '@/core/fileFormat';
-import type { SupportedFormat } from '@/types/plugin';
+import type { SupportedFormat } from '@ergalics/plugin-sdk';
 
 function fileOf(name: string, bytes: number[]): File {
   return new File([new Uint8Array(bytes)], name, { type: 'application/octet-stream' });

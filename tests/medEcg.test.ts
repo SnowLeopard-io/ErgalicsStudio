@@ -12,7 +12,7 @@ import {
   parseEcgTable,
   parseHeaHeader,
   type RhythmInput,
-} from '../src/plugins/builtin/med/ecg/ecg';
+} from '../packages/plugins/src/builtin/med/ecg/ecg';
 
 /** Gaussian bump centred at `mu` with width `sigma` (seconds). */
 function gauss(t: number, mu: number, sigma: number): number {

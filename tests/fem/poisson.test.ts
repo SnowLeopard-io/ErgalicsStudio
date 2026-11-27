@@ -6,11 +6,11 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { rectStructuredMesh, circleDomain } from '../../src/core/fem/mesh/domain';
-import { meshDomain } from '../../src/core/fem/mesh/delaunay';
-import { solvePoisson, POISSON_SINE_CASE } from '../../src/core/fem/physics/poisson';
-import { l2Error, convergenceOrder } from '../../src/core/fem/post/stress';
-import { nodeX, nodeY } from '../../src/core/fem/mesh/types';
+import { rectStructuredMesh, circleDomain } from '@ergalics/sci-kernels/fem/mesh/domain';
+import { meshDomain } from '@ergalics/sci-kernels/fem/mesh/delaunay';
+import { solvePoisson, POISSON_SINE_CASE } from '@ergalics/sci-kernels/fem/physics/poisson';
+import { l2Error, convergenceOrder } from '@ergalics/sci-kernels/fem/post/stress';
+import { nodeX, nodeY } from '@ergalics/sci-kernels/fem/mesh/types';
 
 const DIRICHLET_ALL = [1, 2, 3, 4]; // rectangle tags: bottom/right/top/left
 

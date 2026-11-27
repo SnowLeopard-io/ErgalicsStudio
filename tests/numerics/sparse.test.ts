@@ -1,7 +1,7 @@
 // Tests for src/core/numerics/sparse: CSR helpers, CG, GMRES, preconditioners
 // and the unified `solve` entry point.
 import { describe, expect, it } from 'vitest';
-import { NumericsError } from '../../src/core/numerics/errors';
+import { NumericsError } from '../../apps/studio/src/core/numerics/errors';
 import {
   csrDiagonal,
   csrFromDense,
@@ -11,11 +11,11 @@ import {
   rowMaxAbs,
   validateCSR,
   type CSRMatrix,
-} from '../../src/core/numerics/sparse/csr';
-import { cgSolve } from '../../src/core/numerics/sparse/cg';
-import { gmresSolve } from '../../src/core/numerics/sparse/gmres';
-import { ilu0Preconditioner, jacobiPreconditioner } from '../../src/core/numerics/sparse/precond';
-import { solve } from '../../src/core/numerics/sparse/linsolve';
+} from '../../apps/studio/src/core/numerics/sparse/csr';
+import { cgSolve } from '../../apps/studio/src/core/numerics/sparse/cg';
+import { gmresSolve } from '../../apps/studio/src/core/numerics/sparse/gmres';
+import { ilu0Preconditioner, jacobiPreconditioner } from '../../apps/studio/src/core/numerics/sparse/precond';
+import { solve } from '../../apps/studio/src/core/numerics/sparse/linsolve';
 
 function expectNumericsError(fn: () => unknown, code?: string): void {
   let threw = false;

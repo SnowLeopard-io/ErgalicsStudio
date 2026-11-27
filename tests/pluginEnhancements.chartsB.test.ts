@@ -13,20 +13,20 @@
 // ==========================================================================
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { ViolinPlotPlugin } from '@/plugins/builtin/charts/violinPlot/plugin';
-import { ParallelCoordinatesPlugin } from '@/plugins/builtin/charts/parallelCoordinates/plugin';
-import { SankeyPlugin } from '@/plugins/builtin/charts/sankey/plugin';
-import { TreemapPlugin } from '@/plugins/builtin/charts/treemap/plugin';
-import { NetworkGraphPlugin } from '@/plugins/builtin/charts/networkGraph/plugin';
-import { BarChartPlugin } from '@/plugins/builtin/charts/barChart/plugin';
-import { BubbleChartPlugin } from '@/plugins/builtin/charts/bubbleChart/plugin';
-import { PolarPlotPlugin } from '@/plugins/builtin/charts/polarPlot/plugin';
+import { ViolinPlotPlugin } from '../packages/plugins/src/builtin/charts/violinPlot/plugin';
+import { ParallelCoordinatesPlugin } from '../packages/plugins/src/builtin/charts/parallelCoordinates/plugin';
+import { SankeyPlugin } from '../packages/plugins/src/builtin/charts/sankey/plugin';
+import { TreemapPlugin } from '../packages/plugins/src/builtin/charts/treemap/plugin';
+import { NetworkGraphPlugin } from '../packages/plugins/src/builtin/charts/networkGraph/plugin';
+import { BarChartPlugin } from '../packages/plugins/src/builtin/charts/barChart/plugin';
+import { BubbleChartPlugin } from '../packages/plugins/src/builtin/charts/bubbleChart/plugin';
+import { PolarPlotPlugin } from '../packages/plugins/src/builtin/charts/polarPlot/plugin';
 import type {
   ContainerCapabilities,
   ParamDefinition,
   Plugin,
   PluginApi,
-} from '@/types/plugin';
+} from '@ergalics/plugin-sdk';
 
 const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
 

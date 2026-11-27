@@ -13,7 +13,7 @@ import {
   marchingTets,
   sampleFieldTrilinear,
   type VoxelField,
-} from '@/core/mesh3d';
+} from '@ergalics/sci-kernels/gpu/mesh3d';
 import {
   CPU_POINT_BUDGET,
   GPU_POINT_BUDGET,
@@ -31,21 +31,21 @@ import {
   pointCloudColorBytes,
   packPointCloudGpuParams,
   heightColorsGpu,
-} from '@/core/pointcloud-gpu';
+} from '@ergalics/sci-kernels/gpu/pointcloud-gpu';
 import {
   Surface3DPlugin,
   parseHeightGrid,
   sampleSurfaceFunction,
   surfaceFunctionValue,
-} from '@/plugins/builtin/charts/surface3D/plugin';
+} from '../packages/plugins/src/builtin/charts/surface3D/plugin';
 import {
   Voxel3DPlugin,
   parseVoxelField,
   fieldRange,
-} from '@/plugins/builtin/charts/voxel3D/plugin';
-import { PointCloud3DPlugin } from '@/plugins/builtin/charts/pointCloud3D/plugin';
+} from '../packages/plugins/src/builtin/charts/voxel3D/plugin';
+import { PointCloud3DPlugin } from '../packages/plugins/src/builtin/charts/pointCloud3D/plugin';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
-import type { PluginApi } from '@/types/plugin';
+import type { PluginApi } from '@ergalics/plugin-sdk';
 
 beforeAll(() => {
   (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = () => 1;

@@ -9,8 +9,8 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { gmst, julianDay, moonPhaseIllumination, sunPosition } from '@/core/raytrace/astro';
-import { parseFits, pixelToSky, skyToPixel, writeFits } from '@/core/astro/fits';
+import { gmst, julianDay, moonPhaseIllumination, sunPosition } from '@ergalics/sci-kernels/raytrace/astro';
+import { parseFits, pixelToSky, skyToPixel, writeFits } from '@ergalics/sci-kernels/astro/fits';
 import {
   aperturePhotometry,
   calibrate,
@@ -20,7 +20,7 @@ import {
   mulberry32,
   randomStarField,
   simulateFrame,
-} from '@/plugins/builtin/astro/pipeline/kernel';
+} from '../packages/plugins/src/builtin/astro/pipeline/kernel';
 
 describe('raytrace/astro ephemeris', () => {
   it('computes the Julian Day of J2000.0', () => {

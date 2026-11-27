@@ -30,8 +30,8 @@ import {
   parseCspkg,
 } from '@/core/cspkg';
 import { savePluginPackage } from '@/core/storage';
-import { buildDemoPackage } from '@/plugins/marketplace-demo-packages';
-import type { PluginApi, PluginManifest } from '@/types/plugin';
+import { buildDemoPackage } from '@ergalics/plugins/demo-packages';
+import type { PluginApi, PluginManifest } from '@ergalics/plugin-sdk';
 
 vi.mock('@/core/storage', () => ({
   savePluginPackage: vi.fn(async () => undefined),

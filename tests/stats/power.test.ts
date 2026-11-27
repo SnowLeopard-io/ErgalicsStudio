@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { twoSampleTTestPower } from '@/core/stats/power';
+import { twoSampleTTestPower } from '@ergalics/sci-kernels/stats/power';
 
 const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 

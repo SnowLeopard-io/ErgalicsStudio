@@ -1,0 +1,17 @@
+{
+  "name": "@ergalics/docs",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "SnowLeopard-io <1486853830@qq.com>",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "gen:catalog": "node scripts/gen-plugin-catalog.mjs"
+  },
+  "dependencies": {
+    "search-insights": "^2.17.3",
+    "vitepress": "2.0.0-alpha.6"
+  }
+}

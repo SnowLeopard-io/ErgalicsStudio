@@ -1,14 +1,7 @@
 /**
- * 精简版 ESLint flat config。
+ * 精简版 ESLint flat config（Monorepo 全仓 + 依赖边界约束）。
  *
- * 定位：只保留 tsc 结构上抓不到的高价值规则，目标是秒级速度。
- * 取舍理由：
- * - 不启用 type-checked 规则（不设 parserOptions.project）：类型感知 lint 太慢，且
- *   tsc --noEmit 已在 lint 脚本中做全量类型检查，双跑得不偿失。
- * - 关闭与 tsc 重复/冲突的规则：no-unused-vars 交给 tsc 的 noUnusedLocals/noUnusedParameters；
- *   no-explicit-any / no-non-null-assertion 是本代码库（动态 import 兼容层、数值计算）的有意模式。
- * - 保留正确性规则：react-hooks 两条、no-empty（允许空 catch）、recommended 其余默认。
- * - 引入 Prettier 与全仓 reformat 均不在本次范围内。
+ * 定位：只保留 tsc 结构上抓不到的高价值规则与 Monorepo 包边界约束，目标是秒级速度。
  */
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
@@ -19,19 +12,28 @@ export default tseslint.config(
   {
     ignores: [
       'dist/',
+      '.turbo/',
+      'apps/*/dist/',
+      'apps/docs/.vitepress/dist/',
+      'apps/docs/.vitepress/cache/',
+      'packages/*/dist/',
       'node_modules/',
       'coverage/',
-      'website/',
-      'docs/',
+      'apps/website/',
+      'apps/docs/',
+      'apps/studio/public/',
       'public/',
       'scripts/', // 一次性 mjs 脚本，不做 lint
       '**/*.min.*',
       'tmp/', // 临时实验产物（py/json/cjs 抓取物），非源码
       'industrial-capability-benchmark/', // 生成的工业能力对标报告（gitignored 产物）
-      'desktop/app-dist/', // Desktop 打包产物（vite build 复制物）
-      'desktop/dist-electron/', // Electron main bundle（esbuild 产物）
-      'desktop/release/', // electron-builder 输出
-      'desktop/resources/python/', // 便携 CPython（按需下载）
+      'pages-out/', // 合并部署产物
+      'deploy/*/node_modules/',
+      'deploy/*/app-dist/',
+      'deploy/*/dist-electron/',
+      'deploy/*/release/',
+      'deploy/windows/resources/python/',
+      'deploy/android/android/',
     ],
   },
   js.configs.recommended,
@@ -59,12 +61,33 @@ export default tseslint.config(
       'no-empty': ['error', { allowEmptyCatch: true }],
       // 代码库大量使用非空断言 `!`（测试里更多），属既定风格
       '@typescript-eslint/no-non-null-assertion': 'off',
-      // `const self = this` 是代码库既有的 this 捕获写法（对象字面量方法/构造器捕获实例），
-      // 改写成箭头函数有行为风险，降为 warn
+      // `const self = this` 是代码库既有的 this 捕获写法，降为 warn
       '@typescript-eslint/no-this-alias': 'warn',
       // ESLint v10 新纳入 recommended 的规则，精简版刻意不纳入：
-      'preserve-caught-error': 'off', // 要求重抛时附 cause，补齐会改变错误对象结构，违背零行为变更约束
-      'no-useless-assignment': 'off', // dead-store 检查，机械移除初始化值可能破坏 tsc 定值分析
+      'preserve-caught-error': 'off',
+      'no-useless-assignment': 'off',
+    },
+  },
+  {
+    // Monorepo 边界约束：packages/* 严禁反向引用 apps/* 或宿主 @/* 别名，
+    // 为未来将 packages/plugins 拆离独立仓库提供静态保障。
+    files: ['packages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/*', '@/**'],
+              message: 'packages/* 禁止使用宿主路径别名 @/*，请通过 @ergalics/* 工作区包导入。',
+            },
+            {
+              group: ['**/apps/**', '@ergalics/studio', '@ergalics/website', '@ergalics/docs'],
+              message: 'packages/* 禁止反向依赖 apps/*。',
+            },
+          ],
+        },
+      ],
     },
   },
   {

@@ -20,7 +20,7 @@ import {
 } from '@/core/data/parseDelimited';
 import { STUDIO_PYTHON_SOURCE } from '@/core/pyodide/studio.py';
 import { createStudioApi, type StudioApiHost } from '@/editor/runtime/studio-api';
-import type { DataTable } from '@/types/datatable';
+import type { DataTable } from '@ergalics/plugin-sdk/types';
 
 // Equivalent to the reported missing-4.csv: a provenance comment, Chinese
 // header names, a quoted comma, trailing/empty cells and a missing row.

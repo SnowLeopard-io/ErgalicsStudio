@@ -118,7 +118,7 @@ describe('wasm loader — real import path', () => {
     // has not been generated (make-wasm-stub / build:wasm). When a developer
     // has built the real module locally this path legitimately loads it.
     const nativeModule = fileURLToPath(
-      new URL('../src/native/ergalics_core.js', import.meta.url),
+      new URL('../apps/studio/src/native/ergalics_core.js', import.meta.url),
     );
     if (existsSync(nativeModule)) return;
     // Real timers: the default loader drives a REAL vite import(), whose

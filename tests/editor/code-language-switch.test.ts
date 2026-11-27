@@ -14,7 +14,7 @@ import { parseCodeToIR } from '@/editor/code/parse';
 import { codegen, type CodegenLang } from '@/editor/codegen';
 import { interpret } from '@/editor/runtime/interpreter';
 import { createStudioApi, type StudioApiHost } from '@/editor/runtime/studio-api';
-import type { RenderedView } from '@/types/datatable';
+import type { RenderedView } from '@ergalics/plugin-sdk/types';
 
 const LANGS: CodegenLang[] = ['python', 'js', 'r'];
 

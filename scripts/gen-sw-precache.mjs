@@ -32,7 +32,7 @@ const SHELL_FILES = ['index.html', 'manifest.webmanifest', 'ico.ico', 'icon-192.
  * Returns the number of precached entries (0 when skipped).
  */
 export function injectSwPrecache(distDirArg) {
-  const distDir = resolve(distDirArg ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'dist'));
+  const distDir = resolve(distDirArg ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'apps', 'studio', 'dist'));
   const swPath = join(distDir, 'sw.js');
   if (!existsSync(swPath)) {
     console.error(`[gen-sw-precache] missing ${swPath} — run after vite build.`);

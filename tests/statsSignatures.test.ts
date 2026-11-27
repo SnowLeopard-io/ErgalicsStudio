@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { statsDoeManifest } from '../src/plugins/builtin/stats/doe/manifest';
-import { statsTimeseriesManifest } from '../src/plugins/builtin/stats/timeseries/manifest';
-import { statsMultivariateManifest } from '../src/plugins/builtin/stats/multivariate/manifest';
-import { statsNonparametricManifest } from '../src/plugins/builtin/stats/nonparametric/manifest';
-import { statsSurvivalManifest } from '../src/plugins/builtin/stats/survival/manifest';
-import { statsMetaManifest } from '../src/plugins/builtin/stats/meta/manifest';
-import { statsBayesManifest } from '../src/plugins/builtin/stats/bayes/manifest';
+import { verifyBundledManifestSignature } from '../apps/studio/src/core/plugin-signing';
+import { statsDoeManifest } from '../packages/plugins/src/builtin/stats/doe/manifest';
+import { statsTimeseriesManifest } from '../packages/plugins/src/builtin/stats/timeseries/manifest';
+import { statsMultivariateManifest } from '../packages/plugins/src/builtin/stats/multivariate/manifest';
+import { statsNonparametricManifest } from '../packages/plugins/src/builtin/stats/nonparametric/manifest';
+import { statsSurvivalManifest } from '../packages/plugins/src/builtin/stats/survival/manifest';
+import { statsMetaManifest } from '../packages/plugins/src/builtin/stats/meta/manifest';
+import { statsBayesManifest } from '../packages/plugins/src/builtin/stats/bayes/manifest';
 
 const signed = [
   ['doe', statsDoeManifest],

@@ -8,7 +8,7 @@ import {
   isDomainVisible,
   marketplaceEntries,
   projectDomain,
-} from '@/core/domains';
+} from '@ergalics/plugin-sdk/types';
 import {
   ENGINEERING_EXTENSIONS,
   parseEngineeringFile,

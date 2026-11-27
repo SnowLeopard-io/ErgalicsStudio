@@ -5,8 +5,8 @@ import { createStudioApi } from '@/editor/runtime/studio-api';
 import type { StudioApiHost } from '@/editor/runtime/studio-api';
 import { makeProgram } from '@/editor/ir';
 import type { IRNode } from '@/editor/ir';
-import type { RenderedView } from '@/types/datatable';
-import { isDataTable } from '@/types/datatable';
+import type { RenderedView } from '@ergalics/plugin-sdk/types';
+import { isDataTable } from '@ergalics/plugin-sdk/types';
 
 function makeHost(files: Record<string, string>): StudioApiHost & { rendered: RenderedView[]; printed: string[] } {
   const rendered: RenderedView[] = [];

@@ -14,8 +14,8 @@ import {
   standardized,
   theoryMoments,
   type PopulationSpec,
-} from '../src/plugins/builtin/math/clt/kernel';
-import { StatsCltPlugin } from '../src/plugins/builtin/math/clt/plugin';
+} from '../packages/plugins/src/builtin/math/clt/kernel';
+import { StatsCltPlugin } from '../packages/plugins/src/builtin/math/clt/plugin';
 
 describe('stats-clt closed-form population moments', () => {
   it('uniform U[0,w] has mean w/2 and variance w²/12', () => {

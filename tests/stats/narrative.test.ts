@@ -7,7 +7,7 @@ import {
   generateNarrative,
   NARRATIVE_TYPES,
   type NarrativeInput,
-} from '@/core/stats/narrative';
+} from '@ergalics/sci-kernels/stats/narrative';
 
 describe('stats/narrative — formatP', () => {
   it('renders p = 0 as the inequality', () => {

@@ -4,7 +4,7 @@ import { useNotebookStore } from '@/stores/notebookStore';
 import { createEmptyProject, type Project } from '@/types/project';
 import { createCell } from '@/core/notebook/notebook';
 import { getProject, saveRun } from '@/core/storage';
-import { on, NOTEBOOK_EXECUTED } from '@/core/events';
+import { on, NOTEBOOK_EXECUTED } from '@ergalics/plugin-sdk';
 import type { CodeRuntime, CodeRuntimeHost } from '@/core/pyodide/runtime';
 
 const python = vi.hoisted(() => ({

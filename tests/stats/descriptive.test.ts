@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mean, variance, std, median, quantile, summary, meanCI } from '@/core/stats/descriptive';
+import { mean, variance, std, median, quantile, summary, meanCI } from '@ergalics/sci-kernels/stats/descriptive';
 
 const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 

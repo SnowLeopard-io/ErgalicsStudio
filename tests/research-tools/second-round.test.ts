@@ -12,8 +12,8 @@
 import { describe, it, expect } from 'vitest';
 import { extractMetric } from '@/core/sweep/design';
 import { parseCsv, detectCsvDelimiter } from '@/core/report/builder';
-import { simulateEpidemic } from '@/plugins/builtin/med/epidemic/epidemic';
-import type { ModelConfig } from '@/plugins/builtin/med/epidemic/epidemic';
+import { simulateEpidemic } from '../../packages/plugins/src/builtin/med/epidemic/epidemic';
+import type { ModelConfig } from '../../packages/plugins/src/builtin/med/epidemic/epidemic';
 
 describe('sweep: the configured metric path resolves', () => {
   const outcome = { metrics: { value: 42, rmse: 42 } };

@@ -9,7 +9,7 @@ import {
   evaluatePluginLegacy,
 } from '@/core/sandbox';
 import { createPluginWorkerRuntime } from '@/core/plugin-worker';
-import type { PluginApi, PluginManifest } from '@/types/plugin';
+import type { PluginApi, PluginManifest } from '@ergalics/plugin-sdk';
 
 const MANIFEST: PluginManifest = {
   id: 'com.example.demo',

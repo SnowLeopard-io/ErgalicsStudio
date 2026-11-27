@@ -6,9 +6,9 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { rectStructuredMesh } from '../../src/core/fem/mesh/domain';
-import { nodeCount, nodeX, nodeY, type PlanarMesh } from '../../src/core/fem/mesh/types';
-import { p1Basis, p1ShapeAt } from '../../src/core/fem/assemble/basis';
+import { rectStructuredMesh } from '@ergalics/sci-kernels/fem/mesh/domain';
+import { nodeCount, nodeX, nodeY, type PlanarMesh } from '@ergalics/sci-kernels/fem/mesh/types';
+import { p1Basis, p1ShapeAt } from '@ergalics/sci-kernels/fem/assemble/basis';
 import {
   CsrBuilder,
   assembleP1Mass,
@@ -16,17 +16,17 @@ import {
   csrDiagonal,
   csrMulVec,
   type CsrMatrix,
-} from '../../src/core/fem/assemble/stiffness';
+} from '@ergalics/sci-kernels/fem/assemble/stiffness';
 import {
   assembleEdgeLoad,
   assemblePressureLoad,
   assembleSourceVector,
   selectBoundaryEdges,
-} from '../../src/core/fem/assemble/load';
-import { applyDirichlet, applyDirichletPenalty } from '../../src/core/fem/bc/dirichlet';
-import { thetaOperators } from '../../src/core/fem/solve/transient';
-import { conjugateGradient } from '../../src/core/fem/solve/cg';
-import { constitutiveMatrix, solveElasticity, type PlaneState } from '../../src/core/fem/physics/elasticity';
+} from '@ergalics/sci-kernels/fem/assemble/load';
+import { applyDirichlet, applyDirichletPenalty } from '@ergalics/sci-kernels/fem/bc/dirichlet';
+import { thetaOperators } from '@ergalics/sci-kernels/fem/solve/transient';
+import { conjugateGradient } from '@ergalics/sci-kernels/fem/solve/cg';
+import { constitutiveMatrix, solveElasticity, type PlaneState } from '@ergalics/sci-kernels/fem/physics/elasticity';
 
 /** 读取 CSR 的单个条目（缺省为 0）。 */
 function entry(A: CsrMatrix, row: number, col: number): number {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mulberry32 } from '../src/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 import {
   ADOPTED,
   DEFAULT_OPINION_PARAMS,
@@ -25,7 +25,7 @@ import {
   runLinearThreshold,
   runOpinionBenchmark,
   type OpinionParams,
-} from '../src/plugins/builtin/socio/opinion/kernel';
+} from '../packages/plugins/src/builtin/socio/opinion/kernel';
 
 describe('socio-opinion kernel (public opinion diffusion)', () => {
   it('hand-built 4-node chain: exact cascade outcomes for given edge probabilities', () => {

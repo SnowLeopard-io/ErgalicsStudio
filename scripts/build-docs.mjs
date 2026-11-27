@@ -11,9 +11,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
-const docsDir = join(root, 'docs');
+const docsDir = join(root, 'apps', 'docs');
 const built = join(docsDir, '.vitepress', 'dist');
-const target = join(root, 'dist', 'docs');
+const target = join(root, 'apps', 'studio', 'dist', 'docs');
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 if (!existsSync(join(docsDir, 'package.json'))) {
   console.error('Docs workspace not found:', docsDir);
@@ -21,7 +22,7 @@ if (!existsSync(join(docsDir, 'package.json'))) {
 }
 
 console.log('> Building docs (vitepress)…');
-execSync('npm run build', {
+execSync(`${pnpm} run build`, {
   cwd: docsDir,
   stdio: 'inherit',
   // Absolute base so in-app links resolve correctly. Overridable so the

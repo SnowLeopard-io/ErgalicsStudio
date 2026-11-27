@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createDataTable } from '@/types/datatable';
-import type { ColumnSpec, RenderedView } from '@/types/datatable';
-import { isRenderedView } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
+import type { ColumnSpec, RenderedView } from '@ergalics/plugin-sdk/types';
+import { isRenderedView } from '@ergalics/plugin-sdk/types';
 import { createBlockRegistry } from '@/blocks/registry';
 import { defineBlock } from '@/blocks/catalog/types';
 import { compile } from '@/blocks/compiler';

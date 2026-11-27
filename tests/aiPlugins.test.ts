@@ -1,31 +1,31 @@
 // AI/ML suite (ai.*) — pinned manifest signatures, registration and kernel tests.
 import { describe, expect, it } from 'vitest';
 
-import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { automlManifest } from '@/plugins/builtin/data/automl/manifest';
-import { nlpManifest } from '@/plugins/builtin/data/nlp/manifest';
-import { recsysManifest } from '@/plugins/builtin/data/recsys/manifest';
-import { rlManifest } from '@/plugins/builtin/data/rl/manifest';
-import { xaiManifest } from '@/plugins/builtin/data/xai/manifest';
-import { vectordbManifest } from '@/plugins/builtin/data/vectordb/manifest';
+import { verifyBundledManifestSignature } from '../apps/studio/src/core/plugin-signing';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { automlManifest } from '../packages/plugins/src/builtin/data/automl/manifest';
+import { nlpManifest } from '../packages/plugins/src/builtin/data/nlp/manifest';
+import { recsysManifest } from '../packages/plugins/src/builtin/data/recsys/manifest';
+import { rlManifest } from '../packages/plugins/src/builtin/data/rl/manifest';
+import { xaiManifest } from '../packages/plugins/src/builtin/data/xai/manifest';
+import { vectordbManifest } from '../packages/plugins/src/builtin/data/vectordb/manifest';
 
-import { generateSyntheticDataset, runAutoML } from '@/plugins/builtin/data/automl/kernel';
-import { AUTOML_SAMPLE_CSV } from '@/plugins/builtin/data/automl/samples';
-import { buildIndex, checkTfidfSanity, parseCorpus } from '@/plugins/builtin/data/nlp/kernel';
-import { NLP_SAMPLE_TEXT } from '@/plugins/builtin/data/nlp/samples';
+import { generateSyntheticDataset, runAutoML } from '../packages/plugins/src/builtin/data/automl/kernel';
+import { AUTOML_SAMPLE_CSV } from '../packages/plugins/src/builtin/data/automl/samples';
+import { buildIndex, checkTfidfSanity, parseCorpus } from '../packages/plugins/src/builtin/data/nlp/kernel';
+import { NLP_SAMPLE_TEXT } from '../packages/plugins/src/builtin/data/nlp/samples';
 import {
   buildIndex as buildVectorIndex,
   embedText,
   evaluateRecall,
   generateSyntheticVectors,
   searchIndex,
-} from '@/plugins/builtin/data/vectordb/kernel';
-import { RECSYS_SAMPLE_CSV } from '@/plugins/builtin/data/recsys/samples';
-import { runRecsys } from '@/plugins/builtin/data/recsys/kernel';
-import { makeGridWorld, runBanditExperiment, runGridExperiment } from '@/plugins/builtin/data/rl/kernel';
-import { XAI_SAMPLE_CSV } from '@/plugins/builtin/data/xai/samples';
-import { kernelShap, mulberry32 as xaiRng, parseXaiData, trainReference } from '@/plugins/builtin/data/xai/kernel';
+} from '../packages/plugins/src/builtin/data/vectordb/kernel';
+import { RECSYS_SAMPLE_CSV } from '../packages/plugins/src/builtin/data/recsys/samples';
+import { runRecsys } from '../packages/plugins/src/builtin/data/recsys/kernel';
+import { makeGridWorld, runBanditExperiment, runGridExperiment } from '../packages/plugins/src/builtin/data/rl/kernel';
+import { XAI_SAMPLE_CSV } from '../packages/plugins/src/builtin/data/xai/samples';
+import { kernelShap, mulberry32 as xaiRng, parseXaiData, trainReference } from '../packages/plugins/src/builtin/data/xai/kernel';
 
 // ---- Pinned Ed25519 manifest signatures ------------------------------------
 

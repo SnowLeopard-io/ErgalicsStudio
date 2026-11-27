@@ -48,7 +48,7 @@ const MIN_LAZY_RESEARCH_CHUNKS = 20;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const dirArg = args.indexOf('--dir');
-const outDir = path.resolve(root, dirArg >= 0 ? args[dirArg + 1] : 'dist');
+const outDir = path.resolve(root, dirArg >= 0 ? args[dirArg + 1] : path.join('apps', 'studio', 'dist'));
 const updateBaseline = args.includes('--update-budget-baseline');
 const baselineFile = path.join(root, 'budget-baseline.json');
 
@@ -128,7 +128,7 @@ const firstScreenGzipKb = eagerJs.reduce((s, a) => s + a.gzip, 0) / 1024;
 const lazyAssets = assets.filter((a) => !eager.has(a.file));
 
 // ---- 3. lazy-loading integrity (toolRegistry) ------------------------------
-const registryPath = path.join(root, 'src', 'pages', 'research', 'toolRegistry.ts');
+const registryPath = path.join(root, 'apps', 'studio', 'src', 'pages', 'research', 'toolRegistry.ts');
 const registry = readFileSync(registryPath, 'utf8');
 const toolRe = /tool\(\s*'([a-z0-9][a-z0-9-]*)'\s*,\s*(\(\)\s*=>\s*import\()/g;
 const tools = [];

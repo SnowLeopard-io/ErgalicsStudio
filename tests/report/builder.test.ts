@@ -14,7 +14,7 @@ import {
   type ReportSpec,
 } from '@/core/report';
 import { createEmptyProject, type Project } from '@/types/project';
-import { createRunRecord } from '@/core/experiment/record';
+import { createRunRecord } from '@ergalics/plugin-sdk/types';
 
 function makeProject(): Project {
   const p = createEmptyProject('Report Project');

@@ -18,7 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
+const DOCS_DIR = path.join(ROOT, 'apps', 'docs', 'technical');
 
 // --en assembles the English edition from docs/technical; the default builds
 // the maintained Chinese edition from docs/zh-CN/technical.
@@ -44,7 +44,7 @@ function localisedOrFallback(localized, name) {
 }
 
 const read = (name) => {
-  const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${name}.md`);
+  const localized = path.join(ROOT, 'apps', 'docs', 'zh-CN', 'technical', `${name}.md`);
   const source = EN
     ? path.join(DOCS_DIR, `${EN_CHAPTER_FILES[name] ?? name}.md`)
     : localisedOrFallback(localized, name);

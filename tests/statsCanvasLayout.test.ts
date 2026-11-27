@@ -11,10 +11,10 @@
 //   5. Slider params (eps / minPts / horizon / period) actually recompute the
 //      model — the "slider has no effect" regression.
 import { describe, it, expect } from 'vitest';
-import type { ContainerCapabilities, PluginApi } from '@/types/plugin';
-import { StatsMetaPlugin } from '@/plugins/builtin/stats/meta/plugin';
-import { StatsMultivariatePlugin } from '@/plugins/builtin/stats/multivariate/plugin';
-import { StatsTimeseriesPlugin } from '@/plugins/builtin/stats/timeseries/plugin';
+import type { ContainerCapabilities, PluginApi } from '@ergalics/plugin-sdk';
+import { StatsMetaPlugin } from '../packages/plugins/src/builtin/stats/meta/plugin';
+import { StatsMultivariatePlugin } from '../packages/plugins/src/builtin/stats/multivariate/plugin';
+import { StatsTimeseriesPlugin } from '../packages/plugins/src/builtin/stats/timeseries/plugin';
 
 const W = 880;
 const H = 520;

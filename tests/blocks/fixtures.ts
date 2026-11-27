@@ -1,6 +1,6 @@
 // Shared test fixtures for the block system. Not a test suite itself.
 import { createBlockRegistry } from '@/blocks/registry';
-import { createDataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
 import type { BlockCategory, BlockMeta, GpuMode, PortDef } from '@/types/block';
 
 interface BlockBase {

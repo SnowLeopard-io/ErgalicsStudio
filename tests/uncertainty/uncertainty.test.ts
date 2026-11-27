@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { bootstrapCI } from '@/core/uncertainty/bootstrap';
 import { propagateError, sampleDist } from '@/core/uncertainty/montecarlo';
 import { metropolisHastings } from '@/core/uncertainty/mcmc';
-import { mulberry32 } from '@/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 
 describe('bootstrap CI', () => {
   it('covers the true mean and reproduces with the same seed', () => {

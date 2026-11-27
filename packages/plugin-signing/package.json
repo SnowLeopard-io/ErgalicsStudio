@@ -1,0 +1,19 @@
+{
+  "name": "@ergalics/plugin-signing",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-dependency pure-TS ed25519 + SHA-256 package signing and verification for Ergalics Studio (.cspkg)",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./crypto": "./src/crypto-primitives.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@ergalics/plugin-sdk": "workspace:*",
+    "typescript": "~5.7.2"
+  }
+}

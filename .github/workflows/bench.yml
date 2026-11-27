@@ -29,17 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run benchmarks + compare against baseline (FR-23)
-        run: npm run bench:ci
+        run: pnpm run bench:ci
 
       # First run in a new environment (e.g. linux-x64) has no committed
       # baseline: bench-compare.mjs records one and exits 0. Commit it once so

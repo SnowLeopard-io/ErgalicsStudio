@@ -1,8 +1,9 @@
 node_modules/
 dist/
 dist-check/
+.turbo/
 # math 分布插件（概率分布）源码目录：.gitignore 里的 dist/ 会误伤它，这里收回
-!src/plugins/builtin/math/dist/
+!packages/plugins/src/builtin/math/dist/
 target/
 pkg/
 .native/
@@ -20,24 +21,27 @@ coverage/
 .cspkg
 *.clproj
 # Sample project files under examples/projects/ are part of the repo — they
-# are loaded at build time by src/blocks/sample.ts (import.meta.glob) to power
-# the Flow-mode sample picker. User-saved projects elsewhere stay ignored.
+# are loaded at build time by apps/studio/src/blocks/sample.ts (import.meta.glob)
+# to power the Flow-mode sample picker. User-saved projects elsewhere stay ignored.
 !examples/projects/*.clproj
-# WASM build artifacts emitted into src/native/ by scripts/build-wasm.mjs.
-# Regenerated on demand (`npm run build:wasm` / `npm run build`); keeping
+# WASM build artifacts emitted into apps/studio/src/native/ by scripts/build-wasm.mjs.
+# Regenerated on demand (`pnpm run build:wasm` / `pnpm run build`); keeping
 # them untracked avoids binary merge conflicts in multi-developer repos.
-src/native/ergalics_core.js
-src/native/ergalics_core_bg.wasm
+apps/studio/src/native/ergalics_core.js
+apps/studio/src/native/ergalics_core_bg.wasm
 
 # Vendored Pyodide (core + numpy wheel) for the code-mode runtime. Copied from
 # the `pyodide` npm package + downloaded once by scripts/copy-pyodide.mjs; kept
 # out of git so the repo carries no ~25MB of binaries. Regenerated on dev/build.
-public/pyodide/
+apps/studio/public/pyodide/
 
 # Vendored Blockly media (sprite sheet + interaction sounds). Copied from
-# node_modules/blockly/media by scripts/vendor-blockly-media.mjs so block
-# mode never fetches from static.blockly.com. Regenerated on dev/build.
-public/blockly/
+# blockly/media by scripts/vendor-blockly-media.mjs so block mode never fetches
+# from static.blockly.com. Regenerated on dev/build.
+apps/studio/public/blockly/
+
+# Optional vendored webR runtime bundle.
+apps/studio/public/webr/
 
 # Scratch space: demo-video recording scripts/screenshots, temp experiment
 # output and test logs. Kept locally for reuse, never committed.
@@ -62,18 +66,20 @@ dist-verify*
 # run `npm install` on any npm version without ERESOLVE aborts.
 
 # Docs workspace (VitePress): dependencies and build artifacts.
-docs/node_modules/
-docs/.vitepress/*
-!docs/.vitepress/config.mts
-!docs/.vitepress/research-blocks.mjs
+apps/docs/node_modules/
+apps/docs/.vitepress/*
+!apps/docs/.vitepress/config.mts
+!apps/docs/.vitepress/research-blocks.mjs
 # The hand-written VitePress custom theme (Layout.vue, cross-site.css, ...) is
 # source code — it implements the cross-site nav switcher and must be tracked.
 # Only the generated build output under dist/ stays ignored.
-!docs/.vitepress/theme/
-!docs/.vitepress/theme/**
+!apps/docs/.vitepress/theme/
+!apps/docs/.vitepress/theme/**
 
-# Official website (npm workspace): build output.
-website/dist/
+# Official website (pnpm workspace): build output.
+apps/website/dist/
+apps/studio/dist/
+packages/*/dist/
 
 # Merged GitHub Pages artifact (website root + workstation under app/),
 # produced by scripts/merge-deploy.mjs. Regenerated on every deploy build.

@@ -10,11 +10,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { it } from 'vitest';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
 import { L4_TOP30 } from '@/core/acceptance/top30';
 import type { L4Evidence } from '@/core/acceptance/l4';
-import { getScienceOutputs, subscribeScienceOutputs } from '@/core/research/scienceOutput';
-import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import { getScienceOutputs, subscribeScienceOutputs } from '@ergalics/plugin-sdk/bridges';
+import type { ParamDefinition, Plugin, PluginApi } from '@ergalics/plugin-sdk';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url)).replace(/[\\/]$/, '');
 const BENCH = join(ROOT, 'bench');

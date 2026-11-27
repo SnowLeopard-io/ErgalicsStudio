@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { splitDelimitedLine, splitLooseTokens } from '@/core/io/delimited';
+import { splitDelimitedLine, splitLooseTokens } from '@ergalics/sci-kernels/io/delimited';
 
 describe('splitLooseTokens — comma OR whitespace separated', () => {
   it('splits plain numeric rows', () => {

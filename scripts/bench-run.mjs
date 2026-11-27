@@ -25,7 +25,7 @@ const outFile = path.join(root, 'bench-results.json');
 const cpuModel = os.cpus()[0]?.model ?? 'unknown';
 
 const server = await createServer({
-  root,
+  root: path.join(root, 'apps', 'studio'),
   // Minimal inline config: only the '@' alias matters for the bench modules.
   // Deliberately NOT loading vite.config.ts (its vendor plugins are heavy and
   // irrelevant here).
@@ -37,7 +37,7 @@ const server = await createServer({
   // (otherwise the scanner crawls dist/ and pages-out/ build output).
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
-    alias: { '@': path.join(root, 'src') },
+    alias: { '@': path.join(root, 'apps', 'studio', 'src') },
   },
 });
 

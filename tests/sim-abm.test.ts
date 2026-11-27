@@ -14,7 +14,7 @@ import {
   stepRules,
   stepSchelling,
   type ABMWorld,
-} from '@/plugins/builtin/sim/abm/kernel';
+} from '../packages/plugins/src/builtin/sim/abm/kernel';
 
 describe('grid helpers', () => {
   const world: ABMWorld = { width: 1, height: 1, gridMode: true, cols: 5, rows: 5, agents: [] };

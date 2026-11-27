@@ -13,20 +13,20 @@ import {
   fluidMacroCPU,
   fluidStepCPU,
   fluidStreamKernelWGSL,
-} from '@/core/wgsl';
-import { packWaveParams, waveKernelWGSL, waveStepCPU } from '@/core/wgsl';
+} from '@ergalics/sci-kernels/gpu/wgsl';
+import { packWaveParams, waveKernelWGSL, waveStepCPU } from '@ergalics/sci-kernels/gpu/wgsl';
 import {
   parseGeoJSON,
   numericPropertyKeys,
-} from '@/plugins/builtin/geo/geoMap/plugin';
+} from '../packages/plugins/src/builtin/geo/geoMap/plugin';
 import {
   pendulumDeriv,
   pendulumEnergy,
   pendulumStepRK4,
-} from '@/plugins/builtin/physics/pendulum/plugin';
-import { parseMask } from '@/plugins/builtin/physics/fluid/plugin';
-import { parseGrid, parseWaveData, resampleGrid } from '@/plugins/builtin/physics/wave/plugin';
-import { parsePendulumIC } from '@/plugins/builtin/physics/pendulum/plugin';
+} from '../packages/plugins/src/builtin/physics/pendulum/plugin';
+import { parseMask } from '../packages/plugins/src/builtin/physics/fluid/plugin';
+import { parseGrid, parseWaveData, resampleGrid } from '../packages/plugins/src/builtin/physics/wave/plugin';
+import { parsePendulumIC } from '../packages/plugins/src/builtin/physics/pendulum/plugin';
 
 // ---- Fluid (LBM D2Q9) -------------------------------------------------------
 

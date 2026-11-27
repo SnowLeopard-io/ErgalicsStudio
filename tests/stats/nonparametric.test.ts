@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dunnPostHoc, kruskalWallis } from '@/core/stats/nonparametric';
+import { dunnPostHoc, kruskalWallis } from '@ergalics/sci-kernels/stats/nonparametric';
 
 describe('stats/nonparametric — Kruskal–Wallis', () => {
   it('computes H on completely separated groups', () => {

@@ -13,7 +13,7 @@ import { latexPreviewBody, renderLatex } from '@/core/publish/latex';
 import { buildManuscriptPdf, buildTextPdf } from '@/core/publish/pdf';
 
 const fontBytes = readFileSync(
-  fileURLToPath(new URL('../public/fonts/DroidSansFallback.ttf', import.meta.url)),
+  fileURLToPath(new URL('../apps/studio/public/fonts/DroidSansFallback.ttf', import.meta.url)),
 );
 
 function pdfText(bytes: Uint8Array): string {

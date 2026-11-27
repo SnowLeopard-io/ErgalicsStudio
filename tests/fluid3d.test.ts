@@ -20,15 +20,15 @@ import {
   packLbm3dParams,
   stepCPU3D,
   wakeSurvey3D,
-} from '@/plugins/builtin/physics/fluid3d/lbm3d';
+} from '../packages/plugins/src/builtin/physics/fluid3d/lbm3d';
 import {
   countSolidCells,
   frontalAreaCells,
   planFit,
   rayTriangleX,
   voxelizeGeometry,
-} from '@/plugins/builtin/physics/fluid3d/geometry3d';
-import { PRESETS, presetById, type PresetId } from '@/plugins/builtin/physics/fluid3d/presets';
+} from '../packages/plugins/src/builtin/physics/fluid3d/geometry3d';
+import { PRESETS, presetById, type PresetId } from '../packages/plugins/src/builtin/physics/fluid3d/presets';
 import {
   MULTI_SLICE_FRACTIONS,
   MultiSliceField,
@@ -38,8 +38,8 @@ import {
   speedColors,
   speedRamp,
   vorticityRamp,
-} from '@/plugins/builtin/physics/fluid3d/render3d';
-import { findBuiltin } from '@/plugins/builtin';
+} from '../packages/plugins/src/builtin/physics/fluid3d/render3d';
+import { findBuiltin } from '@ergalics/plugins/builtin';
 
 describe('fluid3d manifest', () => {
   it('is registered as a builtin plugin (resolvable by findBuiltin)', () => {

@@ -15,23 +15,23 @@ import {
   fluidCollideKernelWGSL,
   fluidMacroCPU,
   fluidStepCPU,
-} from '@/core/wgsl';
-import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
-import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
-import { FluidPlugin } from '@/plugins/builtin/physics/fluid/plugin';
-import { ParticlePlugin } from '@/plugins/builtin/physics/particles/plugin';
-import { WavePlugin } from '@/plugins/builtin/physics/wave/plugin';
-import { DoublePendulumPlugin } from '@/plugins/builtin/physics/pendulum/plugin';
-import { StructurePlugin } from '@/plugins/builtin/engineering/structure/plugin';
-import { LifePlugin } from '@/plugins/builtin/fun/life/plugin';
-import { ContourPlugin } from '@/plugins/builtin/charts/contour/plugin';
-import { parseTreemapData } from '@/plugins/builtin/charts/treemap/plugin';
-import { parseBoxData } from '@/plugins/builtin/charts/boxPlot/plugin';
+} from '@ergalics/sci-kernels/gpu/wgsl';
+import { ProteinPlugin } from '../packages/plugins/src/builtin/bio/protein/plugin';
+import { NBodyPlugin } from '../packages/plugins/src/builtin/physics/nbody/plugin';
+import { FluidPlugin } from '../packages/plugins/src/builtin/physics/fluid/plugin';
+import { ParticlePlugin } from '../packages/plugins/src/builtin/physics/particles/plugin';
+import { WavePlugin } from '../packages/plugins/src/builtin/physics/wave/plugin';
+import { DoublePendulumPlugin } from '../packages/plugins/src/builtin/physics/pendulum/plugin';
+import { StructurePlugin } from '../packages/plugins/src/builtin/engineering/structure/plugin';
+import { LifePlugin } from '../packages/plugins/src/builtin/fun/life/plugin';
+import { ContourPlugin } from '../packages/plugins/src/builtin/charts/contour/plugin';
+import { parseTreemapData } from '../packages/plugins/src/builtin/charts/treemap/plugin';
+import { parseBoxData } from '../packages/plugins/src/builtin/charts/boxPlot/plugin';
 import { useChunkStore } from '@/stores/chunkStore';
-import { DATA_INGESTED, on } from '@/core/events';
+import { DATA_INGESTED, on } from '@ergalics/plugin-sdk';
 import type { FileEntry } from '@/types/project';
-import type { NBodyBody } from '@/core/wgsl';
-import type { ContainerCapabilities, GpuComputeApi, ParamDefinition, PluginApi } from '@/types/plugin';
+import type { NBodyBody } from '@ergalics/sci-kernels/gpu/wgsl';
+import type { ContainerCapabilities, GpuComputeApi, ParamDefinition, PluginApi } from '@ergalics/plugin-sdk';
 
 // The animation loops schedule frames; node has no rAF.
 beforeAll(() => {

@@ -10,7 +10,7 @@ import { computeStepKey } from '@/core/build/key';
 import { environmentFingerprint, createBuildEnvironment } from '@/core/build/key';
 import type { BuildPlan } from '@/core/build/plan';
 import type { EncodedValue } from '@/core/build/codec';
-import type { DataValue } from '@/types/datatable';
+import type { DataValue } from '@ergalics/plugin-sdk/types';
 
 const environment = createBuildEnvironment({ appVersion: 'test', schemaVersion: 'v1' });
 const envFingerprint = environmentFingerprint(environment);

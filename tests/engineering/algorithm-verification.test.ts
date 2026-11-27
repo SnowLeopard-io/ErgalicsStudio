@@ -6,7 +6,7 @@
 // ==========================================================================
 
 import { afterAll, describe, expect, it } from 'vitest';
-import { rectStructuredMesh } from '../../src/core/fem/mesh/domain';
+import { rectStructuredMesh } from '@ergalics/sci-kernels/fem/mesh/domain';
 import {
   meshBounds,
   type EngineeringElement,
@@ -17,11 +17,11 @@ import {
   type EngineeringStudy,
   type EngineeringSolveResult,
   makeStudy,
-} from '../../src/core/engineering/types';
-import { makeStep } from '../../src/core/engineering/cases';
-import { solveEngineeringStudy } from '../../src/core/engineering/solve';
-import { solve3DSteadyHeat, Solve3DError } from '../../src/core/engineering/solve3d';
-import { nodeCount, nodeX, nodeY, type PlanarMesh } from '../../src/core/fem/mesh/types';
+} from '../../apps/studio/src/core/engineering/types';
+import { makeStep } from '../../apps/studio/src/core/engineering/cases';
+import { solveEngineeringStudy } from '../../apps/studio/src/core/engineering/solve';
+import { solve3DSteadyHeat, Solve3DError } from '../../apps/studio/src/core/engineering/solve3d';
+import { nodeCount, nodeX, nodeY, type PlanarMesh } from '@ergalics/sci-kernels/fem/mesh/types';
 
 // ---- 精度台账：测试结束时统一打印，便于交付审阅 --------------------------
 

@@ -1,0 +1,420 @@
+// ==========================================================================
+// Ergalics Studio — unified "示例" dialog (datasets + block pipelines)
+//
+// Merges the sample-dataset picker, flow pipelines, block samples, and code
+// samples into one entry point with four tabs. Project data files have their
+// own manager (the shared data window's manage mode) and no longer live here.
+// ==========================================================================
+
+import { useMemo, useRef, useState } from 'react';
+import { useT, useLocale } from '@/i18n';
+import { Modal } from '@/components/Modal';
+import {
+  BUILTIN_EXAMPLES,
+  exampleToFile,
+  exampleName,
+  exampleDescription,
+  type BuiltinExample,
+} from '@/core/examples';
+import { findBuiltin } from '@/core/plugin-host/pack-registry';
+import { PLUGIN_DISCIPLINES, disciplineOf } from '@/core/plugin-host/pack-registry';
+import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
+import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { flowToIR } from '@/editor/flow/convert';
+import { SAMPLE_PIPELINES, sampleDescription, sampleName } from '@/blocks/sample';
+import {
+  BLOCK_SAMPLES,
+  sampleProgram,
+  sampleName as blockSampleName,
+  sampleDescription as blockSampleDescription,
+} from '@/editor/block/samples';
+import {
+  CODE_SAMPLES,
+  codeSampleName,
+  codeSampleDescription,
+} from '@/editor/code/samples';
+import { parseCodeToIR } from '@/editor/code/parse';
+import { logger } from '@ergalics/plugin-sdk';
+import { INDUSTRIAL_EXAMPLES } from '@/core/engineering/examples';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+
+interface DataDialogProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+// Example categories for the datasets tab's left-hand type selector.
+// Samples follow the plugin discipline taxonomy (charts / math / physics /
+// chem / bio / geo / data / fun) so the dialog's grouping matches the
+// sidebar's plugin groups.
+const EXAMPLE_CATS: { id: string; nameI18n: Record<string, string> }[] = [
+  ...PLUGIN_DISCIPLINES,
+];
+
+export function DataDialog({ open, onClose }: DataDialogProps) {
+  const t = useT();
+  const { locale } = useLocale();
+  const notify = useAppStore((s) => s.notify);
+  const [tab, setTab] = useState<'datasets' | 'industrial' | 'pipeline' | 'blocks' | 'code'>('datasets');
+  // A plain object literal here would be recreated on every render, making the
+  // re-entrancy guard below useless (double-click would launch two loads).
+  const loadingRef = useRef(false);
+
+  const loadExample = async (id: string) => {
+    const ex = BUILTIN_EXAMPLES.find((e) => e.id === id);
+    if (!ex || loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const store = usePluginStore.getState();
+      if (!store.isLoaded(ex.pluginId)) {
+        const info = findBuiltin(ex.pluginId);
+        if (!info) throw new Error(`unknown builtin plugin ${ex.pluginId}`);
+        const plugin = await info.load();
+        await store.load(plugin);
+      }
+      const current = usePluginStore.getState();
+      if (current.activeId !== ex.pluginId) {
+        await current.activate(ex.pluginId);
+      }
+      // 示例数据激活了插件，画布应切换到插件视图：切到插件标签（已打开
+      // 的文件/套件标签保留，可随时切回），避免停留在上次的预览区域。
+      useAppStore.getState().showPluginCanvas();
+      const plugin = usePluginStore
+        .getState()
+        .registry.find((e) => e.id === ex.pluginId)?.plugin;
+      const content = ex.loadContent ? await ex.loadContent() : ex.content;
+      await plugin?.loadData?.(exampleToFile(ex, content));
+      // The import stops any running simulation and may change the plugin's
+      // parameter set — tell the panel to re-read its definitions so the
+      // Start/Stop toggle reflects the halted run.
+      refreshParamDefs(ex.pluginId);
+      notify('success', t('workbench.example_data.loaded'));
+      onClose();
+    } catch (err) {
+      logger.error('example', `load failed ${id}`, err);
+      notify('error', `${t('workbench.example_data.load_failed')}: ${String(err)}`);
+    } finally {
+      loadingRef.current = false;
+    }
+  };
+
+  /**
+   * Industrial samples build a complete EngineeringStudy (mesh + material +
+   * step + BCs) and hand it to the industrial store, then open the mesh
+   * viewer so the imported model is immediately visible.
+   */
+  const loadIndustrialExample = async (id: string) => {
+    const example = INDUSTRIAL_EXAMPLES.find((item) => item.id === id);
+    // Same re-entrancy guard as loadExample: a double-click must not build
+    // two projects / studies.
+    if (!example || loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      // Industrial tools are project-bound: give the sample a project when the
+      // workbench is still empty, so it opens instead of an EmptyProject gate.
+      if (!useProjectStore.getState().project) {
+        await useProjectStore.getState().createProject('');
+      }
+      useEngineeringStore.getState().setStudy(example.build());
+      const app = useAppStore.getState();
+      app.setMode('standard');
+      app.setSidebarView('industrial');
+      app.setEmbeddedTool(example.toolId ?? 'mesh-viewer');
+      notify('success', t('industrial.example_loaded', {
+        name: example.nameI18n[locale] ?? example.nameI18n['en-US'],
+      }));
+      onClose();
+    } finally {
+      loadingRef.current = false;
+    }
+  };
+
+  /**
+   * Open a sample in a tab of its own.
+   *
+   * A sample used to be loaded into the session that happened to be active,
+   * so opening one replaced the content of the file the user was editing —
+   * the file's tab showed the sample, and the sample's text could even be
+   * mirrored back into that file. A sample now gets its OWN session (no
+   * `filePath`, so nothing is ever written back to the workspace) and its own
+   * tab, and the file's tab keeps its content.
+   */
+  const openSample = (
+    mode: 'code' | 'block' | 'flow',
+    sessionId: string,
+    label: string,
+  ): void => {
+    useEditorStore.getState().setActiveSession(sessionId);
+    useAppStore.getState().openSampleTab({ mode, sessionId, label });
+  };
+
+  const loadPipeline = (id: string) => {
+    const sample = SAMPLE_PIPELINES.find((s) => s.id === id);
+    if (!sample) return;
+    // The flow canvas is a single global DAG, so the sample goes into a
+    // session of its own: the open flow file keeps its graph, and switching
+    // back to it re-hydrates that graph (useFlowSync).
+    const sid = useEditorStore.getState().createSession('block', 'python').id;
+    useEditorStore.getState().updateSessionIR(sid, flowToIR(sample.graph));
+    useEditorStore.getState().requestFlowLoad(sample.graph);
+    openSample('flow', sid, sampleName(sample, locale));
+    notify('success', t('workbench.example.pipeline_loaded', { name: sampleName(sample, locale) }));
+    onClose();
+  };
+
+  const loadBlockSample = (id: string) => {
+    const sample = BLOCK_SAMPLES.find((s) => s.id === id);
+    if (!sample) return;
+    const program = sampleProgram(sample);
+    // A fresh session of its own: the sample never overwrites the user's
+    // active work, and the sample dialog is a "start from here", not a
+    // replace.
+    const sid = useEditorStore.getState().createSession('block', 'python').id;
+    useEditorStore.getState().updateSessionIR(sid, program);
+    // Drop the previous run's results (variables/console/error) and any stale
+    // preview frame so loading a second sample never shows the first one's
+    // output before the user re-runs.
+    useEditorStore.getState().resetRunOutputs();
+    openSample('block', sid, blockSampleName(sample, locale));
+    notify('success', t('workbench.example.pipeline_loaded', { name: blockSampleName(sample, locale) }));
+    onClose();
+  };
+
+  const loadCodeSample = (id: string) => {
+    const sample = CODE_SAMPLES.find((s) => s.id === id);
+    if (!sample) return;
+    // Parse the sample text into the IR hub so switching languages later can
+    // actually translate it (an empty IR would make every switch silently
+    // keep the current text). The editor shows the sample text on activation.
+    const { program } = parseCodeToIR(sample.python, 'python');
+    const sid = useEditorStore.getState().createSession('code', 'python').id;
+    useEditorStore.getState().updateSessionIR(sid, program, sample.python);
+    // Drop the previous run's results so a second sample never shows the
+    // first one's output before the user re-runs.
+    useEditorStore.getState().resetRunOutputs();
+    openSample('code', sid, codeSampleName(sample, locale));
+    notify('success', t('workbench.example.pipeline_loaded', { name: codeSampleName(sample, locale) }));
+    onClose();
+  };
+
+  // Bucket the samples into the left-nav categories above. Empty categories
+  // are dropped, and the selection defaults to the first visible one.
+  const { exampleCats, catMap, firstCat } = useMemo(() => {
+    const map: Record<string, BuiltinExample[]> = {};
+    for (const ex of BUILTIN_EXAMPLES) {
+      const cat = ex.group ?? disciplineOf(ex.pluginId);
+      (map[cat] ??= []).push(ex);
+    }
+    const visible = EXAMPLE_CATS.filter((c) => (map[c.id]?.length ?? 0) > 0);
+    return { exampleCats: visible, catMap: map, firstCat: visible[0]?.id ?? '' };
+  }, []);
+  const [activeCat, setActiveCat] = useState<string>(firstCat);
+
+  const renderExampleCard = (ex: BuiltinExample) => (
+    <div key={ex.id} className="plugin-card" data-example-id={ex.id}>
+      <div className="plugin-card-main">
+        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : ex.group === 'chem' ? '⚗' : ex.group === 'materials' ? '⬢' : '▦'}</span>
+        <div className="plugin-card-info">
+          <div className="plugin-card-title">{exampleName(ex, locale)}</div>
+          <div className="plugin-card-meta">{exampleDescription(ex, locale)}</div>
+          <div className="example-data-tags">
+            <span className="tag tag-muted">{ex.filename}</span>
+            <span className="tag tag-primary">{ex.format}</span>
+            <span className="tag tag-muted">{ex.pluginId}</span>
+          </div>
+        </div>
+      </div>
+      <div className="plugin-card-actions">
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={() => void loadExample(ex.id)}
+        >
+          {t('workbench.example_data.load')}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('workbench.example.title')}
+      width={760}
+      footer={
+        <button type="button" className="btn" onClick={onClose}>
+          {t('common.close')}
+        </button>
+      }
+    >
+      <div className="data-dialog">
+        <div className="data-dialog-tabs">
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'datasets' ? ' is-active' : ''}`}
+            onClick={() => setTab('datasets')}
+          >
+            {t('workbench.example.datasets')}
+          </button>
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'industrial' ? ' is-active' : ''}`}
+            onClick={() => setTab('industrial')}
+          >
+            {t('workbench.example.industrial')}
+          </button>
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'pipeline' ? ' is-active' : ''}`}
+            onClick={() => setTab('pipeline')}
+          >
+            {t('workbench.example.pipelines')}
+          </button>
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'blocks' ? ' is-active' : ''}`}
+            onClick={() => setTab('blocks')}
+          >
+            {t('workbench.example.blocks')}
+          </button>
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'code' ? ' is-active' : ''}`}
+            onClick={() => setTab('code')}
+          >
+            {t('workbench.example.code_samples')}
+          </button>
+        </div>
+
+        {tab === 'datasets' ? (
+          <div className="example-layout">
+            <div className="example-cat-list">
+              {exampleCats.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`example-cat${activeCat === cat.id ? ' is-active' : ''}`}
+                  data-example-cat={cat.id}
+                  onClick={() => setActiveCat(cat.id)}
+                >
+                  <span className="example-cat-name">
+                    {cat.nameI18n[locale] ?? cat.nameI18n['en-US']}
+                  </span>
+                  <span className="example-cat-count">{catMap[cat.id]?.length ?? 0}</span>
+                </button>
+              ))}
+            </div>
+            <div className="plugin-list-pane example-list-pane stagger">
+              {(catMap[activeCat] ?? []).map(renderExampleCard)}
+              {(catMap[activeCat] ?? []).length === 0 && (
+                <div className="empty-hint">{t('workbench.plugin.none')}</div>
+              )}
+            </div>
+          </div>
+        ) : tab === 'industrial' ? (
+          <div className="plugin-list-pane stagger">
+            {INDUSTRIAL_EXAMPLES.map((example) => (
+              <div key={example.id} className="plugin-card" data-example-id={example.id}>
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">▦</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">
+                      {example.nameI18n[locale] ?? example.nameI18n['en-US']}
+                    </div>
+                    <div className="plugin-card-meta">
+                      {example.descriptionI18n[locale] ?? example.descriptionI18n['en-US']}
+                    </div>
+                    <div className="example-data-tags">
+                      <span className="tag tag-primary">{example.format}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => void loadIndustrialExample(example.id)}
+                  >
+                    {t('common.load')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : tab === 'pipeline' ? (
+          <div className="plugin-list-pane stagger">
+            {SAMPLE_PIPELINES.map((sample) => (
+              <div key={sample.id} className="plugin-card">
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">▣</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">{sampleName(sample, locale)}</div>
+                    <div className="plugin-card-meta">{sampleDescription(sample, locale)}</div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => loadPipeline(sample.id)}
+                  >
+                    {t('common.load')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : tab === 'blocks' ? (
+          <div className="plugin-list-pane">
+            {BLOCK_SAMPLES.map((sample) => (
+              <div key={sample.id} className="plugin-card">
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">◈</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">{blockSampleName(sample, locale)}</div>
+                    <div className="plugin-card-meta">{blockSampleDescription(sample, locale)}</div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => loadBlockSample(sample.id)}
+                  >
+                    {t('common.load')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="plugin-list-pane">
+            {CODE_SAMPLES.map((sample) => (
+              <div key={sample.id} className="plugin-card">
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">▣</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">{codeSampleName(sample, locale)}</div>
+                    <div className="plugin-card-meta">{codeSampleDescription(sample, locale)}</div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => loadCodeSample(sample.id)}
+                  >
+                    {t('common.load')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}

@@ -6,8 +6,8 @@
 // ==========================================================================
 
 import { describe, it, expect } from 'vitest';
-import { createDataTable } from '@/types/datatable';
-import type { ColumnSpec, DataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
+import type { ColumnSpec, DataTable } from '@ergalics/plugin-sdk/types';
 import type { BlockDefinition } from '@/blocks/catalog/types';
 import type { DagExecutionContext } from '@/types/dag';
 import { unitConvertBlock, unitCheckBlock } from '@/blocks/catalog/units';

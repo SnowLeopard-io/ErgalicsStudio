@@ -5,20 +5,20 @@ import {
   spectrum,
   welch,
   peakFrequency,
-} from '@/core/signal/fft';
+} from '@ergalics/sci-kernels/signal/fft';
 import {
   makeWindow,
   applyWindow,
   windowCoherentGain,
-} from '@/core/signal/window';
+} from '@ergalics/sci-kernels/signal/window';
 import {
   savitzkyGolay,
   savitzkyGolayCoeffs,
   movingAverage,
   diff,
-} from '@/core/signal/filter';
-import { acf, pacf, whiteNoiseBand } from '@/core/signal/correlation';
-import { decomposeAdditive, suggestPeriod } from '@/core/signal/decompose';
+} from '@ergalics/sci-kernels/signal/filter';
+import { acf, pacf, whiteNoiseBand } from '@ergalics/sci-kernels/signal/correlation';
+import { decomposeAdditive, suggestPeriod } from '@ergalics/sci-kernels/signal/decompose';
 
 const closeTo = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 

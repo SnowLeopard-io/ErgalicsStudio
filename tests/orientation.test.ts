@@ -9,7 +9,7 @@ import {
   lockLandscape,
 } from '@/core/orientation';
 
-const ROOT = fileURLToPath(new URL('../', import.meta.url));
+const ROOT = fileURLToPath(new URL('../apps/studio/', import.meta.url));
 const read = (rel: string) => readFileSync(ROOT + rel, 'utf8');
 
 afterEach(() => {

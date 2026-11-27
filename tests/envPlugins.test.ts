@@ -21,18 +21,18 @@ import {
   surfaceAlbedo,
   surfaceCo2,
   carbonRun,
-} from '@/plugins/builtin/env/shared/envCore';
-import { parseAqiCsv, aqiFigurePanels } from '@/plugins/builtin/env/aqi/plugin';
-import { parseWaterCsv, waterFigurePanels } from '@/plugins/builtin/env/water/plugin';
-import { parseCarbonCsv, carbonFigurePanels } from '@/plugins/builtin/env/carbon/plugin';
-import { parseAbundanceCsv, biodiversityFigurePanels } from '@/plugins/builtin/env/biodiversity/plugin';
+} from '../packages/plugins/src/builtin/env/shared/envCore';
+import { parseAqiCsv, aqiFigurePanels } from '../packages/plugins/src/builtin/env/aqi/plugin';
+import { parseWaterCsv, waterFigurePanels } from '../packages/plugins/src/builtin/env/water/plugin';
+import { parseCarbonCsv, carbonFigurePanels } from '../packages/plugins/src/builtin/env/carbon/plugin';
+import { parseAbundanceCsv, biodiversityFigurePanels } from '../packages/plugins/src/builtin/env/biodiversity/plugin';
 
 import aqiWeekCsv from '../examples/data/env-aqi-week.csv?raw';
 import waterRiverCsv from '../examples/data/env-water-river.csv?raw';
 import biodiversitySitesCsv from '../examples/data/env-biodiversity-sites.csv?raw';
 import carbonPoolsCsv from '../examples/data/env-carbon-pools.csv?raw';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { disciplineOf } from '@/plugins/categories';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { disciplineOf } from '@ergalics/plugins/categories';
 import { BUILTIN_EXAMPLES } from '@/core/examples';
 
 const closeTo = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;

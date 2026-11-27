@@ -14,7 +14,7 @@ import {
   TOLERANCE_GPU,
   type ReproLock,
 } from '@/core/repro/lock';
-import { createRunRecord, type RunRecord } from '@/core/experiment/record';
+import { createRunRecord, type RunRecord } from '@ergalics/plugin-sdk/types';
 import { currentAppVersion } from '@/core/citation';
 import { createEmptyProject, type Project } from '@/types/project';
 

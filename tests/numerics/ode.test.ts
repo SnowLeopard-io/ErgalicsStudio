@@ -1,7 +1,7 @@
 // Numerics ODE solvers — reference-solution, order and robustness tests.
 import { describe, it, expect } from 'vitest';
-import { NumericsError } from '../../src/core/numerics/errors';
-import { solveODE, solveBDF, solveRadau } from '../../src/core/numerics/ode';
+import { NumericsError } from '../../apps/studio/src/core/numerics/errors';
+import { solveODE, solveBDF, solveRadau } from '../../apps/studio/src/core/numerics/ode';
 
 interface Span {
   t: number[];

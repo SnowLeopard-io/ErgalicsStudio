@@ -6,7 +6,7 @@ import {
   reportEpidemic,
   simulateEpidemic,
   type ModelConfig,
-} from '../src/plugins/builtin/med/epidemic/epidemic';
+} from '../packages/plugins/src/builtin/med/epidemic/epidemic';
 
 function cfg(over: Partial<ModelConfig> = {}): ModelConfig {
   return { ...DEFAULT_CONFIG, ...over };
