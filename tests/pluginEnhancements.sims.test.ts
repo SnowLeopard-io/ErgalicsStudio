@@ -13,19 +13,19 @@
 //
 // ai-training cannot run tf.js in node, so its history is injected directly.
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
-import { FluidPlugin } from '@/plugins/builtin/physics/fluid/plugin';
-import { WavePlugin } from '@/plugins/builtin/physics/wave/plugin';
-import { DoublePendulumPlugin } from '@/plugins/builtin/physics/pendulum/plugin';
-import { AITrainingPlugin } from '@/plugins/builtin/data/ai-training/plugin';
-import { ElectromagPlugin } from '@/plugins/builtin/physics/electromag/plugin';
-import { OpticsPlugin } from '@/plugins/builtin/physics/optics/plugin';
-import { StructurePlugin } from '@/plugins/builtin/engineering/structure/plugin';
-import { PointCloudPlugin } from '@/plugins/builtin/charts/pointCloud/plugin';
-import { PointCloud3DPlugin } from '@/plugins/builtin/charts/pointCloud3D/plugin';
-import { ParticlePlugin } from '@/plugins/builtin/physics/particles/plugin';
-import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
-import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import { NBodyPlugin } from '../packages/plugins/src/builtin/physics/nbody/plugin';
+import { FluidPlugin } from '../packages/plugins/src/builtin/physics/fluid/plugin';
+import { WavePlugin } from '../packages/plugins/src/builtin/physics/wave/plugin';
+import { DoublePendulumPlugin } from '../packages/plugins/src/builtin/physics/pendulum/plugin';
+import { AITrainingPlugin } from '../packages/plugins/src/builtin/data/ai-training/plugin';
+import { ElectromagPlugin } from '../packages/plugins/src/builtin/physics/electromag/plugin';
+import { OpticsPlugin } from '../packages/plugins/src/builtin/physics/optics/plugin';
+import { StructurePlugin } from '../packages/plugins/src/builtin/engineering/structure/plugin';
+import { PointCloudPlugin } from '../packages/plugins/src/builtin/charts/pointCloud/plugin';
+import { PointCloud3DPlugin } from '../packages/plugins/src/builtin/charts/pointCloud3D/plugin';
+import { ParticlePlugin } from '../packages/plugins/src/builtin/physics/particles/plugin';
+import { ProteinPlugin } from '../packages/plugins/src/builtin/bio/protein/plugin';
+import type { ParamDefinition, Plugin, PluginApi } from '@ergalics/plugin-sdk';
 
 type MockFn = ReturnType<typeof vi.fn>;
 

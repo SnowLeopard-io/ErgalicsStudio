@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
-const GLOBAL_CSS = readFileSync(join(ROOT, 'src', 'styles', 'global.css'), 'utf8');
+const GLOBAL_CSS = readFileSync(join(ROOT, 'apps', 'studio', 'src', 'styles', 'global.css'), 'utf8');
 
 function themeVars(theme: 'dark' | 'light'): Record<string, string> {
   const marker = `:root[data-theme='${theme}']`;

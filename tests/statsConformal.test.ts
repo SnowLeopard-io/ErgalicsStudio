@@ -6,7 +6,7 @@ import {
   generateDataset,
   normInv,
   runConformal,
-} from '@/plugins/builtin/stats/conformal/kernel';
+} from '../packages/plugins/src/builtin/stats/conformal/kernel';
 
 describe('conformal primitives', () => {
   it('returns the finite-sample order statistic', () => {

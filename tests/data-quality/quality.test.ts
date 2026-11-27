@@ -14,7 +14,7 @@ import {
   makeMissingChecker,
 } from '@/core/data-quality';
 import type { Row, TableExpectations } from '@/core/data-quality';
-import { createDataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
 
 const rows: Row[] = [
   { id: 1, age: 25, city: 'A', score: 0.5 },

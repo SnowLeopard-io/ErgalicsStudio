@@ -12,7 +12,7 @@ import {
   parseSequenceJson,
   parseSequenceTable,
   revcomp,
-} from '../src/plugins/builtin/bio/seqalign/align';
+} from '../packages/plugins/src/builtin/bio/seqalign/align';
 
 const blosum = makeMatrix('BLOSUM62');
 const nuc = makeMatrix('NUC.4.4');

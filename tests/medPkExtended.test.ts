@@ -24,7 +24,7 @@ import {
   twoCompOralAmount,
   type PkParams,
   type TdmObservation,
-} from '../src/plugins/builtin/med/pk/kernel';
+} from '../packages/plugins/src/builtin/med/pk/kernel';
 
 const BASE: PkParams = {
   model: 'one-compartment',

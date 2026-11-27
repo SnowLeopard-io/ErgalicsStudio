@@ -4,8 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildLineage } from '@/core/lineage/graph';
 import type { LineageFile, LineageGraph } from '@/core/lineage/graph';
-import type { RunRecord } from '@/core/experiment/record';
-import type { PluginRunRecord } from '@/types/plugin';
+import type { RunRecord } from '@ergalics/plugin-sdk/types';
+import type { PluginRunRecord } from '@ergalics/plugin-sdk';
 import {
   annotateVersions,
   computeLineageStats,

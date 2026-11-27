@@ -2,9 +2,9 @@
 // PRD CFD-03: the geometry/scale helpers in render.ts are pure & exported,
 // so the front-end keeps parity with the eigensolver plugin's test coverage.
 import { describe, it, expect } from 'vitest';
-import { domainOf, normT, toMs } from '@/plugins/builtin/physics/cfd-coupler/render';
-import { findBuiltin } from '@/plugins/builtin';
-import type { FluidWindowRecord } from '@/plugins/builtin/physics/cfd-coupler/types';
+import { domainOf, normT, toMs } from '../packages/plugins/src/builtin/physics/cfd-coupler/render';
+import { findBuiltin } from '@ergalics/plugins/builtin';
+import type { FluidWindowRecord } from '../packages/plugins/src/builtin/physics/cfd-coupler/types';
 
 describe('fluid-cfd-coupler manifest', () => {
   it('is registered as a builtin plugin (resolvable by findBuiltin)', () => {

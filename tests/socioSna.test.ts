@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mulberry32 } from '../src/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 import {
   SNA_KNOWN_GRAPH,
   burtConstraint,
@@ -28,9 +28,9 @@ import {
   runSnaBenchmark,
   starGraph,
   betweennessCentrality,
-} from '../src/plugins/builtin/socio/sna/kernel';
-import { snaFigurePanels } from '../src/plugins/builtin/socio/sna/figure';
-import { snaManifest } from '../src/plugins/builtin/socio/sna/manifest';
+} from '../packages/plugins/src/builtin/socio/sna/kernel';
+import { snaFigurePanels } from '../packages/plugins/src/builtin/socio/sna/figure';
+import { snaManifest } from '../packages/plugins/src/builtin/socio/sna/manifest';
 
 const knownEdges = SNA_KNOWN_GRAPH.edges.map(([u, v]) => ({ source: u, target: v, weight: 1 }));
 const knownGraph = buildGraph(SNA_KNOWN_GRAPH.n, knownEdges, false);

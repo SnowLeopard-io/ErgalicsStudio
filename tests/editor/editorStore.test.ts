@@ -1,7 +1,7 @@
 // Editor store tests — session lifecycle + JSON round-trip + dirty event.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useEditorStore, EDITOR_STATE_CHANGED } from '@/stores/editorStore';
-import { on } from '@/core/events';
+import { on } from '@ergalics/plugin-sdk';
 import { makeProgram } from '@/editor/ir';
 import type { EditorSession } from '@/types/editor';
 import type { BlockGraphState } from '@/types/block';

@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { lazyRetry, retryImport, ChunkLoadError, isChunkLoadError } from '../src/core/lazyRetry';
+import { lazyRetry, retryImport, ChunkLoadError, isChunkLoadError } from '../apps/studio/src/core/lazyRetry';
 
 // retryImport backs off between attempts; fake timers make that deterministic.
 beforeEach(() => vi.useFakeTimers());

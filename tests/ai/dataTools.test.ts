@@ -4,9 +4,9 @@ import { isMutatingTool, isReadOnlyTool } from '@/core/ai/tools/registry';
 import { usePluginStore, setHostContainers } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useDataEditorStore } from '@/stores/dataEditorStore';
-import { sankeyManifest } from '@/plugins/builtin/charts/sankey/manifest';
-import { networkGraphManifest } from '@/plugins/builtin/charts/networkGraph/manifest';
-import type { Plugin } from '@/types/plugin';
+import { sankeyManifest } from '../../packages/plugins/src/builtin/charts/sankey/manifest';
+import { networkGraphManifest } from '../../packages/plugins/src/builtin/charts/networkGraph/manifest';
+import type { Plugin } from '@ergalics/plugin-sdk';
 import type { ToolResult } from '@/core/ai/tools/types';
 
 function textOf(res: ToolResult): string {

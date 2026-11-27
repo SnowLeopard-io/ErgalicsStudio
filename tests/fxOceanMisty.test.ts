@@ -11,21 +11,21 @@ import {
   peakPeriod,
   deepWaterWavelength,
   beaufort,
-} from '@/plugins/builtin/fx/ocean/plugin';
-import { WAVE_COUNT, OCEAN_FRAGMENT } from '@/plugins/builtin/fx/ocean/shader';
-import { oceanManifest } from '@/plugins/builtin/fx/ocean/manifest';
-import { layerDistances } from '@/plugins/builtin/fx/misty/plugin';
-import { MISTY_FRAGMENT } from '@/plugins/builtin/fx/misty/shader';
-import { mistyManifest } from '@/plugins/builtin/fx/misty/manifest';
+} from '../packages/plugins/src/builtin/fx/ocean/plugin';
+import { WAVE_COUNT, OCEAN_FRAGMENT } from '../packages/plugins/src/builtin/fx/ocean/shader';
+import { oceanManifest } from '../packages/plugins/src/builtin/fx/ocean/manifest';
+import { layerDistances } from '../packages/plugins/src/builtin/fx/misty/plugin';
+import { MISTY_FRAGMENT } from '../packages/plugins/src/builtin/fx/misty/shader';
+import { mistyManifest } from '../packages/plugins/src/builtin/fx/misty/manifest';
 import {
   airmassKastenYoung,
   twilightClass,
   koschmiederVisibility,
   hazeToExtinction,
   sunDiskTint,
-} from '@/core/raytrace';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { disciplineOf } from '@/plugins/categories';
+} from '@ergalics/sci-kernels/raytrace';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { disciplineOf } from '@ergalics/plugins/categories';
 import { BUILTIN_EXAMPLES } from '@/core/examples';
 
 describe('fx.ocean — Pierson–Moskowitz sea-state kernel', () => {

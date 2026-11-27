@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bartlettTest, cronbachAlpha, itemTotalTests, kmo } from '@/core/stats/psychometrics';
+import { bartlettTest, cronbachAlpha, itemTotalTests, kmo } from '@ergalics/sci-kernels/stats/psychometrics';
 
 describe('stats/psychometrics — Cronbach alpha', () => {
   it('is 1 when every item measures the same thing exactly', () => {

@@ -16,7 +16,7 @@ import {
   sequentialBoundaries,
   valuesByArm,
   welchTwoSample,
-} from '../src/plugins/builtin/med/biostat/stats';
+} from '../packages/plugins/src/builtin/med/biostat/stats';
 
 // Tolerances: closed-form textbook values are matched to 4-5 digits; the
 // sequential-boundary recursion is matched to ~0.01-0.05 (grid integration).

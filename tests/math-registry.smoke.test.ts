@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
 
 const MATH_IDS = [
   'example.math-linalg',

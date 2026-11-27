@@ -6,9 +6,9 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { rectStructuredMesh } from '../../src/core/fem/mesh/domain';
-import { solveElasticity, UNIAXIAL_BAR_CASE } from '../../src/core/fem/physics/elasticity';
-import { nodeX, nodeY } from '../../src/core/fem/mesh/types';
+import { rectStructuredMesh } from '@ergalics/sci-kernels/fem/mesh/domain';
+import { solveElasticity, UNIAXIAL_BAR_CASE } from '@ergalics/sci-kernels/fem/physics/elasticity';
+import { nodeX, nodeY } from '@ergalics/sci-kernels/fem/mesh/types';
 
 const { sigma0, E, nu } = UNIAXIAL_BAR_CASE;
 

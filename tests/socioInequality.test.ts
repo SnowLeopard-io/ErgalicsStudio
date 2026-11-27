@@ -19,7 +19,7 @@ import {
   simulateMobility,
   theilIndex,
   type LorenzPoint,
-} from '../src/plugins/builtin/socio/inequality/kernel';
+} from '../packages/plugins/src/builtin/socio/inequality/kernel';
 
 describe('socio-inequality kernel (Gini / Lorenz / Palma / Theil / Atkinson)', () => {
   it('computes exact Ginis on hand-checked tiny populations', () => {

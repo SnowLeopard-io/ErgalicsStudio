@@ -8,7 +8,7 @@ import path from 'node:path';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const citationSrc = readFileSync(path.join(ROOT, 'src', 'core', 'citation.ts'), 'utf8');
+const citationSrc = readFileSync(path.join(ROOT, 'apps', 'studio', 'src', 'core', 'citation.ts'), 'utf8');
 
 // Extract the CITATION_META object literal to avoid matching prose in comments.
 const metaMatch = /export const CITATION_META = \{([\s\S]*?)\} as const;/.exec(citationSrc);

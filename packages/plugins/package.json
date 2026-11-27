@@ -1,0 +1,31 @@
+{
+  "name": "@ergalics/plugins",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ergalics Studio Official Built-in Plugin Pack (zero host coupling, extraction-ready)",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./builtin": "./src/builtin/index.ts",
+    "./categories": "./src/categories.ts",
+    "./marketplace": "./src/marketplace.ts",
+    "./demo-packages": "./src/marketplace-demo-packages.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ergalics/plugin-sdk": "workspace:*",
+    "@ergalics/plugin-signing": "workspace:*",
+    "@ergalics/sci-kernels": "workspace:*",
+    "@tensorflow/tfjs": "^4.22.0",
+    "fflate": "^0.8.2",
+    "pyodide": "^314.0.8",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "typescript": "~5.7.2"
+  }
+}

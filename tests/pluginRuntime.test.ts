@@ -2,7 +2,7 @@
 // cache, and the pluginStore lifecycle fixes (unload → deactivate, snapshot
 // resilience, run history).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { logger, configureLogger } from '@/core/logger';
+import { logger, configureLogger } from '@ergalics/plugin-sdk';
 import {
   createPluginCache,
   disposePluginCache,
@@ -10,8 +10,8 @@ import {
   setPluginCacheCap,
 } from '@/core/pluginCache';
 import { downloadBlob } from '@/core/download';
-import { on, emit } from '@/core/events';
-import type { ParamDefinition, Plugin, PluginApi, PluginManifest } from '@/types/plugin';
+import { on, emit } from '@ergalics/plugin-sdk';
+import type { ParamDefinition, Plugin, PluginApi, PluginManifest } from '@ergalics/plugin-sdk';
 
 // The project store needs IndexedDB; the plugin store only reads/writes
 // parameters through it.

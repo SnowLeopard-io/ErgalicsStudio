@@ -12,15 +12,15 @@
 // ==========================================================================
 
 import { describe, it, expect, vi } from 'vitest';
-import { ScatterPlugin } from '@/plugins/builtin/charts/scatter/plugin';
-import { TimeSeriesPlugin } from '@/plugins/builtin/charts/timeSeries/plugin';
-import { HistogramPlugin } from '@/plugins/builtin/charts/histogram/plugin';
-import { BoxPlotPlugin } from '@/plugins/builtin/charts/boxPlot/plugin';
-import { HeatmapPlugin } from '@/plugins/builtin/charts/heatmap/plugin';
-import { ContourPlugin } from '@/plugins/builtin/charts/contour/plugin';
-import { ErrorBandPlugin } from '@/plugins/builtin/charts/errorband/plugin';
-import { QQPlotPlugin } from '@/plugins/builtin/charts/qqplot/plugin';
-import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import { ScatterPlugin } from '../packages/plugins/src/builtin/charts/scatter/plugin';
+import { TimeSeriesPlugin } from '../packages/plugins/src/builtin/charts/timeSeries/plugin';
+import { HistogramPlugin } from '../packages/plugins/src/builtin/charts/histogram/plugin';
+import { BoxPlotPlugin } from '../packages/plugins/src/builtin/charts/boxPlot/plugin';
+import { HeatmapPlugin } from '../packages/plugins/src/builtin/charts/heatmap/plugin';
+import { ContourPlugin } from '../packages/plugins/src/builtin/charts/contour/plugin';
+import { ErrorBandPlugin } from '../packages/plugins/src/builtin/charts/errorband/plugin';
+import { QQPlotPlugin } from '../packages/plugins/src/builtin/charts/qqplot/plugin';
+import type { ParamDefinition, Plugin, PluginApi } from '@ergalics/plugin-sdk';
 
 function fakeApi() {
   const exportFile = vi.fn();

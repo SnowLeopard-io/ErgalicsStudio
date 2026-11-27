@@ -7,8 +7,8 @@ import {
   hashTable,
   hashValue,
 } from '@/core/build/hash';
-import { createDataTable } from '@/types/datatable';
-import type { Dataset } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
+import type { Dataset } from '@ergalics/plugin-sdk/types';
 
 function table(id = 't1', x = [1, 2, 3], unit?: string) {
   return createDataTable(id, [

@@ -1,9 +1,9 @@
 // Unit tests for the new data plugins' pure parsing helpers:
 // error-band rows, treemap hierarchy, QQ numeric column + probit.
 import { describe, it, expect } from 'vitest';
-import { parseBandData } from '@/plugins/builtin/charts/errorband/plugin';
-import { parseTreemapData } from '@/plugins/builtin/charts/treemap/plugin';
-import { parseNumericColumn, probit } from '@/plugins/builtin/charts/qqplot/plugin';
+import { parseBandData } from '../packages/plugins/src/builtin/charts/errorband/plugin';
+import { parseTreemapData } from '../packages/plugins/src/builtin/charts/treemap/plugin';
+import { parseNumericColumn, probit } from '../packages/plugins/src/builtin/charts/qqplot/plugin';
 
 describe('parseBandData', () => {
   it('parses symmetric x,y,err rows', () => {

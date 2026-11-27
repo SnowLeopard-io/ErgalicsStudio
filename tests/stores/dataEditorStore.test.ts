@@ -3,11 +3,11 @@ import { useDataEditorStore, buildSchemaTemplateText } from '@/stores/dataEditor
 import { usePluginStore } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { resolvePluginDataSchemas } from '@/core/data-schema/presets';
-import { scatterManifest } from '@/plugins/builtin/charts/scatter/manifest';
-import { sankeyManifest } from '@/plugins/builtin/charts/sankey/manifest';
-import { networkGraphManifest } from '@/plugins/builtin/charts/networkGraph/manifest';
-import { statsSurvivalManifest } from '@/plugins/builtin/stats/survival/manifest';
-import type { Plugin } from '@/types/plugin';
+import { scatterManifest } from '../../packages/plugins/src/builtin/charts/scatter/manifest';
+import { sankeyManifest } from '../../packages/plugins/src/builtin/charts/sankey/manifest';
+import { networkGraphManifest } from '../../packages/plugins/src/builtin/charts/networkGraph/manifest';
+import { statsSurvivalManifest } from '../../packages/plugins/src/builtin/stats/survival/manifest';
+import type { Plugin } from '@ergalics/plugin-sdk';
 
 describe('Pilot Plugin Data Schemas & Builtin Bindings', () => {
   it('resolves schemas for all 4 pilot plugins (including signed stats-survival)', () => {

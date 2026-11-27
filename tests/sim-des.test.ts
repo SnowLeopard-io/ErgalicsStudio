@@ -12,7 +12,7 @@ import {
   sampleDist,
   templateNetwork,
   waitHistogram,
-} from '@/plugins/builtin/sim/des/kernel';
+} from '../packages/plugins/src/builtin/sim/des/kernel';
 
 describe('DES distributions', () => {
   it('exponential draws are positive with the right mean', () => {

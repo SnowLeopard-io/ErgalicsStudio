@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { popForecastManifest } from '../src/plugins/builtin/socio/popforecast/manifest';
-import { votingManifest } from '../src/plugins/builtin/socio/voting/manifest';
-import { snaManifest } from '../src/plugins/builtin/socio/sna/manifest';
-import { inequalityManifest } from '../src/plugins/builtin/socio/inequality/manifest';
-import { opinionManifest } from '../src/plugins/builtin/socio/opinion/manifest';
+import { verifyBundledManifestSignature } from '../apps/studio/src/core/plugin-signing';
+import { popForecastManifest } from '../packages/plugins/src/builtin/socio/popforecast/manifest';
+import { votingManifest } from '../packages/plugins/src/builtin/socio/voting/manifest';
+import { snaManifest } from '../packages/plugins/src/builtin/socio/sna/manifest';
+import { inequalityManifest } from '../packages/plugins/src/builtin/socio/inequality/manifest';
+import { opinionManifest } from '../packages/plugins/src/builtin/socio/opinion/manifest';
 
 const signed = [
   ['socio-popforecast', popForecastManifest],

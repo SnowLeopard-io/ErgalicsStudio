@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildLineage, layoutDag } from '@/core/lineage/graph';
 import type { LineageLayout } from '@/core/lineage/graph';
-import { createRunRecord } from '@/core/experiment/record';
+import { createRunRecord } from '@ergalics/plugin-sdk/types';
 
 function run(id: string, inputFileIds: string[], label = `run ${id}`) {
   // createRunRecord mints its own UUID; tests override with stable ids.

@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has('--dry-run');
 const fromDist = args.has('--from-dist');
@@ -46,11 +47,11 @@ if (pkg.version !== version) {
 
 // 2. Renderer: the exact same Vite build the web edition ships.
 if (!fromDist) {
-  run(`${npm} run build:web --silent`, root);
+  run(`${pnpm} run build:web`, root);
 }
-const distDir = path.join(root, 'dist');
+const distDir = path.join(root, 'apps', 'studio', 'dist');
 if (!dryRun && !existsSync(path.join(distDir, 'index.html'))) {
-  throw new Error('dist/index.html missing — run the renderer build first');
+  throw new Error('apps/studio/dist/index.html missing — run the renderer build first');
 }
 
 // 3. Stage the renderer where electron-builder expects it.

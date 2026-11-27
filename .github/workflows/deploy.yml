@@ -20,11 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -40,23 +43,23 @@ jobs:
         run: cargo install wasm-bindgen-cli --locked --version 0.2.127
 
       - name: Install frontend deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build WASM core
-        run: npm run build:wasm
+        run: pnpm run build:wasm
 
       - name: Build workstation (app/)
-        run: npm run build:web
+        run: pnpm run build:web
         # The workstation is served under /<repo>/app/, and the VitePress
-        # docs are embedded at dist/docs/ → /<repo>/app/docs/.
+        # docs are embedded at apps/studio/dist/docs/ → /<repo>/app/docs/.
         env:
           DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
 
       - name: Build official website (root)
-        run: npm run build:website
+        run: pnpm run build:website
 
       - name: Merge deploy artifact
-        run: npm run deploy:merge
+        run: pnpm run deploy:merge
 
       - name: Verify merged-site integrity (8 canonical paths)
         run: node scripts/verify-site.mjs

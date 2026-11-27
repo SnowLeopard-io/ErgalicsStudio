@@ -4,7 +4,7 @@ import {
   CircuitError,
   parseNetlist,
   solveMna,
-} from '../src/plugins/builtin/engineering/circuit/kernel';
+} from '../packages/plugins/src/builtin/engineering/circuit/kernel';
 
 /** Unified relative-error yardstick: |computed − analytic| / |analytic|. */
 function relErr(computed: number, analytic: number): number {

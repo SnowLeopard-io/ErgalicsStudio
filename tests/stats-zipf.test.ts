@@ -13,7 +13,7 @@ import {
   synthZipfText,
   tokenize,
   tokenizeEnglish,
-} from '../src/plugins/builtin/math/zipf/kernel';
+} from '../packages/plugins/src/builtin/math/zipf/kernel';
 
 describe('stats-zipf tokenization', () => {
   it('splits on non-letters, lowercases, and skips "#..." comment lines', () => {

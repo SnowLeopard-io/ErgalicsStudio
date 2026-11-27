@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
 import { parseCspkg, loadCspkg, trustedModeAllowedForKey } from '@/core/cspkg';
 import { signPackage, TRUSTED_KEYS } from '@/core/plugin-signing';
-import type { PluginApi, PluginManifest } from '@/types/plugin';
+import type { PluginApi, PluginManifest } from '@ergalics/plugin-sdk';
 
 // storage (IndexedDB) is not available in node; the loader already swallows
 // persistence failures, but we stub it for deterministic behavior.

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { medEcgManifest } from '../src/plugins/builtin/med/ecg/manifest';
-import { medImagingManifest } from '../src/plugins/builtin/med/imaging/manifest';
-import { medBiostatManifest } from '../src/plugins/builtin/med/biostat/manifest';
-import { medGenomicsManifest } from '../src/plugins/builtin/med/genomics/manifest';
+import { verifyBundledManifestSignature } from '../apps/studio/src/core/plugin-signing';
+import { medEcgManifest } from '../packages/plugins/src/builtin/med/ecg/manifest';
+import { medImagingManifest } from '../packages/plugins/src/builtin/med/imaging/manifest';
+import { medBiostatManifest } from '../packages/plugins/src/builtin/med/biostat/manifest';
+import { medGenomicsManifest } from '../packages/plugins/src/builtin/med/genomics/manifest';
 
 const signed = [
   ['med-ecg', medEcgManifest],

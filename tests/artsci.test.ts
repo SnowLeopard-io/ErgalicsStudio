@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { acousticsManifest } from '../src/plugins/builtin/artsci/acoustics/manifest';
-import { tuningManifest } from '../src/plugins/builtin/artsci/tuning/manifest';
-import { synthManifest } from '../src/plugins/builtin/artsci/synth/manifest';
-import { colorScienceManifest } from '../src/plugins/builtin/artsci/color-science/manifest';
-import { runAcousticBenchmarks } from '../src/plugins/builtin/artsci/acoustics/kernel';
-import { runTuningBenchmarks } from '../src/plugins/builtin/artsci/tuning/kernel';
-import { runSynthBenchmarks } from '../src/plugins/builtin/artsci/synth/kernel';
-import { runColorBenchmarks } from '../src/plugins/builtin/artsci/color-science/kernel';
-import { AcousticsPlugin } from '../src/plugins/builtin/artsci/acoustics/plugin';
-import { TuningPlugin } from '../src/plugins/builtin/artsci/tuning/plugin';
-import { SynthPlugin } from '../src/plugins/builtin/artsci/synth/plugin';
-import { ColorSciencePlugin } from '../src/plugins/builtin/artsci/color-science/plugin';
-import { isParamVisible, type ParamDefinition } from '../src/types/plugin';
+import { verifyBundledManifestSignature } from '../apps/studio/src/core/plugin-signing';
+import { acousticsManifest } from '../packages/plugins/src/builtin/artsci/acoustics/manifest';
+import { tuningManifest } from '../packages/plugins/src/builtin/artsci/tuning/manifest';
+import { synthManifest } from '../packages/plugins/src/builtin/artsci/synth/manifest';
+import { colorScienceManifest } from '../packages/plugins/src/builtin/artsci/color-science/manifest';
+import { runAcousticBenchmarks } from '../packages/plugins/src/builtin/artsci/acoustics/kernel';
+import { runTuningBenchmarks } from '../packages/plugins/src/builtin/artsci/tuning/kernel';
+import { runSynthBenchmarks } from '../packages/plugins/src/builtin/artsci/synth/kernel';
+import { runColorBenchmarks } from '../packages/plugins/src/builtin/artsci/color-science/kernel';
+import { AcousticsPlugin } from '../packages/plugins/src/builtin/artsci/acoustics/plugin';
+import { TuningPlugin } from '../packages/plugins/src/builtin/artsci/tuning/plugin';
+import { SynthPlugin } from '../packages/plugins/src/builtin/artsci/synth/plugin';
+import { ColorSciencePlugin } from '../packages/plugins/src/builtin/artsci/color-science/plugin';
+import { isParamVisible, type ParamDefinition } from '@ergalics/plugin-sdk';
 
 const signed = [
   ['acoustics', acousticsManifest],

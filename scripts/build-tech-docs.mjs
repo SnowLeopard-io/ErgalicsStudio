@@ -30,11 +30,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright-core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
+const DOCS_DIR = path.join(ROOT, 'apps', 'docs', 'technical');
 // The product overview is a standalone volume, not part of the technical
 // series: it reads from its own directory and carries its own cover brand,
 // slogan and footnote instead of the series defaults.
-const PRODUCT_DIR = path.join(ROOT, 'docs', 'product');
+const PRODUCT_DIR = path.join(ROOT, 'apps', 'docs', 'product');
 const PRODUCT_SLOGAN = '让科学计算 回归触手可及';
 const PRODUCT_DOCS = {
   'Ergalics-Studio': {

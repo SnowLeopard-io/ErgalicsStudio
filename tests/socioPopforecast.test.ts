@@ -14,7 +14,7 @@ import {
   survivalSchedule,
   totalPopulation,
   type PopForecastParams,
-} from '../src/plugins/builtin/socio/popforecast/kernel';
+} from '../packages/plugins/src/builtin/socio/popforecast/kernel';
 
 const supercritical: PopForecastParams = {
   ...DEFAULT_POP_PARAMS,

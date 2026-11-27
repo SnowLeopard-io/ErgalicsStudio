@@ -15,8 +15,8 @@ import {
   listRuns,
   saveRun,
 } from '@/core/storage';
-import { createRunRecord } from '@/core/experiment/record';
-import type { RunRecord } from '@/core/experiment/record';
+import { createRunRecord } from '@ergalics/plugin-sdk/types';
+import type { RunRecord } from '@ergalics/plugin-sdk/types';
 
 // ---- minimal IndexedDB fake -------------------------------------------------
 

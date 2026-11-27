@@ -14,7 +14,7 @@ import {
   shadowAngularDiameterRad,
   traceGeodesic,
   initialConditionsFromB,
-} from '@/plugins/builtin/fx/blackhole/physics';
+} from '../packages/plugins/src/builtin/fx/blackhole/physics';
 import {
   CFL_MAX_2D,
   shallowWaterSpeed,
@@ -26,13 +26,13 @@ import {
   gerstnerDisplacement,
   gerstnerSteepness,
   type OceanWave,
-} from '@/plugins/builtin/fx/water/physics';
-import { blackholeManifest } from '@/plugins/builtin/fx/blackhole/manifest';
-import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/fx/blackhole/shader';
-import { CLOUD_FRAGMENT } from '@/plugins/builtin/fx/cloud/shader';
-import { waterManifest } from '@/plugins/builtin/fx/water/manifest';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { disciplineOf } from '@/plugins/categories';
+} from '../packages/plugins/src/builtin/fx/water/physics';
+import { blackholeManifest } from '../packages/plugins/src/builtin/fx/blackhole/manifest';
+import { BLACKHOLE_FRAGMENT } from '../packages/plugins/src/builtin/fx/blackhole/shader';
+import { CLOUD_FRAGMENT } from '../packages/plugins/src/builtin/fx/cloud/shader';
+import { waterManifest } from '../packages/plugins/src/builtin/fx/water/manifest';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { disciplineOf } from '@ergalics/plugins/categories';
 import { BUILTIN_EXAMPLES } from '@/core/examples';
 
 const RAD_TO_UAS = 1e6 * 180 * 3600 / Math.PI; // rad → microarcsecond

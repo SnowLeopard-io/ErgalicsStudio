@@ -6,9 +6,9 @@ import { DagExecutor } from '@/blocks/executor';
 import { createMemoryStorage } from '@/blocks/context';
 import { renderView } from '@/blocks/render';
 import type { VizPayload } from '@/blocks/catalog/visualize';
-import { isRenderedView } from '@/types/datatable';
-import type { RenderedView } from '@/types/datatable';
-import type { Plugin } from '@/types/plugin';
+import { isRenderedView } from '@ergalics/plugin-sdk/types';
+import type { RenderedView } from '@ergalics/plugin-sdk/types';
+import type { Plugin } from '@ergalics/plugin-sdk';
 import type { BlockConnection, BlockGraph, BlockInstance } from '@/types/block';
 
 function instance(id: string, blockId: string, params: Record<string, unknown> = {}): BlockInstance {

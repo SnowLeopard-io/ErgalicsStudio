@@ -13,8 +13,8 @@ import {
   exportCanvasPng,
   exportRowsCsv,
   exportSnapshotPng,
-} from '@/core/plugin-tools/enhance';
-import type { ButtonParam, PluginApi } from '@/types/plugin';
+} from '@ergalics/plugin-sdk/tools';
+import type { ButtonParam, PluginApi } from '@ergalics/plugin-sdk';
 
 function fakeApi(locale = 'en-US') {
   const exportFile = vi.fn();

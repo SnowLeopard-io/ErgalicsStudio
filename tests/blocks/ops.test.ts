@@ -1,7 +1,7 @@
 // DataTable operation helpers: numeric kernels must degrade gracefully when a
 // column is empty or all-NaN instead of emitting NaN/Infinity garbage.
 import { describe, it, expect } from 'vitest';
-import { createDataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
 import { histogram, normalize, summarize, uniqueName } from '@/blocks/ops';
 
 const NAN_COL = new Float64Array([NaN, NaN, NaN]);

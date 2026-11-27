@@ -39,7 +39,7 @@ import {
   transmissibilityPeak,
   unbalancePeak,
   unbalancePoint,
-} from '../src/plugins/builtin/engineering/vibration/kernel';
+} from '../packages/plugins/src/builtin/engineering/vibration/kernel';
 
 /** Unified relative-error yardstick: |computed − analytic| / |analytic|. */
 function relErr(computed: number, analytic: number): number {

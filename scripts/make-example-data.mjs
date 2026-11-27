@@ -305,7 +305,7 @@ for (let y = 0; y < IH; y += 1) {
 }
 const subjectBase64 = buildPng(IW, IH, 0, gray).toString('base64');
 
-const assetsDir = join(root, 'src', 'core');
+const assetsDir = join(root, 'apps', 'studio', 'src', 'core');
 // exampleAssets.ts is hand-extended with exports this script does not generate
 // (e.g. acoustics WAV, DICOM phantom slices). Regenerating must preserve them
 // instead of silently dropping those assets.

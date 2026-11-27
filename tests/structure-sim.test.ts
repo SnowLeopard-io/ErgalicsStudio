@@ -7,8 +7,8 @@
 // ==========================================================================
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import createStructurePlugin from '@/plugins/builtin/engineering/structure/plugin';
-import type { ContainerCapabilities, Plugin, PluginApi } from '@/types/plugin';
+import createStructurePlugin from '../packages/plugins/src/builtin/engineering/structure/plugin';
+import type { ContainerCapabilities, Plugin, PluginApi } from '@ergalics/plugin-sdk';
 
 type AnyPlugin = Plugin & Record<string, any>;
 

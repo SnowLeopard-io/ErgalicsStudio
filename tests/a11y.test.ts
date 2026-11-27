@@ -209,11 +209,11 @@ const WHITELIST: { file: string; reason: string }[] = [
 ];
 
 const TSX_FILES = [
-  ...walk(join(ROOT, 'src', 'components'), /\.tsx$/),
-  ...walk(join(ROOT, 'src', 'pages'), /\.tsx$/),
+  ...walk(join(ROOT, 'apps', 'studio', 'src', 'components'), /\.tsx$/),
+  ...walk(join(ROOT, 'apps', 'studio', 'src', 'pages'), /\.tsx$/),
 ];
 
-const CSS_FILES = walk(join(ROOT, 'src', 'styles'), /\.css$/);
+const CSS_FILES = walk(join(ROOT, 'apps', 'studio', 'src', 'styles'), /\.css$/);
 
 function whitelisted(relPath: string): boolean {
   return WHITELIST.some((w) => relPath.includes(w.file));

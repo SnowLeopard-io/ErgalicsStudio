@@ -2,11 +2,11 @@
 // The public key is embedded in each manifest (self-verifying, FR-05).
 import { describe, expect, it } from 'vitest';
 import { verifyBundledManifestSignature } from '@/core/plugin-signing';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { engFluidManifest } from '@/plugins/builtin/engineering/fluid-mech/manifest';
-import { engVibrationManifest } from '@/plugins/builtin/engineering/vibration/manifest';
-import { engHeatManifest } from '@/plugins/builtin/engineering/heat-transfer/manifest';
-import { engMechanismManifest } from '@/plugins/builtin/engineering/mechanism/manifest';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { engFluidManifest } from '../packages/plugins/src/builtin/engineering/fluid-mech/manifest';
+import { engVibrationManifest } from '../packages/plugins/src/builtin/engineering/vibration/manifest';
+import { engHeatManifest } from '../packages/plugins/src/builtin/engineering/heat-transfer/manifest';
+import { engMechanismManifest } from '../packages/plugins/src/builtin/engineering/mechanism/manifest';
 
 describe('engineering suite manifests · pinned ed25519 signatures', () => {
   const manifests = [

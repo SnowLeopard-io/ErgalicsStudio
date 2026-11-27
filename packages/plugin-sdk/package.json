@@ -1,0 +1,36 @@
+{
+  "name": "@ergalics/plugin-sdk",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ergalics Studio Plugin SDK — contracts, helper utilities, plotting engine, and host IoC bridges",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./tools": "./src/tools/index.ts",
+    "./plot": "./src/plot/index.ts",
+    "./bridges": "./src/bridges/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "jspdf": "^4.2.1",
+    "three": "^0.187.0"
+  },
+  "peerDependenciesMeta": {
+    "jspdf": {
+      "optional": true
+    },
+    "three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "jspdf": "^4.2.1",
+    "three": "^0.187.0",
+    "typescript": "~5.7.2"
+  }
+}

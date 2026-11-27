@@ -10,7 +10,7 @@ import {
 } from '@/core/build/bundle';
 import { MemoryBuildCache } from '@/core/build/cache';
 import { decodeDataValue, encodeDataValue } from '@/core/build/codec';
-import type { DataValue } from '@/types/datatable';
+import type { DataValue } from '@ergalics/plugin-sdk/types';
 
 function scalar(value: number): DataValue {
   return { kind: 'scalar', value };

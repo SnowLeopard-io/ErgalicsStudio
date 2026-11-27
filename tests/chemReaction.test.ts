@@ -6,27 +6,27 @@ import {
   analyseReaction,
   electronsTransferred,
   classifyReaction,
-} from '@/core/chem/engine/reaction';
-import { H2O, CH4, CO2, O2, HCl, NaCl } from '@/plugins/builtin/chem/reaction/mols';
-import { REACTIONS, findReaction } from '@/plugins/builtin/chem/reaction/catalog';
-import { buildMechanism } from '@/plugins/builtin/chem/reaction/mech';
-import { ChemReactionPlugin, equationOf, renderFormula } from '@/plugins/builtin/chem/reaction/plugin';
-import { buildPhysicsPayload } from '@/plugins/builtin/chem/reaction/reactmd/payload';
-import { entropyGibbsSpec } from '@/plugins/builtin/chem/reaction/figures';
-import { renderSVG } from '@/core/plot';
+} from '@ergalics/sci-kernels/chem/engine/reaction';
+import { H2O, CH4, CO2, O2, HCl, NaCl } from '../packages/plugins/src/builtin/chem/reaction/mols';
+import { REACTIONS, findReaction } from '../packages/plugins/src/builtin/chem/reaction/catalog';
+import { buildMechanism } from '../packages/plugins/src/builtin/chem/reaction/mech';
+import { ChemReactionPlugin, equationOf, renderFormula } from '../packages/plugins/src/builtin/chem/reaction/plugin';
+import { buildPhysicsPayload } from '../packages/plugins/src/builtin/chem/reaction/reactmd/payload';
+import { entropyGibbsSpec } from '../packages/plugins/src/builtin/chem/reaction/figures';
+import { renderSVG } from '@ergalics/plugin-sdk/plot';
 import { templateById } from '@/core/figure/compose';
-import type { PlotSpec } from '@/core/plot';
+import type { PlotSpec } from '@ergalics/plugin-sdk/plot';
 import {
   matchReaction,
   combustionSide,
   buildFreePayload,
   feedElements,
-} from '@/plugins/builtin/chem/reaction/freelib';
-import { chemReactionManifest } from '@/plugins/builtin/chem/reaction/manifest';
-import { findBuiltin } from '@/plugins/builtin';
-import { disciplineOf } from '@/plugins/categories';
-import type { PluginApi } from '@/types/plugin';
-import type { EngReaction, EngSpecies } from '@/core/chem/engine/reaction';
+} from '../packages/plugins/src/builtin/chem/reaction/freelib';
+import { chemReactionManifest } from '../packages/plugins/src/builtin/chem/reaction/manifest';
+import { findBuiltin } from '@ergalics/plugins/builtin';
+import { disciplineOf } from '@ergalics/plugins/categories';
+import type { PluginApi } from '@ergalics/plugin-sdk';
+import type { EngReaction, EngSpecies } from '@ergalics/sci-kernels/chem/engine/reaction';
 
 function oxMap(mol: { atoms: Array<{ symbol: string }> }): Record<number, number> {
   const ox = oxidationNumbers(mol as never);

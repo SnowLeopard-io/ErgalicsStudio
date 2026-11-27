@@ -1,15 +1,15 @@
 // Built-in plugin logic tests — Contour grid normalization & Scatter parsing
 import { describe, it, expect } from 'vitest';
-import { normalizeGrid } from '@/plugins/builtin/charts/contour/plugin';
-import { parseScatter, extractHeaders } from '@/plugins/builtin/charts/scatter/plugin';
-import { normalizeGridUniform } from '@/plugins/builtin/charts/heatmap/plugin';
-import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
-import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
-import { ParticlePlugin } from '@/plugins/builtin/physics/particles/plugin';
-import { ContourPlugin } from '@/plugins/builtin/charts/contour/plugin';
-import { ImageViewerPlugin } from '@/plugins/builtin/charts/imageViewer/plugin';
-import type { NBodyBody } from '@/core/wgsl';
-import type { PluginApi } from '@/types/plugin';
+import { normalizeGrid } from '../packages/plugins/src/builtin/charts/contour/plugin';
+import { parseScatter, extractHeaders } from '../packages/plugins/src/builtin/charts/scatter/plugin';
+import { normalizeGridUniform } from '../packages/plugins/src/builtin/charts/heatmap/plugin';
+import { NBodyPlugin } from '../packages/plugins/src/builtin/physics/nbody/plugin';
+import { ProteinPlugin } from '../packages/plugins/src/builtin/bio/protein/plugin';
+import { ParticlePlugin } from '../packages/plugins/src/builtin/physics/particles/plugin';
+import { ContourPlugin } from '../packages/plugins/src/builtin/charts/contour/plugin';
+import { ImageViewerPlugin } from '../packages/plugins/src/builtin/charts/imageViewer/plugin';
+import type { NBodyBody } from '@ergalics/sci-kernels/gpu/wgsl';
+import type { PluginApi } from '@ergalics/plugin-sdk';
 
 function fakeApi(): PluginApi {
   return {

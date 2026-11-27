@@ -16,13 +16,26 @@
 // ==========================================================================
 
 import { cp, mkdir, access, readFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const SRC = resolve(ROOT, 'node_modules/blockly/media');
-const DEST = resolve(ROOT, 'public/blockly');
+const STUDIO_DIR = resolve(ROOT, 'apps/studio');
+const studioRequire = createRequire(resolve(STUDIO_DIR, 'package.json'));
+
+function resolveBlocklyDir() {
+  try {
+    return dirname(studioRequire.resolve('blockly/package.json'));
+  } catch {
+    return resolve(ROOT, 'node_modules/blockly');
+  }
+}
+
+const BLOCKLY_DIR = resolveBlocklyDir();
+const SRC = resolve(BLOCKLY_DIR, 'media');
+const DEST = resolve(STUDIO_DIR, 'public/blockly');
 
 async function exists(p) {
   try {
@@ -34,7 +47,7 @@ async function exists(p) {
 }
 
 async function installedBlocklyVersion() {
-  const pkg = resolve(ROOT, 'node_modules/blockly/package.json');
+  const pkg = resolve(BLOCKLY_DIR, 'package.json');
   try {
     return JSON.parse(await readFile(pkg, 'utf8')).version ?? 'unknown';
   } catch {

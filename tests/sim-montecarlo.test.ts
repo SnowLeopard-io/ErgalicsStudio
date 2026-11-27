@@ -24,7 +24,7 @@ import {
   std,
   summarize,
   variance,
-} from '@/plugins/builtin/sim/montecarlo/kernel';
+} from '../packages/plugins/src/builtin/sim/montecarlo/kernel';
 
 const N = 50000;
 
@@ -78,7 +78,7 @@ describe('distributions', () => {
   });
 
   it('analytic mean/std helpers agree with sampled moments', () => {
-    const spec: import('@/plugins/builtin/sim/montecarlo/kernel').DistributionSpec = { dist: 'normal', params: [5, 2] };
+    const spec: import('../packages/plugins/src/builtin/sim/montecarlo/kernel').DistributionSpec = { dist: 'normal', params: [5, 2] };
     const xs = sample(spec);
     expect(Math.abs(distributionMean(spec) - mean(xs))).toBeLessThan(0.1);
     expect(Math.abs(distributionStd(spec) - std(xs))).toBeLessThan(0.1);
@@ -234,7 +234,7 @@ describe('sensitivity', () => {
 });
 
 describe('end-to-end determinism and table parsing', () => {
-  const opts: import('@/plugins/builtin/sim/montecarlo/kernel').McRunOptions = {
+  const opts: import('../packages/plugins/src/builtin/sim/montecarlo/kernel').McRunOptions = {
     inputs: [
       { name: 'a', spec: { dist: 'normal', params: [5, 2] } },
       { name: 'b', spec: { dist: 'uniform', params: [0, 3] } },

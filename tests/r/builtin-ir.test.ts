@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BuiltinIRRuntime } from '@/core/r/builtin-ir-runtime';
 import { createStudioApi, type StudioApiHost } from '@/editor/runtime/studio-api';
-import { isDataTable } from '@/types/datatable';
+import { isDataTable } from '@ergalics/plugin-sdk/types';
 import type { RLoadProgress } from '@/core/r/types';
 
 function makeStudioApi(): StudioApiHost {

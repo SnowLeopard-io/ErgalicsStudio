@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useChunkStore } from '@/stores/chunkStore';
 import { previewSample } from '@/core/chunked/reader';
-import { DATA_INGESTED, on } from '@/core/events';
+import { DATA_INGESTED, on } from '@ergalics/plugin-sdk';
 import type { FileEntry } from '@/types/project';
 import type { ParseResult } from '@/core/parse-tasks';
 

@@ -1,7 +1,7 @@
 // Numerics root finding — Brent and damped Newton tests.
 import { describe, it, expect } from 'vitest';
-import { NumericsError } from '../../src/core/numerics/errors';
-import { brent, findBracket, newtonSolve, newtonScalar, defaultJacobian } from '../../src/core/numerics/root';
+import { NumericsError } from '../../apps/studio/src/core/numerics/errors';
+import { brent, findBracket, newtonSolve, newtonScalar, defaultJacobian } from '../../apps/studio/src/core/numerics/root';
 
 describe('brent (Brent-Dekker zeroin)', () => {
   it('finds the Dottie number of cos(x) = x', () => {

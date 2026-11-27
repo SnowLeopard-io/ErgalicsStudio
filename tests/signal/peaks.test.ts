@@ -2,7 +2,7 @@
 // centre with an explicit resolution bound, not a bin index dressed as Hz.
 
 import { describe, expect, it } from 'vitest';
-import { analysePeak } from '@/core/signal';
+import { analysePeak } from '@ergalics/sci-kernels/signal';
 
 const df = 2; // fs = 1024 Hz over 512 bins
 const freqs = Array.from({ length: 513 }, (_, k) => k * df);

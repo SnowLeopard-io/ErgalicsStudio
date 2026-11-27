@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { algorithmsManifest } from '../src/plugins/builtin/cs/algorithms/manifest';
-import { dataStructuresManifest } from '../src/plugins/builtin/cs/datastructures/manifest';
-import { automataManifest } from '../src/plugins/builtin/cs/automata/manifest';
-import { cryptoManifest } from '../src/plugins/builtin/cs/crypto/manifest';
-import { neuralVizManifest } from '../src/plugins/builtin/cs/neuralviz/manifest';
-import { complexityManifest } from '../src/plugins/builtin/cs/complexity/manifest';
-import { netProtoManifest } from '../src/plugins/builtin/cs/netproto/manifest';
+import { verifyBundledManifestSignature } from '../apps/studio/src/core/plugin-signing';
+import { algorithmsManifest } from '../packages/plugins/src/builtin/cs/algorithms/manifest';
+import { dataStructuresManifest } from '../packages/plugins/src/builtin/cs/datastructures/manifest';
+import { automataManifest } from '../packages/plugins/src/builtin/cs/automata/manifest';
+import { cryptoManifest } from '../packages/plugins/src/builtin/cs/crypto/manifest';
+import { neuralVizManifest } from '../packages/plugins/src/builtin/cs/neuralviz/manifest';
+import { complexityManifest } from '../packages/plugins/src/builtin/cs/complexity/manifest';
+import { netProtoManifest } from '../packages/plugins/src/builtin/cs/netproto/manifest';
 
 const signed = [
   ['algorithms', algorithmsManifest],

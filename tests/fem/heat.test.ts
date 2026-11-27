@@ -6,9 +6,9 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { rectStructuredMesh } from '../../src/core/fem/mesh/domain';
-import { solveHeat, totalHeatEnergy, HEAT_SINE_CASE } from '../../src/core/fem/physics/heat';
-import { l2Error } from '../../src/core/fem/post/stress';
+import { rectStructuredMesh } from '@ergalics/sci-kernels/fem/mesh/domain';
+import { solveHeat, totalHeatEnergy, HEAT_SINE_CASE } from '@ergalics/sci-kernels/fem/physics/heat';
+import { l2Error } from '@ergalics/sci-kernels/fem/post/stress';
 
 const DIRICHLET_ALL = [1, 2, 3, 4];
 

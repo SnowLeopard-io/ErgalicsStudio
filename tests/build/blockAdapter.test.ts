@@ -8,7 +8,7 @@ import {
 } from '@/core/build/blockAdapter';
 import { createMemoryStorage } from '@/blocks/context';
 import type { CompiledNode, CompiledRegion, DagExecutionContext } from '@/types/dag';
-import type { DataValue, Scalar } from '@/types/datatable';
+import type { DataValue, Scalar } from '@ergalics/plugin-sdk/types';
 
 function scalar(value: number): Scalar {
   return { kind: 'scalar', value };

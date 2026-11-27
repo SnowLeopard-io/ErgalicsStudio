@@ -10,7 +10,7 @@
 // ==========================================================================
 
 import { describe, it, expect } from 'vitest';
-import { analyzeFormula, parseFormula } from '@/core/chem/molar';
+import { analyzeFormula, parseFormula } from '@ergalics/sci-kernels/chem/molar';
 
 describe('chemical formula parsing', () => {
   it('counts the elements of a simple formula', () => {

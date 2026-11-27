@@ -3,9 +3,9 @@ import { ols, invertMatrix } from '@/core/model/ols';
 import { polyFit } from '@/core/model/poly';
 import { logisticFit } from '@/core/model/logistic';
 import { ridgeCV, predictRidge } from '@/core/model/ridge';
-import { qr, matmul, transpose, lstsqQR } from '@/core/model/linalg';
+import { qr, matmul, transpose, lstsqQR } from '@ergalics/sci-kernels/math/linalg';
 import { diagnosticSeries, StreamingNormalEquations } from '@/core/model/diagnostics';
-import { pearson } from '@/core/stats/effect';
+import { pearson } from '@ergalics/sci-kernels/stats/effect';
 
 // Deterministic LCG.
 function rng(seed: number) {

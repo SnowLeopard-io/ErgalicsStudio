@@ -16,11 +16,14 @@ import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir, platform } from 'node:os';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(HERE, '..');
+export const STUDIO_ROOT = path.join(PROJECT_ROOT, 'apps', 'studio');
+const studioRequire = createRequire(path.join(STUDIO_ROOT, 'package.json'));
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -171,10 +174,11 @@ export async function startPreview(preferred, mode = 'preview') {
       ? await freePortIsUsable(requested)
       : await freePort();
 
+  const viteBin = path.join(path.dirname(studioRequire.resolve('vite/package.json')), 'bin', 'vite.js');
   const child = spawn(
     process.execPath,
     [
-      'node_modules/vite/bin/vite.js',
+      viteBin,
       ...(mode === 'dev' ? [] : ['preview']),
       // Pin to the IPv4 loopback: on machines where `localhost` resolves to
       // ::1 first, Vite binds IPv6-only and the 127.0.0.1 readiness probe fails.
@@ -184,7 +188,7 @@ export async function startPreview(preferred, mode = 'preview') {
       String(port),
       '--strictPort',
     ],
-    { cwd: PROJECT_ROOT, stdio: 'ignore', detached: true },
+    { cwd: STUDIO_ROOT, stdio: 'ignore', detached: true },
   );
   child.unref();
 

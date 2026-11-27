@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createDataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
 import {
   dataTableToHistogram,
   dataTableToLine,
   dataTableToScatter,
   fieldColorCss,
   renderSVG,
-} from '@/core/plot';
+} from '@ergalics/plugin-sdk/plot';
 
 function close(a: number, b: number, eps = 1e-9): boolean {
   return Math.abs(a - b) <= eps;

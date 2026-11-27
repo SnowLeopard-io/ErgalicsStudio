@@ -2,9 +2,9 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { createEmptyProject, type Project } from '@/types/project';
-import { createRunRecord } from '@/core/experiment/record';
+import { createRunRecord } from '@ergalics/plugin-sdk/types';
 import { getProject, listRuns, saveRun, deleteRunsByProject } from '@/core/storage';
-import { RUN_COMPLETED, on } from '@/core/events';
+import { RUN_COMPLETED, on } from '@ergalics/plugin-sdk';
 
 vi.mock('@/stores/pluginStore', () => ({ usePluginStore: { getState: () => ({ restoreState: vi.fn() }) } }));
 vi.mock('@/stores/settingsStore', () => ({ useSettingsStore: { getState: () => ({ autoSaveInterval: 0 }) } }));

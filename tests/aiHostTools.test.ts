@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { ParamDefinition, Plugin, PluginManifest } from '@/types/plugin';
+import type { ParamDefinition, Plugin, PluginManifest } from '@ergalics/plugin-sdk';
 import type { ToolResult } from '@/core/ai/tools/types';
 
 vi.mock('@/stores/projectStore', () => ({
@@ -199,7 +199,7 @@ describe('host tools', () => {
     expect(names).not.toContain('get_canvas_snapshot');
   });
   it('emits scientific outputs read by the assistant', async () => {
-    const { setScienceOutputs } = await import('@/core/research/scienceOutput');
+    const { setScienceOutputs } = await import('@ergalics/plugin-sdk/bridges');
     setScienceOutputs('example.a', [{ key: 'r2', label: 'R²', value: '0.981' }]);
     const out = JSON.parse(textOf(await callTool('get_science_outputs')));
     expect(out[0].metrics[0]).toMatchObject({ label: 'R²', value: '0.981' });

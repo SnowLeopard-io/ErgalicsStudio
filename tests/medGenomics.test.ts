@@ -22,7 +22,7 @@ import {
   qqPlotData,
   runGsea,
   volcanoSummary,
-} from '../src/plugins/builtin/med/genomics/genomics';
+} from '../packages/plugins/src/builtin/med/genomics/genomics';
 
 const GWAS_CSV = [
   'chr,pos,p,beta,label',

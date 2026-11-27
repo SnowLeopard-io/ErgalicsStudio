@@ -5,8 +5,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildReproSnapshot, SNAPSHOT_SCHEMA } from '@/core/repro/snapshot';
 import { buildLock, canonicalJson, verifyLock } from '@/core/repro/lock';
-import { hashString } from '@/core/repro/random';
-import { createRunRecord, type RunRecord } from '@/core/experiment/record';
+import { hashString } from '@ergalics/plugin-sdk';
+import { createRunRecord, type RunRecord } from '@ergalics/plugin-sdk/types';
 import { createEmptyProject, type Project } from '@/types/project';
 
 function makeProject(): Project {

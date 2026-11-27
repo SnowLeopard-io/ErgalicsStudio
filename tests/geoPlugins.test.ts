@@ -5,8 +5,8 @@ import {
   haversineKm,
   sphericalAreaKm2,
   marchingSquares,
-} from '@/plugins/builtin/geo/shared/geoCore';
-import { parseDelimited } from '@/core/plugin-tools/table';
+} from '../packages/plugins/src/builtin/geo/shared/geoCore';
+import { parseDelimited } from '@ergalics/plugin-sdk/tools';
 import {
   solarDeclination,
   noonElevation,
@@ -20,9 +20,9 @@ import {
   equationOfTimeMinutes,
   timezoneFromLongitude,
   solarToClockHours,
-} from '@/plugins/builtin/geo/solar/plugin';
-import { parseClimateCsv, summarizeClimate, climographFigurePanels } from '@/plugins/builtin/geo/climograph/plugin';
-import { parsePyramidCsv, summarizePyramid, pyramidFigurePanels } from '@/plugins/builtin/geo/popPyramid/plugin';
+} from '../packages/plugins/src/builtin/geo/solar/plugin';
+import { parseClimateCsv, summarizeClimate, climographFigurePanels } from '../packages/plugins/src/builtin/geo/climograph/plugin';
+import { parsePyramidCsv, summarizePyramid, pyramidFigurePanels } from '../packages/plugins/src/builtin/geo/popPyramid/plugin';
 import {
   parsePointsCsv,
   boundsOf,
@@ -33,14 +33,14 @@ import {
   loocvValidate,
   moransI,
   interpFigurePanels,
-} from '@/plugins/builtin/geo/spatialInterp/plugin';
+} from '../packages/plugins/src/builtin/geo/spatialInterp/plugin';
 import {
   parseWaypoints,
   chainLengthKm,
   polygonAreaKm2,
   standardDeviationalEllipse,
   measureFigurePanels,
-} from '@/plugins/builtin/geo/geoMeasure/plugin';
+} from '../packages/plugins/src/builtin/geo/geoMeasure/plugin';
 import {
   projectMercator,
   projectMollweide,
@@ -51,7 +51,7 @@ import {
   latLonToVec,
   distortionAt,
   tissotFigurePanels,
-} from '@/plugins/builtin/geo/tissot/plugin';
+} from '../packages/plugins/src/builtin/geo/tissot/plugin';
 import {
   parseAsciiGrid,
   hornSlopeAspect,
@@ -61,11 +61,11 @@ import {
   flowAccumulation,
   D8_NODIR,
   terrainFigurePanels,
-} from '@/plugins/builtin/geo/terrain/plugin';
-import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats, gpxFigurePanels } from '@/plugins/builtin/geo/gpxTrack/plugin';
-import { downsampleGrid, buildTerrainMesh } from '@/core/geo/terrainMesh';
-import type { AscGrid } from '@/plugins/builtin/geo/terrain/plugin';
-import { lonLatToVec3, angularDistance } from '@/core/geo/spherical';
+} from '../packages/plugins/src/builtin/geo/terrain/plugin';
+import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats, gpxFigurePanels } from '../packages/plugins/src/builtin/geo/gpxTrack/plugin';
+import { downsampleGrid, buildTerrainMesh } from '@ergalics/sci-kernels/geo/terrainMesh';
+import type { AscGrid } from '../packages/plugins/src/builtin/geo/terrain/plugin';
+import { lonLatToVec3, angularDistance } from '@ergalics/sci-kernels/geo/spherical';
 
 import fellsGpx from '../examples/data/geo-fells-loop.gpx?raw';
 import stationsCsv from '../examples/data/geo-interp-stations.csv?raw';
@@ -75,8 +75,8 @@ import popNigeriaCsv from '../examples/data/geo-pop-nigeria.csv?raw';
 import climateBeijingCsv from '../examples/data/geo-climate-beijing.csv?raw';
 import measurePointsJson from '../examples/data/geo-measure-points.json?raw';
 import terrainAsc from '../examples/data/geo-terrain-demo-synthetic.asc?raw';
-import { BUILTIN_PLUGINS } from '@/plugins/builtin';
-import { disciplineOf } from '@/plugins/categories';
+import { BUILTIN_PLUGINS } from '@ergalics/plugins/builtin';
+import { disciplineOf } from '@ergalics/plugins/categories';
 
 const closeTo = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;
 

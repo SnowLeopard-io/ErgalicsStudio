@@ -19,8 +19,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const SRC = resolve(ROOT, 'node_modules/webr');
-const DEST = resolve(ROOT, 'public/webr');
+const STUDIO_DIR = resolve(ROOT, 'apps/studio');
+const SRC = existsSync(resolve(STUDIO_DIR, 'node_modules/webr'))
+  ? resolve(STUDIO_DIR, 'node_modules/webr')
+  : resolve(ROOT, 'node_modules/webr');
+const DEST = resolve(STUDIO_DIR, 'public/webr');
 
 /** Best-effort: read the installed webr version for the cache marker. */
 async function webrVersion() {

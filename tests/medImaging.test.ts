@@ -17,7 +17,7 @@ import {
   windowLevel,
   windowLevelSlice,
   type DicomSlice,
-} from '../src/plugins/builtin/med/imaging/imaging';
+} from '../packages/plugins/src/builtin/med/imaging/imaging';
 
 // ---- minimal hand-built DICOM buffers (parser cross-check) ------------------
 

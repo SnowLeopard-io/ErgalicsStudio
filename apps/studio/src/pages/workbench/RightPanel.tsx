@@ -1,0 +1,527 @@
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type AnimationEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useT, useLocale } from '@/i18n';
+import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
+import { useAppStore, toolTabKey } from '@/stores/appStore';
+import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { useFileRouting } from './useFileRouting';
+import { getVfs } from '@/core/vfs';
+import { logger } from '@ergalics/plugin-sdk';
+import { FileInfoPanel } from './FileInfoPanel';
+import { ResultPreview } from '@/components/editor/ResultPreview';
+import { VariablePanel } from '@/components/editor/VariablePanel';
+import type { FilePreviewState } from '@/stores/appStore';
+import { ParamPanel } from '@/components/ParamPanel';
+import { PluginDataSection } from '@/components/data-editor/PluginDataSection';
+import { ParamEditor } from '@/components/blocks/ParamEditor';
+import { EmptyState } from '@/components/EmptyState';
+import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
+import { ToolIcon } from '@/components/icons';
+import { getTool } from '@/pages/research/toolRegistry';
+import { useEngineeringStore } from '@/stores/engineeringStore';
+import { formatEngineering } from '@/core/engineering/materials';
+import { metricLabel } from '@/pages/industrial/labels';
+import { emit, on, type BusSubscription } from '@ergalics/plugin-sdk';
+import type { ParamDefinition } from '@ergalics/plugin-sdk';
+import { usePanelWidth } from '@/hooks/usePanelWidth';
+import { useSurfaceChrome } from '@/stores/surfaceChromeStore';
+import { useIndustrialChrome } from '@/stores/industrialChromeStore';
+import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
+
+/** Introduction card for the suite currently embedded in the central canvas:
+ *  identity (icon / name / group), full registry description, data
+ *  requirements and embedded-mode notes, with actions to open the standalone
+ *  page or close the embed. */
+function SuiteIntro({ toolId }: { toolId: string }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const closeTab = useAppStore((s) => s.closeTab);
+  const toolDef = getTool(toolId);
+  if (!toolDef) return null;
+  return (
+    <div className="suite-intro">
+      <div className="suite-intro-head">
+        <span className="suite-intro-icon" aria-hidden="true">
+          <ToolIcon kind={toolDef.icon} size={18} />
+        </span>
+        <div className="suite-intro-heading">
+          <div className="suite-intro-name">{t(toolDef.titleKey)}</div>
+          <span className="tag">{t(`tool.group.${toolDef.group}`)}</span>
+        </div>
+      </div>
+      <p className="suite-intro-desc">{t(toolDef.descKey)}</p>
+      <dl className="suite-intro-facts">
+        <div className="suite-intro-fact">
+          <dt>{t('suite.info.data_req')}</dt>
+          <dd>
+            {toolDef.requireProject
+              ? t('suite.info.needs_project')
+              : t('suite.info.no_project_needed')}
+          </dd>
+        </div>
+        <div className="suite-intro-fact">
+          <dt>{t('suite.info.mode')}</dt>
+          <dd>{t('suite.info.embedded_hint')}</dd>
+        </div>
+      </dl>
+      <div className="suite-intro-actions">
+        <button type="button" className="btn btn-sm" onClick={() => navigate(toolDef.path)}>
+          {t('suite.open_standalone')}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => closeTab(toolTabKey(toolId))}>
+          {t('suite.close')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Engineering summary shown while an industrial tool is embedded. It reads
+ *  the live study so mesh/material/case edits appear without leaving the
+ *  canvas tab. */
+function EngineeringPanel({ toolId }: { toolId: string }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const closeTab = useAppStore((s) => s.closeTab);
+  const study = useEngineeringStore((s) => s.study);
+  const result = useEngineeringStore((s) => s.result);
+  const toolDef = getTool(toolId);
+  // Host for the active industrial page's action bars (import / solve /
+  // export / view presets …). Pages portal into it so no action buttons sit
+  // in the canvas; when this panel is collapsed the host unmounts and the
+  // bars disappear with it.
+  const setActionsHost = useIndustrialChrome((s) => s.setHost);
+  return (
+    <div className="rp-engineering">
+      <div className="suite-intro-head">
+        <span className="suite-intro-icon" aria-hidden="true">
+          {toolDef ? <ToolIcon kind={toolDef.icon} size={18} /> : null}
+        </span>
+        <div className="suite-intro-heading">
+          <div className="suite-intro-name">{toolDef ? t(toolDef.titleKey) : toolId}</div>
+          <span className="tag">{t('industrial.group.' + (toolDef?.group ?? 'mesh'))}</span>
+        </div>
+      </div>
+      <section className="rp-engineering-section">
+        <div className="rp-engineering-section-title">{t('workbench.right.actions')}</div>
+        {/* Every export button row carries its own explicit destination
+            (Download / Save to workspace), so there is no destination toggle
+            to keep in sync. */}
+        <div className="rp-engineering-actions" ref={setActionsHost} />
+      </section>
+      {!study ? (
+        <p className="suite-intro-desc">{t('industrial.no_study_desc')}</p>
+      ) : (
+        <>
+          <section className="rp-engineering-section">
+            {/* Mesh / material / step / solve facts moved to the status bar
+                (StatusBar renders them as chips); only the solver result
+                metrics stay here. */}
+            {result && (
+              <div className="rp-engineering-metrics">
+                {Object.entries(result.metrics)
+                  .filter(([key]) => key !== 'nodeCount' && key !== 'elementCount')
+                  .slice(0, 6)
+                  .map(([key, value]) => (
+                    <div key={key}>
+                      <span>{metricLabel(t, key)}</span>
+                      <strong>{formatEngineering(value)}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
+          <div className="rp-engineering-footer">
+            <button type="button" className="btn btn-sm" onClick={() => navigate('/studio/industrial-report')}>
+              {t('tool.industrial-report.title')}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => closeTab(toolTabKey(toolId))}>
+              {t('suite.close')}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Gitee mirror (kept identical to the Settings → About card). */
+const GITEE_REPO_URL = 'https://gitee.com/cnt-code/ergalics-studio';
+const CHANGELOG_URL = `${CITATION_META.repoUrl}/blob/main/CHANGELOG.md`;
+
+/** Welcome / info panel shown instead of plugin parameters when no plugin is
+ *  active: quick-start intro, current version with release highlights and
+ *  repository cards (GitHub + Gitee). Content is factual — highlights mirror
+ *  the top entries of CHANGELOG.md, and the version/release links resolve to
+ *  the running build. */
+function RightPanelWelcome() {
+  const t = useT();
+  const version = currentAppVersion();
+  return (
+    <div className="rp-welcome">
+      <p className="rp-welcome-intro">{t('workbench.right.welcome_intro')}</p>
+
+      <div className="rp-welcome-block">
+        <div className="rp-welcome-heading">{t('workbench.right.whats_new')}</div>
+        <div className="rp-welcome-version-row">
+          <span className="tag tag-success">v{version}</span>
+          <a
+            className="rp-welcome-link"
+            href={citationUrl(version)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t('workbench.right.release_notes')}
+          </a>
+        </div>
+        <ul className="rp-welcome-list">
+          {([1, 2, 3] as const).map((i) => (
+            <li key={i}>{t(`workbench.right.whats_new_${i}`)}</li>
+          ))}
+        </ul>
+        <a className="rp-welcome-link" href={CHANGELOG_URL} target="_blank" rel="noreferrer">
+          {t('workbench.right.full_changelog')} →
+        </a>
+      </div>
+
+      <div className="rp-welcome-block">
+        <div className="rp-welcome-heading">{t('workbench.right.repo_title')}</div>
+        <p className="rp-welcome-hint">{t('workbench.right.repo_hint')}</p>
+        <div className="rp-welcome-repo-btns">
+          <a
+            className="btn btn-sm"
+            href={CITATION_META.repoUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+          <a className="btn btn-sm" href={GITEE_REPO_URL} target="_blank" rel="noreferrer">
+            Gitee
+          </a>
+        </div>
+      </div>
+
+      <p className="rp-welcome-hint">{t('workbench.right.welcome_tip')}</p>
+    </div>
+  );
+}
+
+export function RightPanel() {
+  const t = useT();
+  const { locale } = useLocale();
+  const activeId = usePluginStore((s) => s.activeId);
+  const activePlugin = usePluginStore(
+    (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
+  );
+  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
+  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
+  // Active canvas tab drives what this panel shows: a file tab → file info,
+  // a suite tab → suite intro, no tab → plugin parameters.
+  const activeTabKey = useAppStore((s) => s.activeTab);
+  const filePreview: FilePreviewState | null = useAppStore((s) =>
+    activeTabKey?.startsWith('file:') ? (s.filePreviews[activeTabKey] ?? null) : null,
+  );
+  // Research suite embedded in the central canvas — the right panel switches
+  // to the suite introduction while one is active.
+  const embeddedToolId = activeTabKey?.startsWith('tool:') ? activeTabKey.slice(5) : null;
+  const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
+  const [params, setParams] = useState<ParamDefinition[]>([]);
+
+  // ---- 用插件打开 ----
+  // 预览文件时，声明了该扩展名的插件在右栏列成一张表。原先这排按钮横在
+  // 预览底部，插件一多就把画布挤出一条长尾；移到右栏后纵向排列、随面板滚动。
+  const project = useProjectStore((s) => s.project);
+  const registry = usePluginStore((s) => s.registry);
+  const notify = useAppStore((s) => s.notify);
+  const { loadIntoPlugin } = useFileRouting();
+  const openWithMatches = useMemo(() => {
+    if (!filePreview) return [];
+    const dot = filePreview.name.lastIndexOf('.');
+    if (dot <= 0) return [];
+    const ext = filePreview.name.slice(dot).toLowerCase();
+    return registry.filter((e) => e.formats.some((f) => f.extension.toLowerCase() === ext));
+  }, [filePreview, registry]);
+
+  /** 从工作区读出被预览的文件，沿用拖放的同一条 ingestion 管线交给插件。 */
+  const openWithPlugin = async (pluginId: string) => {
+    if (!project || !filePreview) return;
+    const rootPath = getProjectRepoPath(project);
+    try {
+      const blob = filePreview.blobUrl
+        ? await (await fetch(filePreview.blobUrl)).blob()
+        : new Blob([(await getVfs().readFileBinary(rootPath, filePreview.path)) as BlobPart], {
+            type: filePreview.mimeType,
+          });
+      await loadIntoPlugin(
+        pluginId,
+        new File([blob], filePreview.name, { type: filePreview.mimeType }),
+      );
+      // 视图交还插件，但保留文件标签：这里关掉会像文件被弄丢了。
+      useAppStore.getState().showPluginCanvas();
+    } catch (err) {
+      logger.warn('workbench', 'open-with-plugin read failed', err);
+      notify('error', t('workbench.preview.open_failed'));
+    }
+  };
+
+  /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
+   *  与侧栏收起保持一致的过渡。 */
+  const [closing, setClosing] = useState(false);
+  /** Code/block surfaces put their result preview + variables in this sidebar
+   *  (the editor area stays purely editing). Keyed off the mode AND the
+   *  foreground tab: the mode alone is not enough since the plugin canvas is
+   *  not a tab — `showPluginCanvas()` clears `activeTab` without touching
+   *  `mode`, and with a bare mode check the panel stayed stuck on the code
+   *  result preview instead of handing control back to the plugin params. */
+  const surfaceActive = useAppStore((s) => {
+    if (s.mode !== 'code' && s.mode !== 'block') return false;
+    // Plugin canvas in front (no active tab) → the plugin panel takes over.
+    if (s.activeTab === null) return false;
+    // 必须激活的是编辑面标签本身。打开文件预览时 mode 仍保留上一次的
+    // code/block，只看 mode 会让“结果预览/变量”顶掉文件信息面板。
+    return s.canvasTabs.some(
+      (tab) => tab.key === s.activeTab && tab.kind === 'surface' && tab.mode === s.mode,
+    );
+  });
+  /** Flow mode puts its node parameter inspector in this sidebar (the canvas
+   *  itself stays free of side panes). Same tab-foreground caveat. */
+  const flowActive = useAppStore(
+    (s) =>
+      s.mode === 'flow' &&
+      s.activeTab !== null &&
+      s.canvasTabs.some(
+        (tab) => tab.key === s.activeTab && tab.kind === 'surface' && tab.mode === 'flow',
+      ),
+  );
+  /** Stable ref setter for the surface-toolbar portal host (see SurfaceToolbar). */
+  const setToolbarHost = useSurfaceChrome((s) => s.setHost);
+  /** 展开入场已结束：panel-wrap-opening 的 overflow:hidden 会裁剪挂在外缘
+   *  的收起按钮，动画结束后必须摘掉该类（与 Sidebar 同一套计时兜底）。 */
+  const [entered, setEntered] = useState(false);
+  const openingFallbackTimer = useRef<number | null>(null);
+
+  // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
+  useEffect(() => {
+    if (rightPanelOpen) {
+      setClosing(false);
+      if (openingFallbackTimer.current !== null) {
+        window.clearTimeout(openingFallbackTimer.current);
+        openingFallbackTimer.current = null;
+      }
+      const t = window.setTimeout(() => setEntered(true), 280);
+      return () => window.clearTimeout(t);
+    }
+    setEntered(false);
+  }, [rightPanelOpen]);
+
+  const handleCollapse = () => {
+    if (closing) return;
+    setClosing(true);
+    // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
+    // 保存句柄，避免快速“收起→展开”后旧兜底定时器把面板再次收起。
+    if (openingFallbackTimer.current !== null) window.clearTimeout(openingFallbackTimer.current);
+    openingFallbackTimer.current = window.setTimeout(() => {
+      openingFallbackTimer.current = null;
+      if (useAppStore.getState().rightPanelOpen) toggleRightPanel();
+    }, 300);
+  };
+
+  const onCollapseAnimEnd = (e: AnimationEvent<HTMLDivElement>) => {
+    // 子元素的入场动画也会冒泡 animationend，必须限定目标和动画名。
+    if (closing && e.target === e.currentTarget && e.animationName === 'panel-collapse') {
+      if (useAppStore.getState().rightPanelOpen) toggleRightPanel();
+    }
+  };
+
+  useEffect(() => {
+    if (!activeId) {
+      setParams([]);
+      return;
+    }
+    // Refresh definitions whenever the plugin re-renders params or its
+    // values change, so sliders/toggles stay in sync with plugin state.
+    // Sandboxed plugins resolve getParams() asynchronously (RPC).
+    const refresh = () => {
+      // `?.getParams?.()`: a minimal plugin may omit getParams, and sandboxed
+      // plugins resolve it asynchronously (RPC) so the getter can be absent.
+      // Guard both the property and the call to never throw here.
+      void Promise.resolve(activePlugin?.getParams?.()).then((defs) => setParams(defs ?? []));
+    };
+    refresh();
+    const subs: BusSubscription[] = [
+      // NOTE: no `plugin:${id}:params` subscription here — that event fires
+      // for every slider tick and used to re-read getParams() per frame
+      // (twice the work per drag). `pluginStore` emits `:defs` AFTER each
+      // coalesced updateParams batch, which is the authoritative refresh
+      // signal (definitions may legitimately change with the values).
+      on(`plugin:${activeId}:defs`, refresh),
+      on('host:params:changed', (p: { pluginId: string }) => {
+        if (p?.pluginId === activeId) refresh();
+      }),
+    ];
+    return () => subs.forEach((s) => s.unsubscribe());
+    // `locale` in deps: a plugin's getParams() labels/options are
+    // locale-sensitive (built from api.locale at call time), so the panel
+    // must re-read them when the language switches — otherwise dropdown
+    // options keep the previous language until some unrelated event.
+  }, [activeId, activePlugin, locale]);
+
+  const onChange = (key: string, value: unknown) => {
+    if (!activeId) return;
+    emit(`plugin:${activeId}:params`, { [key]: value });
+  };
+
+  // 收起态：面板本体不渲染，只在其原位置（中央区右侧）露一个窄的
+  // 展开按钮，点击恢复展开。
+  if (!rightPanelOpen) {
+    return (
+      <>
+        {/* Keep the render host alive while the panel is collapsed, otherwise
+            a run that plots with the panel closed has nowhere to draw and the
+            image disappears entirely (reopening would show a blank card). */}
+        {surfaceActive && (
+          <div className="rp-host-hidden" aria-hidden="true">
+            <ResultPreview />
+          </div>
+        )}
+        <button
+          type="button"
+          className="panel-edge-btn panel-edge-right"
+          aria-label={t('ux.panel.expand_right')}
+          title={t('ux.panel.expand_right')}
+          onClick={toggleRightPanel}
+        >
+          <ChevronLeftIcon size={12} />
+        </button>
+      </>
+    );
+  }
+
+  // 手柄挂在包裹层而非面板内部：面板 overflow 会裁剪超出边界的部分，
+  // 感应区必须整体落在面板左缘外才完整可命中。
+  return (
+    <div
+      className={`panel-wrap${closing ? ' panel-wrap-closing' : entered ? '' : ' panel-wrap-opening'}`}
+      style={
+        {
+          width: resize.width,
+          // 收拢动画期间冻结内容宽度（内容被裁剪而非挤压回绕）。
+          '--panel-closing-width': `${resize.width}px`,
+        } as CSSProperties
+      }
+      onAnimationEnd={onCollapseAnimEnd}
+    >
+      <div
+        className="panel-resize-handle panel-resize-left"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('ux.resize.right')}
+        title={t('ux.resize.right')}
+        onPointerDown={resize.onPointerDown}
+        onPointerMove={resize.onPointerMove}
+        onPointerUp={resize.onPointerUp}
+      />
+      <button
+        type="button"
+        className="panel-collapse-btn panel-collapse-left"
+        aria-label={t('ux.panel.collapse_right')}
+        title={t('ux.panel.collapse_right')}
+        onClick={handleCollapse}
+      >
+        <ChevronRightIcon size={12} />
+      </button>
+      <aside className="right-panel">
+      {flowActive ? (
+        <div className="rp-flow-params">
+          <h3 className="panel-title">{t('workbench.right.params')}</h3>
+          <ParamEditor />
+        </div>
+      ) : surfaceActive ? (
+        <div className="rp-mode-panel">
+          {/* Toolbar host: code / block surfaces portal their run / save /
+              status controls here so the central area stays a clean canvas. */}
+          <div className="rp-surface-toolbar" ref={setToolbarHost} />
+          <section className="rp-mode-preview">
+            <div className="rp-pane-head">
+              <span className="rp-pane-title">{t('editor.preview.title')}</span>
+            </div>
+            <div className="rp-pane-body">
+              <ResultPreview />
+            </div>
+          </section>
+          <section className="rp-mode-vars">
+            <VariablePanel />
+          </section>
+        </div>
+      ) : embeddedToolId ? (
+        <>
+          {/* Research and industrial suites share this panel; label it by
+              which kind of tool is actually embedded. */}
+          <h3 className="panel-title">
+            {getTool(embeddedToolId)?.rightPanel === 'engineering'
+              ? t('workbench.right.industrial')
+              : t('workbench.right.suite')}
+          </h3>
+          {getTool(embeddedToolId)?.rightPanel === 'engineering' ? (
+            <EngineeringPanel toolId={embeddedToolId} />
+          ) : (
+            <SuiteIntro toolId={embeddedToolId} />
+          )}
+        </>
+      ) : filePreview ? (
+        <>
+          <h3 className="panel-title">{t('workbench.right.fileinfo')}</h3>
+          <FileInfoPanel preview={filePreview} />
+          {openWithMatches.length > 0 && (
+            <div className="rp-openwith">
+              <div className="rp-openwith-head">{t('workbench.right.open_with')}</div>
+              <div className="rp-openwith-list">
+                {openWithMatches.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    className="rp-openwith-item"
+                    title={e.nameI18n?.[locale] ?? e.name}
+                    onClick={() => void openWithPlugin(e.id)}
+                  >
+                    <span className="rp-openwith-name">{e.nameI18n?.[locale] ?? e.name}</span>
+                    <ChevronRightIcon size={12} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <h3 className="panel-title">{t('workbench.right.params')}</h3>
+          {activeId && activePlugin ? (
+            <>
+              <PluginDataSection pluginId={activeId} plugin={activePlugin} />
+              {params.length === 0 && (
+                <EmptyState
+                  className="right-panel-empty"
+                  title={t('workbench.right.no_params')}
+                />
+              )}
+              <ParamPanel
+                params={params}
+                api={buildPluginApi(activeId)}
+                onChange={onChange}
+              />
+              <div className="right-panel-plugin">
+                <span className="tag tag-success">
+                  {activePlugin.manifest.nameI18n?.[locale] ?? activePlugin.manifest.name}
+                </span>
+              </div>
+            </>
+          ) : (
+            <RightPanelWelcome />
+          )}
+        </>
+      )}
+      </aside>
+    </div>
+  );
+}

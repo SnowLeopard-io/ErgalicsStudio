@@ -16,7 +16,7 @@ import {
   pointCloudCPU,
   packPointCloudParams,
   pointCloudOutputBytes,
-} from '@/core/wgsl';
+} from '@ergalics/sci-kernels/gpu/wgsl';
 
 describe('histogram kernel', () => {
   it('emits a workgroup_size annotation and guards the count', () => {

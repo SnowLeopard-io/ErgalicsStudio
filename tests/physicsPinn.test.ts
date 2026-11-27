@@ -5,7 +5,7 @@ import {
   burgersReference,
   heatExact,
   runPinnBenchmarks,
-} from '@/plugins/builtin/physics/pinn/kernel';
+} from '../packages/plugins/src/builtin/physics/pinn/kernel';
 
 describe('pinn benchmarks', () => {
   it('analytic heat solution satisfies the PDE and references are sane', () => {

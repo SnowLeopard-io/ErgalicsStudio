@@ -1,0 +1,53 @@
+{
+  "name": "@ergalics/sci-kernels",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure scientific computing, statistics, signal processing, FEM, chemistry, geospatial, audio, and GPU/3D kernels shared by Ergalics Studio and its plugins",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./stats": "./src/stats/index.ts",
+    "./stats/*": "./src/stats/*.ts",
+    "./math/linalg": "./src/math/linalg.ts",
+    "./signal": "./src/signal/index.ts",
+    "./signal/*": "./src/signal/*.ts",
+    "./io": "./src/io/index.ts",
+    "./io/delimited": "./src/io/delimited.ts",
+    "./gpu": "./src/gpu/index.ts",
+    "./gpu/*": "./src/gpu/*.ts",
+    "./raytrace": "./src/raytrace/index.ts",
+    "./raytrace/*": "./src/raytrace/*.ts",
+    "./chem": "./src/chem/index.ts",
+    "./chem/*": "./src/chem/*.ts",
+    "./chem/parse/*": "./src/chem/parse/*.ts",
+    "./chem/engine/*": "./src/chem/engine/*.ts",
+    "./fem": "./src/fem/index.ts",
+    "./fem/*": "./src/fem/*.ts",
+    "./geo": "./src/geo/index.ts",
+    "./geo/*": "./src/geo/*.ts",
+    "./astro": "./src/astro/index.ts",
+    "./astro/*": "./src/astro/*.ts",
+    "./audio": "./src/audio/index.ts",
+    "./audio/*": "./src/audio/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ergalics/plugin-sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "three": "^0.187.0"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "three": "^0.187.0",
+    "typescript": "~5.7.2"
+  }
+}

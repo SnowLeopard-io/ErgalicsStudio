@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bonferroni, benjaminiHochberg } from '@/core/stats/correction';
+import { bonferroni, benjaminiHochberg } from '@ergalics/sci-kernels/stats/correction';
 
 const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 

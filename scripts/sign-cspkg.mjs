@@ -23,7 +23,7 @@ import {
   bytesToHex,
   hexToBytes,
   OFFICIAL_TRUSTED_KEYS,
-} from '../src/core/plugin-signing.ts';
+} from '../packages/plugin-signing/src/index.ts';
 
 function usage() {
   console.error(

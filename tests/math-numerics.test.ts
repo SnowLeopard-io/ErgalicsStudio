@@ -27,7 +27,7 @@ import {
   splineEval,
   trapezoidal,
   trapezoidalEstimate,
-} from '../src/plugins/builtin/math/numerics/kernel';
+} from '../packages/plugins/src/builtin/math/numerics/kernel';
 
 describe('sample dataset', () => {
   it('resolves every sample with finite f/df and a sign-changing bracket', () => {

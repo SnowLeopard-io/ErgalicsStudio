@@ -3,8 +3,8 @@
 // ==========================================================================
 
 import { describe, it, expect } from 'vitest';
-import { createDataTable } from '@/types/datatable';
-import type { DataTable } from '@/types/datatable';
+import { createDataTable } from '@ergalics/plugin-sdk/types';
+import type { DataTable } from '@ergalics/plugin-sdk/types';
 import type { BlockDefinition } from '@/blocks/catalog/types';
 import type { DagExecutionContext } from '@/types/dag';
 import { pivotLongerBlock, pivotWiderBlock } from '@/blocks/catalog/transform';

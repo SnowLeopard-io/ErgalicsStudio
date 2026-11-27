@@ -1,12 +1,12 @@
 // EM Eigensolver plugin — pure-logic tests (no worker/Pyodide involved).
 import { describe, it, expect } from 'vitest';
-import { emEigensolverManifest, EmEigensolverPlugin, modeFieldPanels, parseSigma } from '@/plugins/builtin/physics/eigensolver/plugin';
-import { spectrumDomain, mapToX } from '@/plugins/builtin/physics/eigensolver/render';
-import { buildDiagReportHtml, fieldColor as reportFieldColor, svgConvergence, svgModeField, svgResiduals, svgSpectrum } from '@/plugins/builtin/physics/eigensolver/diag-report';
-import { fieldColor, fieldExtremes, fieldPeak, srgbToLinear, surfaceBuffers } from '@/plugins/builtin/physics/eigensolver/render3d';
-import { findBuiltin } from '@/plugins/builtin';
-import type { EmModeField, EmResultPayload, EmSolverConfig } from '@/plugins/builtin/physics/eigensolver/types';
-import type { ParamDefinition, PluginApi, SelectParam } from '@/types/plugin';
+import { emEigensolverManifest, EmEigensolverPlugin, modeFieldPanels, parseSigma } from '../packages/plugins/src/builtin/physics/eigensolver/plugin';
+import { spectrumDomain, mapToX } from '../packages/plugins/src/builtin/physics/eigensolver/render';
+import { buildDiagReportHtml, fieldColor as reportFieldColor, svgConvergence, svgModeField, svgResiduals, svgSpectrum } from '../packages/plugins/src/builtin/physics/eigensolver/diag-report';
+import { fieldColor, fieldExtremes, fieldPeak, srgbToLinear, surfaceBuffers } from '../packages/plugins/src/builtin/physics/eigensolver/render3d';
+import { findBuiltin } from '@ergalics/plugins/builtin';
+import type { EmModeField, EmResultPayload, EmSolverConfig } from '../packages/plugins/src/builtin/physics/eigensolver/types';
+import type { ParamDefinition, PluginApi, SelectParam } from '@ergalics/plugin-sdk';
 
 /** Narrow a param definition to the select variant (options/value access). */
 const selectParam = (d: ParamDefinition | undefined): SelectParam | undefined =>

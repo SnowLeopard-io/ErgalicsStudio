@@ -9,8 +9,8 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { airmassKastenYoung, twilightClass } from '@/plugins/builtin/fx/sky/plugin';
-import { bortleLimitingMag, bortleSkyBrightness, visibleStarCount } from '@/plugins/builtin/fx/stars/plugin';
+import { airmassKastenYoung, twilightClass } from '../packages/plugins/src/builtin/fx/sky/plugin';
+import { bortleLimitingMag, bortleSkyBrightness, visibleStarCount } from '../packages/plugins/src/builtin/fx/stars/plugin';
 
 describe('Kasten–Young air mass', () => {
   it('is 1 at the zenith', () => {

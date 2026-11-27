@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+overrides:
+  argparse: '2.0.1'
+
+allowBuilds:
+  esbuild: true
+  core-js: false

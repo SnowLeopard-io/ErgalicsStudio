@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { mulberry32 } from '@/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 import {
   applyKAnonymity,
   cholesky,

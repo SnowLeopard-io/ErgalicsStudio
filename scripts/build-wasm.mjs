@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const nativeDir = join(root, 'native');
 const crateDir = join(nativeDir, 'ergalics-core');
-const outDir = join(root, 'src', 'native');
+const outDir = join(root, 'apps', 'studio', 'src', 'native');
 
 const run = (cmd, opts = {}) => {
   console.log(`> ${cmd}`);

@@ -11,7 +11,7 @@ import {
   maxRelativeError,
   runToTime,
   type DiffusionParams,
-} from '../src/plugins/builtin/physics/diffusion/kernel';
+} from '../packages/plugins/src/builtin/physics/diffusion/kernel';
 
 const cn1d: DiffusionParams = {
   dim: '1d',

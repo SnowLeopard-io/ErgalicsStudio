@@ -13,8 +13,8 @@ import {
   pxToMm,
 } from '@/core/figure/compose';
 import type { FigureSpec } from '@/core/figure/compose';
-import { computeRasterSize, exportPNG } from '@/core/plot/export';
-import type { PlotSpec } from '@/core/plot';
+import { computeRasterSize, exportPNG } from '@ergalics/plugin-sdk/plot';
+import type { PlotSpec } from '@ergalics/plugin-sdk/plot';
 
 function lineSpec(title?: string): PlotSpec {
   return {

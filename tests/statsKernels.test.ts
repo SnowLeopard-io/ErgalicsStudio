@@ -5,7 +5,7 @@ import {
   fitDoe,
   orthogonalityDefect,
   parseDoeTable,
-} from '../src/plugins/builtin/stats/doe/kernel';
+} from '../packages/plugins/src/builtin/stats/doe/kernel';
 import {
   acf,
   adfTest,
@@ -15,7 +15,7 @@ import {
   parseSeries,
   runTimeSeriesBenchmark,
   seasonalDecompose,
-} from '../src/plugins/builtin/stats/timeseries/kernel';
+} from '../packages/plugins/src/builtin/stats/timeseries/kernel';
 import {
   dbscan,
   kmeans,
@@ -23,22 +23,22 @@ import {
   parseMultivariate,
   pca,
   runMultivariateBenchmark,
-} from '../src/plugins/builtin/stats/multivariate/kernel';
+} from '../packages/plugins/src/builtin/stats/multivariate/kernel';
 import {
   kruskalWallis,
   mannWhitney,
   parseNonparametric,
   rankCorrelations,
   runNonparametricBenchmark,
-} from '../src/plugins/builtin/stats/nonparametric/kernel';
+} from '../packages/plugins/src/builtin/stats/nonparametric/kernel';
 import {
   kaplanMeier,
   logRank,
   parseSurvival,
   runSurvivalBenchmark,
-} from '../src/plugins/builtin/stats/survival/kernel';
-import { metaAnalyze, parseMeta, runMetaBenchmark } from '../src/plugins/builtin/stats/meta/kernel';
-import { convergence, parseBayes, runBayes, runBayesBenchmark } from '../src/plugins/builtin/stats/bayes/kernel';
+} from '../packages/plugins/src/builtin/stats/survival/kernel';
+import { metaAnalyze, parseMeta, runMetaBenchmark } from '../packages/plugins/src/builtin/stats/meta/kernel';
+import { convergence, parseBayes, runBayes, runBayesBenchmark } from '../packages/plugins/src/builtin/stats/bayes/kernel';
 
 const DOE_CSV = `run,A,B,C,response
 1,-1,-1,-1,7.42

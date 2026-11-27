@@ -6,7 +6,7 @@ import {
   runAlgorithmBenchmarks,
   searchTrace,
   sortTrace,
-} from '../src/plugins/builtin/cs/algorithms/kernel';
+} from '../packages/plugins/src/builtin/cs/algorithms/kernel';
 import {
   buildHeap,
   deleteKey,
@@ -18,14 +18,14 @@ import {
   runDataStructureBenchmarks,
   runTreeOps,
   treeHeight,
-} from '../src/plugins/builtin/cs/datastructures/kernel';
+} from '../packages/plugins/src/builtin/cs/datastructures/kernel';
 import {
   accepts,
   buildAutomata,
   minimiseDfa,
   parseAutomataInput,
   runAutomataBenchmarks,
-} from '../src/plugins/builtin/cs/automata/kernel';
+} from '../packages/plugins/src/builtin/cs/automata/kernel';
 import {
   P256,
   aesEncryptBlock,
@@ -39,28 +39,28 @@ import {
   rsaFromPrimes,
   runCryptoBenchmarks,
   sha256Hex,
-} from '../src/plugins/builtin/cs/crypto/kernel';
+} from '../packages/plugins/src/builtin/cs/crypto/kernel';
 import {
   accuracy,
   createMlp,
   makeDataset,
   runNeuralBenchmarks,
   train,
-} from '../src/plugins/builtin/cs/neuralviz/kernel';
+} from '../packages/plugins/src/builtin/cs/neuralviz/kernel';
 import {
   analyseComplexity,
   fitModel,
   powerLaw,
   runComplexityBenchmarks,
   syntheticRuns,
-} from '../src/plugins/builtin/cs/complexity/kernel';
+} from '../packages/plugins/src/builtin/cs/complexity/kernel';
 import {
   congestionTrace,
   parseScenario,
   runNetProtocolBenchmarks,
   tcpHandshake,
   tls13Handshake,
-} from '../src/plugins/builtin/cs/netproto/kernel';
+} from '../packages/plugins/src/builtin/cs/netproto/kernel';
 
 function expectAllBenchmarksPass(cases: ReadonlyArray<{ id: string; passed: boolean; relErr: number }>) {
   for (const c of cases) {

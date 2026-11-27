@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SeismicPlugin } from '../src/plugins/builtin/geo/seismic/plugin';
-import { isParamVisible } from '../src/types/plugin';
+import { SeismicPlugin } from '../packages/plugins/src/builtin/geo/seismic/plugin';
+import { isParamVisible } from '@ergalics/plugin-sdk';
 
 describe('seismic wave-field playback', () => {
   it('schedules frames and advances the simulation while playing', () => {

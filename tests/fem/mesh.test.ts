@@ -5,7 +5,7 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { bowyerWatson, meshDomain } from '../../src/core/fem/mesh/delaunay';
+import { bowyerWatson, meshDomain } from '@ergalics/sci-kernels/fem/mesh/delaunay';
 import {
   circleDomain,
   annulusDomain,
@@ -13,10 +13,10 @@ import {
   distanceToSegment,
   domainSegments,
   pointInsideDomain,
-} from '../../src/core/fem/mesh/domain';
-import { refineToSize, longestEdge } from '../../src/core/fem/mesh/refine';
-import { dropDegenerateTriangles, meshQuality } from '../../src/core/fem/mesh/quality';
-import { nodeCount, nodeX, nodeY, edgeKey } from '../../src/core/fem/mesh/types';
+} from '@ergalics/sci-kernels/fem/mesh/domain';
+import { refineToSize, longestEdge } from '@ergalics/sci-kernels/fem/mesh/refine';
+import { dropDegenerateTriangles, meshQuality } from '@ergalics/sci-kernels/fem/mesh/quality';
+import { nodeCount, nodeX, nodeY, edgeKey } from '@ergalics/sci-kernels/fem/mesh/types';
 
 /** Deterministic LCG in [0, 1) so failures reproduce. */
 function lcg(seed: number): () => number {

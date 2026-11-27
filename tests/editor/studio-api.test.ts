@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createStudioApi } from '@/editor/runtime/studio-api';
 import type { StudioApiHost } from '@/editor/runtime/studio-api';
-import { createDataTable, type DataTable, type RenderedView } from '@/types/datatable';
+import { createDataTable, type DataTable, type RenderedView } from '@ergalics/plugin-sdk/types';
 
 function makeHost(overrides?: Partial<StudioApiHost>): StudioApiHost & {
   rendered: RenderedView[];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mulberry32 } from '../src/core/repro/random';
+import { mulberry32 } from '@ergalics/plugin-sdk';
 import {
   COOPERATE,
   DEFECT,
@@ -19,7 +19,7 @@ import {
   stepAsync,
   stepSync,
   type EvoParams,
-} from '../src/plugins/builtin/econ/evogame/kernel';
+} from '../packages/plugins/src/builtin/econ/evogame/kernel';
 
 const base: EvoParams = {
   b: 1.8,

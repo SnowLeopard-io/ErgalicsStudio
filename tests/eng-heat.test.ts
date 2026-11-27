@@ -26,7 +26,7 @@ import {
   viewFactorDisks,
   viewFactorRects,
   wienPeakWavelength,
-} from '../src/plugins/builtin/engineering/heat-transfer/kernel';
+} from '../packages/plugins/src/builtin/engineering/heat-transfer/kernel';
 
 /** Unified benchmark yardstick: |computed - reference| / |reference|. */
 function relErr(computed: number, reference: number): number {

@@ -6,7 +6,7 @@ import {
   anovaOneWay,
   mannWhitney,
   chiSquareIndependence,
-} from '@/core/stats/tests';
+} from '@ergalics/sci-kernels/stats/tests';
 
 const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 

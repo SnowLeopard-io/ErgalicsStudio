@@ -13,8 +13,8 @@ import {
   PARTICLE_FLOATS_PER_PARTICLE,
   unpackParticles,
   GPU_BUFFER_USAGE,
-} from '@/core/wgsl';
-import type { ParticleState } from '@/types/plugin';
+} from '@ergalics/sci-kernels/gpu/wgsl';
+import type { ParticleState } from '@ergalics/plugin-sdk';
 
 describe('particleKernelWGSL', () => {
   it('generates a compute kernel with the documented bind group layout', () => {
@@ -120,11 +120,11 @@ describe('particles plugin compute fallback', () => {
       reportGpuTime: vi.fn(),
       reportDataScale: vi.fn(),
       setStatus: vi.fn(),
-    } as unknown as import('@/types/plugin').PluginApi;
+    } as unknown as import('@ergalics/plugin-sdk').PluginApi;
   }
 
   it('runs the CPU integrator and reports progress when GPU is absent', async () => {
-    const { ParticlePlugin } = await import('@/plugins/builtin/physics/particles/plugin');
+    const { ParticlePlugin } = await import('../packages/plugins/src/builtin/physics/particles/plugin');
     const plugin = new ParticlePlugin();
     const api = makeApi();
     await plugin.init(api);

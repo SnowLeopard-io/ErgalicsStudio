@@ -22,7 +22,7 @@ import {
   validateManifestDataSchema,
   assertSafeJsonSchema,
 } from '@/core/data-schema';
-import type { Plugin, PluginManifest, TabularDataSchema, JsonDataSchema } from '@/types/plugin';
+import type { Plugin, PluginManifest, TabularDataSchema, JsonDataSchema } from '@ergalics/plugin-sdk';
 
 describe('PluginDataSchema: Bidirectional JSON Schema <-> Zod', () => {
   it('converts Zod with col() metadata to JSON Schema and round-trips back to Zod cleanly', () => {

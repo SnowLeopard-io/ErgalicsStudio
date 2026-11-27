@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has('--dry-run');
 const fromDist = args.has('--from-dist');
@@ -55,9 +56,9 @@ const appVersion = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf
 if (dryRun) {
   log(`plan (version ${appVersion}):`);
   log('1. sync deploy/windows/package.json version');
-  log(fromDist ? '2. reuse existing dist/ (--from-dist)' : '2. renderer: npm run build:web');
+  log(fromDist ? '2. reuse existing apps/studio/dist/ (--from-dist)' : '2. renderer: pnpm run build:web');
   log('3. electron main + preload: npm run build:main (deploy/windows)');
-  log(`4. stage renderer: dist/ → ${path.relative(root, appDist)}`);
+  log(`4. stage renderer: apps/studio/dist/ → ${path.relative(root, appDist)}`);
   log(noPackage ? '5. skip packaging (--no-package)' : '5. package: npm run dist (NSIS)');
   log(`6. copy installers to Desktop: ${copyToDesktop ? 'yes' : 'no'}`);
   process.exit(0);
@@ -71,14 +72,16 @@ if (desktopPkg.version !== appVersion) {
   log(`desktop version → ${appVersion}`);
 }
 
+const studioDist = path.join(root, 'apps', 'studio', 'dist');
+
 // 1. Renderer (same Vite build the web edition ships, wasm stub included).
 if (fromDist) {
-  if (!existsSync(path.join(root, 'dist', 'index.html'))) {
-    throw new Error('--from-dist requested but dist/index.html is missing');
+  if (!existsSync(path.join(studioDist, 'index.html'))) {
+    throw new Error('--from-dist requested but apps/studio/dist/index.html is missing');
   }
-  log('reusing existing dist/ (--from-dist)');
+  log('reusing existing apps/studio/dist/ (--from-dist)');
 } else {
-  run(`${npm} run build:web --silent`, root);
+  run(`${pnpm} run build:web`, root);
 }
 
 // 2. Electron main + preload bundles.
@@ -86,7 +89,7 @@ run(`${npm} run build:main --silent`, windowsDir);
 
 // 3. Stage the renderer next to the main bundle for electron-builder.
 rmSync(appDist, { recursive: true, force: true });
-cpSync(path.join(root, 'dist'), appDist, { recursive: true });
+cpSync(studioDist, appDist, { recursive: true });
 
 if (noPackage) {
   log('stopped after staging app-dist (--no-package)');

@@ -10,7 +10,7 @@ import {
   noteFrequency,
   noteName,
   runKeysBenchmarks,
-} from '@/plugins/builtin/artsci/keys/kernel';
+} from '../packages/plugins/src/builtin/artsci/keys/kernel';
 
 describe('keys kernel — note math', () => {
   it('uses equal temperament with A4 = 440 Hz', () => {

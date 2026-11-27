@@ -12,7 +12,7 @@ import {
   templateModel,
   validateModel,
   type SDModel,
-} from '@/plugins/builtin/sim/sysdyn/kernel';
+} from '../packages/plugins/src/builtin/sim/sysdyn/kernel';
 
 const settings = { tStart: 0, tStop: 50, dt: 0.05, method: 'rk4' as const };
 

@@ -29,7 +29,7 @@ import {
   sweepFourBar,
   velocityView,
   willisSolve,
-} from '../src/plugins/builtin/engineering/mechanism/kernel';
+} from '../packages/plugins/src/builtin/engineering/mechanism/kernel';
 
 /** Classic well-conditioned Grashof crank-rocker: a=1, b=4, c=3, d=4. */
 const L: FourBarLinks = { a: 1, b: 4, c: 3, d: 4 };

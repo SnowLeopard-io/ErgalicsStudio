@@ -15,7 +15,7 @@ import {
 } from '@/core/templates/catalog';
 import { RESEARCH_TOOLS } from '@/pages/research/toolRegistry';
 import { normalizeProject, PROJECT_FORMAT_VERSION } from '@/types/project';
-import { GALLERY } from '../../website/src/data/gallery';
+import { GALLERY } from '../../apps/website/src/data/gallery';
 
 const TOOL_IDS = new Set(RESEARCH_TOOLS.map((t) => t.id));
 const SUBJECTS = new Set([
