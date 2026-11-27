@@ -7,6 +7,7 @@
 // ==========================================================================
 
 import { studentTInv } from './special';
+import { compensatedSum } from './sum';
 
 /**
  * Smallest and largest finite value of a sample.
@@ -28,12 +29,16 @@ export function extent(values: ArrayLike<number>): [number, number] {
   return min > max ? [NaN, NaN] : [min, max];
 }
 
-/** Arithmetic mean. Returns NaN for an empty sample. */
+/**
+ * Arithmetic mean. Returns NaN for an empty sample.
+ *
+ * 用补偿求和：朴素 `s += v` 在大数相消时会丢掉全部有效位。
+ * mean([1e16, 1, -1e16, 1]) 真实值 0.5，朴素实现返回 0.25（误差 50%），
+ * 而这个误差会顺着 variance / correlation / t 检验一路传下去。
+ */
 export function mean(x: number[]): number {
   if (x.length === 0) return NaN;
-  let s = 0;
-  for (const v of x) s += v;
-  return s / x.length;
+  return compensatedSum(x) / x.length;
 }
 
 /** Variance. `sample = true` (default) uses Bessel's correction (n-1). */
