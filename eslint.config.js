@@ -16,11 +16,16 @@ export default tseslint.config(
       'apps/*/dist/',
       'apps/docs/.vitepress/dist/',
       'apps/docs/.vitepress/cache/',
+      // VitePress builds in place at the repo root; its generated chunks are
+      // not source and must not be linted after a local docs build.
+      'docs/.vitepress/dist/',
+      'docs/.vitepress/cache/',
       'packages/*/dist/',
       'node_modules/',
       'coverage/',
       'apps/website/',
       'apps/docs/',
+      'website/', // stale pre-monorepo build output, kept only locally
       'apps/studio/public/',
       'public/',
       'scripts/', // 一次性 mjs 脚本，不做 lint
