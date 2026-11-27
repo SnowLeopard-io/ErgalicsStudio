@@ -14,6 +14,6 @@
   },
   "devDependencies": {
     "@ergalics/plugin-sdk": "workspace:*",
-    "typescript": "~5.7.2"
+    "typescript": "~6.0.3"
   }
 }
