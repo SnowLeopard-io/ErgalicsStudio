@@ -35,6 +35,8 @@ interface RecordRunInput {
   outputFileIds?: string[];
   /** Incremental-build breakdown (Flow / industrial solve runs). */
   build?: import('@ergalics/plugin-sdk/types').RunBuildStats;
+  /** Bench context for wet-lab runs; forwarded verbatim to the record. */
+  wet?: import('@ergalics/plugin-sdk/types').WetRunDetails;
 }
 
 interface ExperimentStore {
@@ -116,6 +118,8 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
       inputFileIds: input.inputFileIds,
       outputFileIds: input.outputFileIds,
       ...(input.build ? { build: input.build } : {}),
+      // Enumerated builder: anything not listed here is dropped before storage.
+      ...(input.wet ? { wet: input.wet } : {}),
     });
     try {
       await saveRun(run);

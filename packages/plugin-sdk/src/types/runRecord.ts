@@ -9,7 +9,32 @@
 // ==========================================================================
 
 /** Which workbench surface produced the run. */
-export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql' | 'inference' | 'industrial';
+export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql' | 'inference' | 'industrial' | 'wet';
+
+/**
+ * Bench (wet-lab) context for a run executed outside the browser.
+ *
+ * Kept beside params rather than inside it: params is the input snapshot that
+ * diffRuns compares, and bench metadata changes between two otherwise identical
+ * computational runs — embedding it there would report a params change, the same
+ * reason build lives separately.
+ */
+export interface WetRunDetails {
+  /** Protocol and version followed, e.g. ELISA-01@v3. */
+  protocol?: string;
+  /** Who performed the bench work. */
+  operator?: string;
+  /** Sample ids consumed. */
+  sampleIds?: string[];
+  /** Instrument that produced the readings. */
+  instrumentId?: string;
+  /** Bench start (epoch ms). */
+  startedAt?: number;
+  /** Bench end (epoch ms); durationMs is the derived span. */
+  endedAt?: number;
+  /** Free-form bench notes. */
+  note?: string;
+}
 
 /**
  * Incremental-build breakdown attached to a run (Flow mode). Kept separate
@@ -59,6 +84,8 @@ export interface RunRecord {
   failed?: boolean;
   /** Incremental-build breakdown (Flow runs only). */
   build?: RunBuildStats;
+  /** Bench context for wet-lab runs (source === 'wet'); absent otherwise. */
+  wet?: WetRunDetails;
   createdAt: number;
   durationMs: number;
 }
@@ -77,6 +104,8 @@ export interface CreateRunRecordArgs {
   seed?: number | null;
   failed?: boolean;
   build?: RunBuildStats;
+  /** Bench context, only for wet-lab runs. */
+  wet?: WetRunDetails;
   durationMs?: number;
   createdAt?: number;
 }
@@ -98,6 +127,7 @@ export function createRunRecord(args: CreateRunRecordArgs): RunRecord {
     seed: args.seed ?? null,
     failed: args.failed ?? false,
     ...(args.build ? { build: args.build } : {}),
+    ...(args.wet ? { wet: args.wet } : {}),
     createdAt: args.createdAt ?? Date.now(),
     durationMs: args.durationMs ?? 0,
   };
