@@ -29,3 +29,29 @@ export function compensatedSum(values: ArrayLike<number>): number {
   }
   return sum + compensation;
 }
+
+/**
+ * 增量式补偿累加器：给无法先收集成数组的场景用（逐项乘积、流式统计）。
+ */
+export class CompensatedAccumulator {
+  private sum = 0;
+  private compensation = 0;
+
+  add(v: number): void {
+    if (!Number.isFinite(v)) {
+      this.sum = Number.NaN;
+      return;
+    }
+    const t = this.sum + v;
+    if (Math.abs(this.sum) >= Math.abs(v)) {
+      this.compensation += this.sum - t + v;
+    } else {
+      this.compensation += v - t + this.sum;
+    }
+    this.sum = t;
+  }
+
+  value(): number {
+    return this.sum + this.compensation;
+  }
+}

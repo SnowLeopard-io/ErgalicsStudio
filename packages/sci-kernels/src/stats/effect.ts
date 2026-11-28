@@ -6,6 +6,7 @@
 // size, and pair naturally with the hypothesis tests in `tests.ts`.
 // ==========================================================================
 
+import { CompensatedAccumulator } from './sum';
 import { mean, variance } from './descriptive';
 
 /** Cohen's d. `paired` computes d on the difference scores. */
@@ -34,18 +35,20 @@ export function pearson(x: number[], y: number[]): number {
   if (n < 2) return NaN;
   const mx = mean(x.slice(0, n));
   const my = mean(y.slice(0, n));
-  let num = 0;
-  let dx = 0;
-  let dy = 0;
+  // 乘积项有正有负，朴素累加在大偏移数据上会相消；dx/dy 虽恒正，
+  // 但数量级差得大时同样会吃掉尾数，三项一律走补偿累加。
+  const num = new CompensatedAccumulator();
+  const dx = new CompensatedAccumulator();
+  const dy = new CompensatedAccumulator();
   for (let i = 0; i < n; i += 1) {
     const a = x[i]! - mx;
     const b = y[i]! - my;
-    num += a * b;
-    dx += a * a;
-    dy += b * b;
+    num.add(a * b);
+    dx.add(a * a);
+    dy.add(b * b);
   }
-  const den = Math.sqrt(dx * dy);
-  return den === 0 ? 0 : num / den;
+  const den = Math.sqrt(dx.value() * dy.value());
+  return den === 0 ? 0 : num.value() / den;
 }
 
 /** Spearman rank correlation (Pearson of the ranks). */
