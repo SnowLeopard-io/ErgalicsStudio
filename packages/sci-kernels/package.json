@@ -22,6 +22,8 @@
     "./chem/*": "./src/chem/*.ts",
     "./chem/parse/*": "./src/chem/parse/*.ts",
     "./chem/engine/*": "./src/chem/engine/*.ts",
+    "./lab": "./src/lab/index.ts",
+    "./lab/*": "./src/lab/*.ts",
     "./fem": "./src/fem/index.ts",
     "./fem/*": "./src/fem/*.ts",
     "./geo": "./src/geo/index.ts",
